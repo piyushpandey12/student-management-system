@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from ..utils.db import get_db_connection
-from ..utils.auth_utils import hash_password, verify_password
+from utils.db import get_db_connection
+from utils.auth_utils import hash_password, verify_password
 import mysql.connector
 
 auth_bp = Blueprint('auth', __name__)
@@ -26,11 +26,13 @@ def register():
         db = get_db_connection()
         cursor = db.cursor()
 
+        # Insert into users table
         cursor.execute(
             "INSERT INTO users (rollno, password) VALUES (%s, %s)",
             (rollno, hashed_password)
         )
 
+        # Insert into students table
         cursor.execute(
             "INSERT INTO students (rollno, name) VALUES (%s, %s)",
             (rollno, "New Student")
@@ -77,10 +79,13 @@ def login():
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
 
+        # Check user credentials
         cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
         user = cursor.fetchone()
 
         if user and verify_password(user["password"], password):
+
+            # Fetch student details
             cursor.execute("SELECT * FROM students WHERE rollno=%s", (rollno,))
             student = cursor.fetchone()
 

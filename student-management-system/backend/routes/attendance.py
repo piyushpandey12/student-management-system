@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from ..utils.db import get_db_connection
+from utils.db import get_db_connection
 
 attendance_bp = Blueprint('attendance', __name__)
 
