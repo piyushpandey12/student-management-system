@@ -1,62 +1,110 @@
 from flask import Blueprint, request, jsonify
+from utils.db import get_db_connection
+from utils.auth_utils import hash_password, verify_password
 import mysql.connector
-from config import MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB
-from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint('auth', __name__)
 
-def get_db():
-    return mysql.connector.connect(
-        host=MYSQL_HOST,
-        user=MYSQL_USER,
-        password=MYSQL_PASSWORD,
-        database=MYSQL_DB
-    )
 
+# ================= REGISTER =================
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    data = request.json
-    roll_no = data.get("rollno")
+    data = request.get_json()
+
+    rollno = data.get("rollno")
     password = data.get("password")
 
-    if not roll_no or not password:
+    if not rollno or not password:
         return jsonify({"status": "error", "message": "Missing fields"}), 400
 
-    hashed_password = generate_password_hash(password)
+    hashed_password = hash_password(password)
 
-    db = get_db()
-    cursor = db.cursor()
+    db = None
+    cursor = None
 
     try:
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        # Insert into users table
         cursor.execute(
-            "INSERT INTO users (roll_no, password) VALUES (%s, %s)",
-            (roll_no, hashed_password)
+            "INSERT INTO users (rollno, password) VALUES (%s, %s)",
+            (rollno, hashed_password)
         )
+
+        # Insert into students table
+        cursor.execute(
+            "INSERT INTO students (rollno, name) VALUES (%s, %s)",
+            (rollno, "New Student")
+        )
+
         db.commit()
-        return jsonify({"status": "registered"})
-    except mysql.connector.Error:
-        return jsonify({"status": "user exists"}), 400
+
+        return jsonify({
+            "status": "success",
+            "message": "User registered successfully"
+        })
+
+    except mysql.connector.IntegrityError:
+        return jsonify({
+            "status": "error",
+            "message": "User already exists"
+        }), 400
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
+# ================= LOGIN =================
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    data = request.json
-    roll_no = data.get("rollno")
+    data = request.get_json()
+
+    rollno = data.get("rollno")
     password = data.get("password")
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    if not rollno or not password:
+        return jsonify({"status": "error", "message": "Missing fields"}), 400
 
-    cursor.execute("SELECT * FROM users WHERE roll_no=%s", (roll_no,))
-    user = cursor.fetchone()
+    db = None
+    cursor = None
 
-    cursor.close()
-    db.close()
+    try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
-    if user and check_password_hash(user["password"], password):
-        return jsonify({"status": "success"})
-    else:
-        return jsonify({"status": "fail"}), 401
+        # Check user credentials
+        cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
+        user = cursor.fetchone()
+
+        if user and verify_password(user["password"], password):
+
+            # Fetch student details
+            cursor.execute("SELECT * FROM students WHERE rollno=%s", (rollno,))
+            student = cursor.fetchone()
+
+            return jsonify({
+                "status": "success",
+                "student": student
+            })
+
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid credentials"
+            }), 401
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()

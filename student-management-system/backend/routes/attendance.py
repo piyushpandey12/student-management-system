@@ -1,89 +1,117 @@
 from flask import Blueprint, jsonify, request
-import mysql.connector
-from config import MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB
+from utils.db import get_db_connection
 
 attendance_bp = Blueprint('attendance', __name__)
-
-
-# ================= DB CONNECTION =================
-def get_db():
-    return mysql.connector.connect(
-        host=MYSQL_HOST,
-        user=MYSQL_USER,
-        password=MYSQL_PASSWORD,
-        database=MYSQL_DB
-    )
 
 
 # ================= MARK ATTENDANCE =================
 @attendance_bp.route("/", methods=["POST"])
 def mark_attendance():
-    data = request.json
+    data = request.get_json()
 
-    db = get_db()
-    cursor = db.cursor()
+    student_id = data.get("student_id")
+    total = data.get("total")
+    attended = data.get("attended")
 
-    cursor.execute(
-        """
-        INSERT INTO attendance (student_id, total_classes, attended_classes)
-        VALUES (%s, %s, %s)
-        """,
-        (data["student_id"], data["total"], data["attended"])
-    )
+    if not student_id or total is None or attended is None:
+        return jsonify({"error": "Missing fields"}), 400
 
-    db.commit()
-    cursor.close()
-    db.close()
+    db = None
+    cursor = None
 
-    return jsonify({"message": "Attendance recorded"})
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        cursor.execute(
+            """
+            INSERT INTO attendance (student_id, total_classes, attended_classes)
+            VALUES (%s, %s, %s)
+            """,
+            (student_id, total, attended)
+        )
+
+        db.commit()
+
+        return jsonify({"message": "Attendance recorded"})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
 # ================= GET ATTENDANCE % =================
 @attendance_bp.route("/attendance", methods=["GET"])
 def get_attendance():
-    db = get_db()
-    cursor = db.cursor()
+    db = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT 
-        COALESCE(
-            (SUM(attended_classes) * 100.0) / NULLIF(SUM(total_classes), 0),
-            0
-        ) AS percentage
-        FROM attendance
-    """)
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
 
-    result = cursor.fetchone()[0]
+        cursor.execute("""
+            SELECT 
+            COALESCE(
+                (SUM(attended_classes) * 100.0) / NULLIF(SUM(total_classes), 0),
+                0
+            ) AS percentage
+            FROM attendance
+        """)
 
-    cursor.close()
-    db.close()
+        result = cursor.fetchone()
+        percentage = float(result[0]) if result and result[0] else 0
 
-    return jsonify({"attendance": float(result)})
+        return jsonify({"attendance": percentage})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
 # ================= DASHBOARD STATS =================
 @attendance_bp.route("/stats", methods=["GET"])
 def attendance_stats():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    db = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT 
-            SUM(total_classes) AS total_classes,
-            SUM(attended_classes) AS attended_classes
-        FROM attendance
-    """)
+    try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
-    result = cursor.fetchone()
+        cursor.execute("""
+            SELECT 
+                SUM(total_classes) AS total_classes,
+                SUM(attended_classes) AS attended_classes
+            FROM attendance
+        """)
 
-    cursor.close()
-    db.close()
+        result = cursor.fetchone()
 
-    total = result["total_classes"] or 0
-    attended = result["attended_classes"] or 0
+        total = result["total_classes"] or 0
+        attended = result["attended_classes"] or 0
 
-    percentage = round((attended / total) * 100, 2) if total else 0
+        percentage = round((attended / total) * 100, 2) if total else 0
 
-    return jsonify({
-        "attendance_percentage": percentage
-    })
+        return jsonify({
+            "attendance_percentage": percentage
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()

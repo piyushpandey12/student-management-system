@@ -1,48 +1,67 @@
 from flask import Blueprint, request, jsonify
-import mysql.connector
-from config import MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB
+from utils.db import get_db_connection
 
 student_bp = Blueprint('student', __name__)
 
-def get_db():
-    return mysql.connector.connect(
-        host=MYSQL_HOST,
-        user=MYSQL_USER,
-        password=MYSQL_PASSWORD,
-        database=MYSQL_DB
-    )
 
-@student_bp.route('/students', methods=['GET'])
+# ================= GET ALL STUDENTS =================
+@student_bp.route('/', methods=['GET'])
 def get_students():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    db = None
+    cursor = None
 
-    cursor.execute("SELECT * FROM students")
-    students = cursor.fetchall()
+    try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
-    cursor.close()
-    db.close()
+        cursor.execute("SELECT * FROM students")
+        students = cursor.fetchall()
 
-    return jsonify(students)
+        return jsonify(students)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
-@student_bp.route('/students', methods=['POST'])
+# ================= ADD STUDENT =================
+@student_bp.route('/', methods=['POST'])
 def add_student():
-    data = request.json
-    roll_no = data.get("rollno")
+    data = request.get_json()
+
+    rollno = data.get("rollno")
     name = data.get("name")
     email = data.get("email")
 
-    db = get_db()
-    cursor = db.cursor()
+    if not rollno or not name:
+        return jsonify({"error": "Missing required fields"}), 400
 
-    cursor.execute(
-        "INSERT INTO students (roll_no, name, email) VALUES (%s, %s, %s)",
-        (roll_no, name, email)
-    )
-    db.commit()
+    db = None
+    cursor = None
 
-    cursor.close()
-    db.close()
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
 
-    return jsonify({"status": "student added"})
+        cursor.execute(
+            "INSERT INTO students (rollno, name, email) VALUES (%s, %s, %s)",
+            (rollno, name, email)
+        )
+
+        db.commit()
+
+        return jsonify({"status": "student added"})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()

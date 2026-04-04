@@ -1,10 +1,9 @@
 // ================= BASE URL =================
-
-// 🔴 LOCAL
-// const BASE_URL = "http://127.0.0.1:5000";
-
-// 🟢 PRODUCTION (Render)
-const BASE_URL = "https://your-backend-name.onrender.com";
+const BASE_URL =
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "localhost"
+        ? "http://127.0.0.1:5000"
+        : "https://student-management-system.onrender.com";
 
 
 // ================= COMMON FETCH =================
@@ -28,7 +27,35 @@ async function loginUser(data) {
 }
 
 
-// ================= STUDENT APIs =================
+// ================= LOGIN =================
+async function login(event) {
+    event.preventDefault();
+
+    const rollno = document.getElementById("rollno").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    if (!rollno || !password) {
+        alert("Enter Roll No & Password");
+        return;
+    }
+
+    try {
+        const res = await loginUser({ rollno, password });
+
+        if (res.status === "success") {
+            localStorage.setItem("user", JSON.stringify(res.student));
+            window.location.href = "dashboard.html";
+        } else {
+            alert("Invalid credentials");
+        }
+
+    } catch (err) {
+        alert("Server error");
+    }
+}
+
+
+// ================= STUDENTS =================
 async function getStudents() {
     const res = await fetch(`${BASE_URL}/students/`);
     return handleResponse(res);
@@ -43,58 +70,23 @@ async function addStudentAPI(data) {
     return handleResponse(res);
 }
 
-async function deleteStudentAPI(id) {
-    const res = await fetch(`${BASE_URL}/students/${id}`, {
-        method: "DELETE"
-    });
-    return handleResponse(res);
-}
-
-
-// ================= LOGIN =================
-async function login(event) {
-    event.preventDefault();
-
-    const roll_no = document.getElementById("rollno").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    if (!roll_no || !password) {
-        alert("Enter Roll No & Password");
-        return;
-    }
-
-    try {
-        const res = await loginUser({ roll_no, password });
-
-        if (res.message === "Login successful") {
-            localStorage.setItem("user", JSON.stringify(res.user));
-            window.location.href = "dashboard.html";
-        } else {
-            alert("Invalid credentials");
-        }
-
-    } catch (err) {
-        alert("Server error");
-    }
-}
-
 
 // ================= ADD STUDENT =================
 async function addStudent() {
     const name = document.getElementById("name").value.trim();
-    const roll_no = document.getElementById("roll").value.trim();
+    const rollno = document.getElementById("roll").value.trim();
     const email = document.getElementById("email")?.value || "";
 
-    if (!name || !roll_no) {
+    if (!name || !rollno) {
         alert("Fill all fields");
         return;
     }
 
-    await addStudentAPI({ name, roll_no, email });
+    await addStudentAPI({ name, rollno, email });
 
     clearInputs();
     loadStudents();
-    loadDashboardStats(); // 🔥 refresh
+    loadDashboardStats();
 }
 
 
@@ -112,23 +104,15 @@ async function loadStudents() {
 
         row.innerHTML = `
             <td>${s.name}</td>
-            <td>${s.roll_no}</td>
+            <td>${s.rollno}</td>
 
             <td>
-                <button onclick="markAttendance(${s.id})">
-                    Present
-                </button>
+                <button onclick="markAttendance(${s.id})">Present</button>
             </td>
 
             <td>
                 <input type="number"
                 onchange="updateMarks(${s.id}, this.value)">
-            </td>
-
-            <td>
-                <button onclick="deleteStudent(${s.id})">
-                    Delete
-                </button>
             </td>
         `;
 
@@ -141,26 +125,15 @@ async function loadStudents() {
 async function loadDashboardStats() {
     try {
         const students = await getStudents();
+        document.getElementById("totalStudents").innerText = students.length;
 
-        document.getElementById("totalStudents").innerText =
-            students.length;
-
-        // attendance
-        const attRes = await fetch(`${BASE_URL}/attendance/stats`);
-        const att = await attRes.json();
-
+        const att = await fetch(`${BASE_URL}/attendance/stats`).then(r => r.json());
         document.getElementById("attendance").innerText =
             (att.attendance_percentage || 0) + "%";
 
-        // marks
-        const marksRes = await fetch(`${BASE_URL}/marks/stats`);
-        const marks = await marksRes.json();
-
-        document.getElementById("avgMarks").innerText =
-            marks.avg_marks || 0;
-
-        document.getElementById("topScore").innerText =
-            marks.top_score || 0;
+        const marks = await fetch(`${BASE_URL}/marks/stats`).then(r => r.json());
+        document.getElementById("avgMarks").innerText = marks.avg_marks || 0;
+        document.getElementById("topScore").innerText = marks.top_score || 0;
 
     } catch (err) {
         console.error("Dashboard error", err);
@@ -175,12 +148,12 @@ async function markAttendance(id) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             student_id: id,
-            total_classes: 1,
-            attended_classes: 1
+            total: 1,
+            attended: 1
         })
     });
 
-    loadDashboardStats(); // 🔥 update
+    loadDashboardStats();
 }
 
 
@@ -196,18 +169,7 @@ async function updateMarks(id, marks) {
         })
     });
 
-    loadDashboardStats(); // 🔥 update
-}
-
-
-// ================= DELETE =================
-async function deleteStudent(id) {
-    if (!confirm("Delete this student?")) return;
-
-    await deleteStudentAPI(id);
-
-    loadStudents();
-    loadDashboardStats(); // 🔥 update
+    loadDashboardStats();
 }
 
 
@@ -224,6 +186,6 @@ function clearInputs() {
 window.onload = () => {
     if (window.location.pathname.includes("dashboard.html")) {
         loadStudents();
-        loadDashboardStats(); // ✅ IMPORTANT
+        loadDashboardStats();
     }
 };

@@ -1,10 +1,11 @@
 // ================= BASE URL =================
 
-// 🔴 LOCAL (for development)
-// const BASE_URL = "http://127.0.0.1:5000";
-
-// 🟢 PRODUCTION (Render)
-const BASE_URL = "https://your-backend-name.onrender.com";
+// ✅ Auto switch (local vs production)
+const BASE_URL =
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "localhost"
+        ? "http://127.0.0.1:5000"
+        : "https://student-management-system.onrender.com";
 
 
 // ================= COMMON FETCH HANDLER =================
@@ -20,7 +21,7 @@ async function handleResponse(res) {
 // ================= AUTH =================
 
 // 🔐 LOGIN
-async function loginUser(data) {
+export async function loginUser(data) {
     try {
         const res = await fetch(`${BASE_URL}/auth/login`, {
             method: "POST",
@@ -38,7 +39,7 @@ async function loginUser(data) {
 
 
 // 🆕 REGISTER
-async function registerUser(data) {
+export async function registerUser(data) {
     try {
         const res = await fetch(`${BASE_URL}/auth/register`, {
             method: "POST",
@@ -58,7 +59,7 @@ async function registerUser(data) {
 // ================= STUDENTS =================
 
 // 📥 GET ALL STUDENTS
-async function getStudents() {
+export async function getStudents() {
     try {
         const res = await fetch(`${BASE_URL}/students/`);
         return await handleResponse(res);
@@ -71,7 +72,7 @@ async function getStudents() {
 
 
 // ➕ ADD STUDENT
-async function addStudentAPI(data) {
+export async function addStudentAPI(data) {
     try {
         const res = await fetch(`${BASE_URL}/students/`, {
             method: "POST",
@@ -88,43 +89,10 @@ async function addStudentAPI(data) {
 }
 
 
-// ✏️ UPDATE STUDENT
-async function updateStudentAPI(id, data) {
-    try {
-        const res = await fetch(`${BASE_URL}/students/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
-        });
-
-        return await handleResponse(res);
-
-    } catch (error) {
-        console.error("Update Error:", error);
-        return null;
-    }
-}
-
-
-// ❌ DELETE STUDENT
-async function deleteStudentAPI(id) {
-    try {
-        const res = await fetch(`${BASE_URL}/students/${id}`, {
-            method: "DELETE"
-        });
-
-        return await handleResponse(res);
-
-    } catch (error) {
-        console.error("Delete Error:", error);
-    }
-}
-
-
 // ================= ATTENDANCE =================
 
 // ✅ MARK ATTENDANCE
-async function markAttendanceAPI(data) {
+export async function markAttendanceAPI(data) {
     try {
         const res = await fetch(`${BASE_URL}/attendance/`, {
             method: "POST",
@@ -141,7 +109,7 @@ async function markAttendanceAPI(data) {
 
 
 // 📊 GET ATTENDANCE STATS
-async function getAttendanceStats() {
+export async function getAttendanceStats() {
     try {
         const res = await fetch(`${BASE_URL}/attendance/stats`);
         return await handleResponse(res);
@@ -156,7 +124,7 @@ async function getAttendanceStats() {
 // ================= MARKS =================
 
 // 📝 ADD MARKS
-async function addMarksAPI(data) {
+export async function addMarksAPI(data) {
     try {
         const res = await fetch(`${BASE_URL}/marks/`, {
             method: "POST",
@@ -173,7 +141,7 @@ async function addMarksAPI(data) {
 
 
 // 📈 GET MARKS STATS
-async function getMarksStats() {
+export async function getMarksStats() {
     try {
         const res = await fetch(`${BASE_URL}/marks/stats`);
         return await handleResponse(res);
