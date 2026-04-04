@@ -1,3 +1,4 @@
+const BASE_URL = "https://student-management-system-jg5j.onrender.com";
 const containerEl = document.querySelector(".container");
 const checkboxEl = document.querySelector(
   '.form-container .form-row input[type="checkbox"]',
@@ -11,6 +12,8 @@ const passwordEl = document.querySelector(
 const submitBtn = document.querySelector(
   '.form-container .form-row input[type="submit"]',
 );
+
+submitBtn.type = "button"; 
 
 const sprayer = document.querySelector(".sprayer");
 const sprayHandContainer = document.querySelector(".spray-hand-container");
@@ -160,103 +163,62 @@ passwordEl.addEventListener("input", () => {
   checkForm(); // ✅ important
 });
 
-submitBtn.addEventListener("click", (e) => {
+submitBtn.addEventListener("click", async (e) => {
   e.preventDefault();
 
-  if (passwordValid && checkboxEl.checked && rollnoValid) {
-    gsap
-      .timeline()
+  if (!(passwordValid && checkboxEl.checked && rollnoValid)) return;
+
+  const rollno = rollnoEl.value.trim();
+  const password = passwordEl.value.trim();
+
+  try {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ rollno, password })
+    });
+
+    const data = await res.json();
+    console.log("FULL RESPONSE:", data);
+
+    if (data.status === "success" || data.success === true) {
+
+      localStorage.setItem("user", JSON.stringify(data.student));
+
+      // ✅ animation + redirect
+      gsap.timeline({
+        onComplete: () => {
+       window.location.href = "/dashboard.html";
+        }
+      })
       .to("svg > *", {
         duration: 0.2,
         opacity: 0,
-        stagger: {
-          each: 0.02,
-          from: "random",
-        },
+        stagger: { each: 0.02, from: "random" }
       })
       .to(".form-row", {
         duration: 0.3,
         opacity: 0,
         y: -20,
-        stagger: 0.1,
+        stagger: 0.1
       })
       .to(containerEl, {
         duration: 0.5,
         scale: 0.9,
-        ease: "power2.inOut",
+        ease: "power2.inOut"
       });
+
+    } else {
+      alert(data.message || "Invalid credentials");
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
   }
 });
-
-function layoutPreparation() {
-  gsap.set(pullSystemContainer, {
-    x: 375,
-    y: 646,
-  });
-  gsap.set(sprayHandContainer, {
-    x: 700,
-    y: 621,
-  });
-  gsap.set(sprayer, {
-    x: -59.5,
-    y: 53,
-  });
-  gsap.set(carContainer, {
-    x: 190,
-    y: 802,
-  });
-  gsap.set(scalesContainer, {
-    x: 170,
-    y: 710,
-  });
-  gsap.set(grabbingHand, {
-    x: 297,
-    y: 830,
-  });
-  gsap.set(grabbingHandClosedFingers, {
-    opacity: 0,
-  });
-  gsap.set(spiralContainer, {
-    x: 305,
-    y: 435,
-    svgOrigin: "14 14",
-    scaleX: -1,
-  });
-  gsap.set(weightBigContainer, {
-    x: 305,
-    y: 435,
-  });
-
-  gsap.set([sprayLines, sprayBubbles], {
-    opacity: 0,
-  });
-  gsap.set(timingChains[0], {
-    attr: {
-      "stroke-width": "5",
-      "stroke-dasharray": "0 12",
-    },
-  });
-  gsap.set(timingChains[1], {
-    attr: {
-      "stroke-width": "5",
-      "stroke-dasharray": "0 12",
-    },
-  });
-  gsap.set(checkboxPullLine, {
-    attr: {
-      y1: -105,
-      y2: 44,
-    },
-  });
-  gsap.set(submitBtn, {
-    transformOrigin: "100% 0%",
-    rotation: -90,
-  });
-  gsap.set(checkboxPullCircle, {
-    y: 44,
-  });
-}
-
 function updateSpiralPath(centerX, centerY, radius, coils, points, offset) {
   let path = "";
   let thetaMax = coils * 2 * Math.PI;
