@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 import os
-from utils.db import get_db_connection
+
 from routes.auth import auth_bp
 from routes.student import student_bp
 from routes.attendance import attendance_bp
