@@ -12,5 +12,10 @@ def get_connection():
         )
         return conn
     except Exception as e:
-        print("❌ DB Connection Error:", e)
+        print("DB ERROR:", e)
         return None
+
+
+# 🔥 ADD THIS (IMPORTANT FIX)
+def get_db_connection():
+    return get_connection()
