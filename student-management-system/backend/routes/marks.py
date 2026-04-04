@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_db_connection
+from utils.db import get_connection
 
 marks_bp = Blueprint('marks', __name__)
 
@@ -20,7 +20,7 @@ def add_marks():
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
         cursor = db.cursor()
 
         cursor.execute(
@@ -58,7 +58,7 @@ def update_marks(id):
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
         cursor = db.cursor()
 
         cursor.execute(
@@ -87,7 +87,7 @@ def get_marks():
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
         cursor = db.cursor()
 
         cursor.execute("""
@@ -123,7 +123,7 @@ def marks_stats():
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
         cursor = db.cursor(dictionary=True)
 
         cursor.execute("""

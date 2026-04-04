@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from utils.db import get_db_connection
+from utils.db import get_connection
 
 student_bp = Blueprint('student', __name__)
 
@@ -11,7 +11,7 @@ def get_students():
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
         cursor = db.cursor(dictionary=True)
 
         cursor.execute("SELECT * FROM students")
@@ -45,7 +45,7 @@ def add_student():
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
         cursor = db.cursor()
 
         cursor.execute(
