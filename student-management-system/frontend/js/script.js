@@ -102,47 +102,44 @@ checkboxEl.addEventListener("change", () => {
   checkForm();
 });
 
-rollnoEl.addEventListener('input', () => {
+rollnoEl.addEventListener("input", () => {
+  rollnoValid = /^\d{5,}$/.test(rollnoEl.value);
 
-    rollnoValid = /^\d{5,}$/.test(rollnoEl.value);
-
-    if (rollnoValid) {
-
-        if (!state.handClosed) {
-            emailTl.play();
-        }
-
-        gsap.to(rollnoEl, {
-            borderColor: "#00ff88",
-            boxShadow: "0 0 8px #00ff88",
-            duration: 0.3
-        });
-
-        gearsTls.forEach(tl => {
-            if (tl.paused()) {
-                tl.play();
-                gsap.fromTo(tl, { timeScale: 0 }, { timeScale: 1 });
-            }
-        });
-
-    } else {
-        gsap.to(rollnoEl, {
-            borderColor: "#ff4d4d",
-            boxShadow: "0 0 8px #ff4d4d",
-            duration: 0.3
-        });
-
-        gearsTls.forEach(tl => {
-            if (!tl.paused()) {
-                gsap.to(tl, {
-                    timeScale: 0,
-                    onComplete: () => tl.pause()
-                });
-            }
-        });
+  if (rollnoValid) {
+    if (!state.handClosed) {
+      emailTl.play();
     }
 
-    checkForm();
+    gsap.to(rollnoEl, {
+      borderColor: "#00ff88",
+      boxShadow: "0 0 8px #00ff88",
+      duration: 0.3,
+    });
+
+    gearsTls.forEach((tl) => {
+      if (tl.paused()) {
+        tl.play();
+        gsap.fromTo(tl, { timeScale: 0 }, { timeScale: 1 });
+      }
+    });
+  } else {
+    gsap.to(rollnoEl, {
+      borderColor: "#ff4d4d",
+      boxShadow: "0 0 8px #ff4d4d",
+      duration: 0.3,
+    });
+
+    gearsTls.forEach((tl) => {
+      if (!tl.paused()) {
+        gsap.to(tl, {
+          timeScale: 0,
+          onComplete: () => tl.pause(),
+        });
+      }
+    });
+  }
+
+  checkForm();
 });
 passwordEl.addEventListener("input", () => {
   // ✅ Strong password: letters + number, min 6
@@ -169,25 +166,88 @@ submitBtn.addEventListener("click", async (e) => {
   const password = passwordEl.value.trim();
 
   try {
-    const res = await fetch("https://student-management-system-jg5j.onrender.com/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
+    const res = await fetch(
+      "https://student-management-system-jg5j.onrender.com/auth/login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rollno, password }),
       },
-      body: JSON.stringify({ rollno, password })
-    });
+    );
 
     const data = await res.json();
     console.log("LOGIN RESPONSE:", data);
 
     if (data.status === "success" || data.success === true) {
-
       // ✅ Save user
       localStorage.setItem("user", JSON.stringify(data.student));
 
       // ✅ 🔥 GREEN SUCCESS POPUP
+      // ✅ MODERN SUCCESS POPUP (LIKE YOUR IMAGE)
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.top = "0";
+      overlay.style.left = "0";
+      overlay.style.width = "100%";
+      overlay.style.height = "100%";
+      overlay.style.background = "rgba(0,0,0,0.4)";
+      overlay.style.display = "flex";
+      overlay.style.justifyContent = "center";
+      overlay.style.alignItems = "center";
+      overlay.style.zIndex = "9999";
+
       const popup = document.createElement("div");
-      popup.innerText = "Login Successful ✅";
+      popup.style.background = "#fff";
+      popup.style.padding = "30px";
+      popup.style.borderRadius = "12px";
+      popup.style.textAlign = "center";
+      popup.style.width = "300px";
+      popup.style.boxShadow = "0 10px 30px rgba(0,0,0,0.2)";
+      popup.style.fontFamily = "Poppins, sans-serif";
+
+      // ✅ Tick icon
+      const tick = document.createElement("div");
+      tick.innerHTML = "✔";
+      tick.style.fontSize = "40px";
+      tick.style.color = "#28a745";
+      tick.style.marginBottom = "10px";
+
+      // ✅ Title
+      const title = document.createElement("h2");
+      title.innerText = "Login Successful";
+      title.style.margin = "10px 0";
+
+      // ✅ Subtitle
+      const sub = document.createElement("p");
+      sub.innerText = "Login successful! Welcome to your dashboard.";
+      sub.style.fontSize = "14px";
+      sub.style.color = "#555";
+
+      // ✅ Button
+      const btn = document.createElement("button");
+      btn.innerText = "Go to Dashboard";
+      btn.style.marginTop = "15px";
+      btn.style.padding = "10px 20px";
+      btn.style.border = "none";
+      btn.style.background = "#28a745";
+      btn.style.color = "#fff";
+      btn.style.borderRadius = "6px";
+      btn.style.cursor = "pointer";
+
+      // 👉 click = redirect
+      btn.onclick = () => {
+        window.location.href = "dashboard.html";
+      };
+
+      // append
+      popup.appendChild(tick);
+      popup.appendChild(title);
+      popup.appendChild(sub);
+      popup.appendChild(btn);
+      overlay.appendChild(popup);
+      document.body.appendChild(overlay);
       popup.style.position = "fixed";
       popup.style.top = "50%";
       popup.style.left = "50%";
@@ -202,33 +262,32 @@ submitBtn.addEventListener("click", async (e) => {
       document.body.appendChild(popup);
 
       // ✅ animation (keep your existing)
-      gsap.timeline()
+      gsap
+        .timeline()
         .to("svg > *", {
           duration: 0.2,
           opacity: 0,
-          stagger: { each: 0.02, from: "random" }
+          stagger: { each: 0.02, from: "random" },
         })
         .to(".form-row", {
           duration: 0.3,
           opacity: 0,
           y: -20,
-          stagger: 0.1
+          stagger: 0.1,
         })
         .to(containerEl, {
           duration: 0.5,
           scale: 0.9,
-          ease: "power2.inOut"
+          ease: "power2.inOut",
         });
 
       // ✅ 🔥 REDIRECT AFTER 1.5 sec
       setTimeout(() => {
         window.location.href = "dashboard.html";
       }, 1500);
-
     } else {
       alert(data.message || "Invalid credentials");
     }
-
   } catch (err) {
     console.error(err);
     alert("Server error");
@@ -911,16 +970,16 @@ function createPullingTimeline(isFixed, BtnPulled) {
 }
 
 function checkForm() {
-    const isValid = rollnoValid && passwordValid && checkboxEl.checked;
+  const isValid = rollnoValid && passwordValid && checkboxEl.checked;
 
-    submitBtn.disabled = !isValid;
+  submitBtn.disabled = !isValid;
 
-    gsap.killTweensOf(submitBtn);
+  gsap.killTweensOf(submitBtn);
 
-    gsap.to(submitBtn, {
-        opacity: isValid ? 1 : 0.3,
-        pointerEvents: isValid ? "auto" : "none",
-        color: isValid ? "#000" : "transparent",
-        duration: 0.3
-    });
+  gsap.to(submitBtn, {
+    opacity: isValid ? 1 : 0.3,
+    pointerEvents: isValid ? "auto" : "none",
+    color: isValid ? "#000" : "transparent",
+    duration: 0.3,
+  });
 }

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from utils.db import get_db_connection
+from utils.db import get_connection   # ✅ use ONE db function
 from utils.auth_utils import hash_password, verify_password
 import mysql.connector
 
@@ -19,26 +19,29 @@ def register():
 
     hashed_password = hash_password(password)
 
-    db = None
+    conn = None
     cursor = None
 
     try:
-        db = get_db_connection()
-        cursor = db.cursor()
+        conn = get_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
 
-        # Insert into users table
+        cursor = conn.cursor()
+
+        # ✅ Insert into users table
         cursor.execute(
             "INSERT INTO users (rollno, password) VALUES (%s, %s)",
             (rollno, hashed_password)
         )
 
-        # Insert into students table
+        # ✅ Insert into students table
         cursor.execute(
             "INSERT INTO students (rollno, name) VALUES (%s, %s)",
             (rollno, "New Student")
         )
 
-        db.commit()
+        conn.commit()
 
         return jsonify({
             "status": "success",
@@ -57,8 +60,8 @@ def register():
     finally:
         if cursor:
             cursor.close()
-        if db:
-            db.close()
+        if conn:
+            conn.close()
 
 
 # ================= LOGIN =================
@@ -72,20 +75,24 @@ def login():
     if not rollno or not password:
         return jsonify({"status": "error", "message": "Missing fields"}), 400
 
-    db = None
+    conn = None
     cursor = None
 
     try:
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
+        conn = get_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
 
-        # Check user credentials
+        cursor = conn.cursor(dictionary=True)
+
+        # ✅ Step 1: get user
         cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
         user = cursor.fetchone()
 
+        # ✅ Step 2: verify password (HASHED)
         if user and verify_password(user["password"], password):
 
-            # Fetch student details
+            # ✅ Step 3: get student data
             cursor.execute("SELECT * FROM students WHERE rollno=%s", (rollno,))
             student = cursor.fetchone()
 
@@ -106,5 +113,5 @@ def login():
     finally:
         if cursor:
             cursor.close()
-        if db:
-            db.close()
+        if conn:
+            conn.close()
