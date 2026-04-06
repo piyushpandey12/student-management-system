@@ -145,6 +145,7 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
     const password = e.target.password.value.trim();
     const messageEl = document.getElementById("message");
 
+    // validation
     if (!rollno || !password) {
         messageEl.innerText = "All fields are required!";
         messageEl.style.color = "yellow";
@@ -161,19 +162,23 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
         const data = await res.json();
 
         if (res.ok) {
-            messageEl.innerText = "✅ Registered successfully! Redirecting...";
+            // ✅ SUCCESS
+            messageEl.innerText = "✅ Registered successfully! Redirecting to login...";
             messageEl.style.color = "lightgreen";
 
+            // 🔥 redirect after 1.5 sec
             setTimeout(() => {
                 window.location.href = "login.html";
             }, 1500);
 
         } else {
+            // ❌ ERROR FROM BACKEND
             messageEl.innerText = "❌ " + (data.error || "Registration failed");
             messageEl.style.color = "red";
         }
 
     } catch (err) {
+        // ⚠️ SERVER ERROR
         messageEl.innerText = "⚠️ Server error!";
         messageEl.style.color = "orange";
     }
