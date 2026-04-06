@@ -1,5 +1,5 @@
 import mysql.connector
-from config import DB_CONFIG   # ✅ CORRECT
+from backend.config import DB_CONFIG
 
 def get_db_connection():
     try:
@@ -9,10 +9,7 @@ def get_db_connection():
             password=DB_CONFIG["password"],
             database=DB_CONFIG["database"],
             port=DB_CONFIG["port"],
-
-            # 🔥 REQUIRED FOR RAILWAY
-            ssl_disabled=False,
-            connection_timeout=10
+            ssl_disabled=False
         )
 
         if conn.is_connected():
