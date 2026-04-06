@@ -1,5 +1,5 @@
 import mysql.connector
-from config import DB_CONFIG
+from backend.config import DB_CONFIG   # ✅ correct for Render
 
 def get_db_connection():
     try:
@@ -10,9 +10,9 @@ def get_db_connection():
             database=DB_CONFIG["database"],
             port=DB_CONFIG["port"],
 
-            # 🔥 CRITICAL FIX FOR RAILWAY
-            ssl_verify_cert=False,
-            ssl_disabled=False
+            # 🔥 REQUIRED FOR RAILWAY
+            ssl_disabled=False,
+            connection_timeout=10
         )
 
         if conn.is_connected():
@@ -23,5 +23,5 @@ def get_db_connection():
             return None
 
     except Exception as e:
-        print("DB ERROR:", e)
+        print("🔥 DB ERROR:", e)
         return None
