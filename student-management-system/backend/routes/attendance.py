@@ -1,11 +1,11 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_connection
+from utils.db import get_db_connection
 
 attendance_bp = Blueprint('attendance', __name__)
 
 
 # =========================================================
-# 📌 MARK ATTENDANCE (UPSERT - NO DUPLICATE ERROR)
+# 📌 MARK ATTENDANCE
 # =========================================================
 @attendance_bp.route("/", methods=["POST"])
 def mark_attendance():
@@ -15,7 +15,6 @@ def mark_attendance():
     total = data.get("total", 1)
     attended = data.get("attended", 1)
 
-    # ✅ Validation
     if not student_id:
         return jsonify({"error": "student_id is required"}), 400
 
@@ -23,10 +22,9 @@ def mark_attendance():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor()
 
-        # 🔥 UPSERT LOGIC (IMPORTANT FIX)
         cursor.execute("""
             INSERT INTO attendance (student_id, total_classes, attended_classes)
             VALUES (%s, %s, %s)
@@ -53,7 +51,7 @@ def mark_attendance():
 
 
 # =========================================================
-# 📌 GET OVERALL ATTENDANCE %
+# 📌 GET ATTENDANCE %
 # =========================================================
 @attendance_bp.route("/", methods=["GET"])
 def get_attendance():
@@ -61,7 +59,7 @@ def get_attendance():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor()
 
         cursor.execute("""
@@ -91,7 +89,7 @@ def get_attendance():
 
 
 # =========================================================
-# 📌 DASHBOARD STATS (USED IN FRONTEND)
+# 📌 DASHBOARD STATS
 # =========================================================
 @attendance_bp.route("/stats", methods=["GET"])
 def attendance_stats():
@@ -99,7 +97,7 @@ def attendance_stats():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor(dictionary=True)
 
         cursor.execute("""

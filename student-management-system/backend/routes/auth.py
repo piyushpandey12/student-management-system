@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from utils.db import get_db_connection
-from werkzeug.security import generate_password_hash, check_password_hash
+from utils.auth_utils import hash_password, verify_password   # ✅ use your utils
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -26,9 +26,16 @@ def register():
 
     try:
         db = get_db_connection()
+
+        if db is None:
+            return jsonify({
+                "status": "error",
+                "message": "Database connection failed"
+            }), 500
+
         cursor = db.cursor(dictionary=True)
 
-        # 🔍 CHECK IF USER ALREADY EXISTS
+        # 🔍 CHECK IF USER EXISTS
         cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
         existing_user = cursor.fetchone()
 
@@ -38,20 +45,20 @@ def register():
                 "message": "User already exists"
             }), 409
 
-        # 🔐 HASH PASSWORD
-        hashed_password = generate_password_hash(password)
+        # 🔐 HASH PASSWORD (USING UTILS ✅)
+        hashed_password = hash_password(password)
 
-        # ✅ INSERT INTO USERS TABLE
-        cursor.execute("""
-            INSERT INTO users (rollno, password)
-            VALUES (%s, %s)
-        """, (rollno, hashed_password))
+        # ✅ INSERT USER
+        cursor.execute(
+            "INSERT INTO users (rollno, password) VALUES (%s, %s)",
+            (rollno, hashed_password)
+        )
 
-        # ✅ INSERT INTO STUDENTS TABLE
-        cursor.execute("""
-            INSERT INTO students (rollno, name)
-            VALUES (%s, %s)
-        """, (rollno, "Student"))
+        # ✅ INSERT STUDENT
+        cursor.execute(
+            "INSERT INTO students (rollno, name) VALUES (%s, %s)",
+            (rollno, "Student")
+        )
 
         db.commit()
 
@@ -61,6 +68,7 @@ def register():
         }), 201
 
     except Exception as e:
+        print("REGISTER ERROR:", e)
         return jsonify({
             "status": "error",
             "message": str(e)
@@ -83,7 +91,6 @@ def login():
     rollno = data.get("rollno")
     password = data.get("password")
 
-    # 🔍 VALIDATION
     if not rollno or not password:
         return jsonify({
             "status": "error",
@@ -95,14 +102,20 @@ def login():
 
     try:
         db = get_db_connection()
+
+        if db is None:
+            return jsonify({
+                "status": "error",
+                "message": "Database connection failed"
+            }), 500
+
         cursor = db.cursor(dictionary=True)
 
-        # 🔍 FETCH USER
         cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
         user = cursor.fetchone()
 
-        # 🔐 VERIFY PASSWORD
-        if user and check_password_hash(user["password"], password):
+        # 🔐 VERIFY PASSWORD (USING UTILS ✅)
+        if user and verify_password(user["password"], password):
             return jsonify({
                 "status": "success",
                 "student": {
@@ -117,6 +130,7 @@ def login():
             }), 401
 
     except Exception as e:
+        print("LOGIN ERROR:", e)
         return jsonify({
             "status": "error",
             "message": str(e)

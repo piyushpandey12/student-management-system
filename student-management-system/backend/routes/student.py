@@ -1,11 +1,11 @@
 from flask import Blueprint, request, jsonify
-from utils.db import get_connection
+from utils.db import get_db_connection
 
 student_bp = Blueprint('student', __name__)
 
 
 # =========================================================
-# 📌 GET ALL STUDENTS (JOIN WITH MARKS + ATTENDANCE 🔥)
+# 📌 GET ALL STUDENTS
 # =========================================================
 @student_bp.route('/', methods=['GET'])
 def get_students():
@@ -13,7 +13,7 @@ def get_students():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor(dictionary=True)
 
         cursor.execute("""
@@ -66,7 +66,7 @@ def add_student():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor()
 
         cursor.execute(
@@ -100,7 +100,7 @@ def delete_student(id):
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor()
 
         cursor.execute("DELETE FROM students WHERE id=%s", (id,))

@@ -1,11 +1,11 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_connection
+from utils.db import get_db_connection
 
 marks_bp = Blueprint('marks', __name__)
 
 
 # =========================================================
-# 📌 ADD / UPDATE MARKS (UPSERT FIX 🔥)
+# 📌 ADD / UPDATE MARKS
 # =========================================================
 @marks_bp.route("/", methods=["POST"])
 def add_or_update_marks():
@@ -21,10 +21,9 @@ def add_or_update_marks():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor()
 
-        # 🔥 UPSERT (IMPORTANT FIX)
         cursor.execute("""
             INSERT INTO marks (student_id, subject, marks)
             VALUES (%s, 'General', %s)
@@ -50,7 +49,7 @@ def add_or_update_marks():
 
 
 # =========================================================
-# 📌 GET MARKS STATS (SIMPLE)
+# 📌 GET MARKS
 # =========================================================
 @marks_bp.route("/", methods=["GET"])
 def get_marks():
@@ -58,7 +57,7 @@ def get_marks():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor()
 
         cursor.execute("""
@@ -89,7 +88,7 @@ def get_marks():
 
 
 # =========================================================
-# 📌 DASHBOARD STATS (ADVANCED)
+# 📌 DASHBOARD STATS
 # =========================================================
 @marks_bp.route("/stats", methods=["GET"])
 def marks_stats():
@@ -97,7 +96,7 @@ def marks_stats():
     cursor = None
 
     try:
-        db = get_connection()
+        db = get_db_connection()   # ✅ FIXED
         cursor = db.cursor(dictionary=True)
 
         cursor.execute("""

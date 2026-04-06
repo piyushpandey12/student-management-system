@@ -14,18 +14,9 @@ from routes.marks import marks_bp
 app = Flask(__name__)
 
 # =========================================================
-# 🌐 CORS CONFIG
+# 🌐 CORS CONFIG (SAFE + CLEAN)
 # =========================================================
-CORS(app, resources={
-    r"/*": {
-        "origins": [
-            "http://127.0.0.1:5500",
-            "http://localhost:5500",
-            "http://127.0.0.1:3000",
-            "*"
-        ]
-    }
-})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # =========================================================
 # 📌 REGISTER BLUEPRINTS
@@ -46,13 +37,26 @@ def home():
     })
 
 # =========================================================
-# 🔍 DEBUG ROUTES (IMPORTANT)
+# 🔍 DEBUG ROUTES
 # =========================================================
 @app.route("/routes")
 def routes():
     return jsonify({
         "routes": [str(rule) for rule in app.url_map.iter_rules()]
     })
+
+# =========================================================
+# 🧪 DB TEST ROUTE (TEMPORARY BUT USEFUL)
+# =========================================================
+from utils.db import get_db_connection
+
+@app.route("/test-db")
+def test_db():
+    db = get_db_connection()
+    if db:
+        return {"status": "DB connected ✅"}
+    else:
+        return {"status": "DB failed ❌"}
 
 # =========================================================
 # ❌ ERROR HANDLERS
@@ -66,7 +70,7 @@ def server_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
 # =========================================================
-# 🚀 RUN SERVER
+# 🚀 RUN SERVER (LOCAL ONLY)
 # =========================================================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
