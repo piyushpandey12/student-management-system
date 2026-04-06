@@ -9,7 +9,11 @@ def get_db_connection():
             password=DB_CONFIG["password"],
             database=DB_CONFIG["database"],
             port=DB_CONFIG["port"],
-            ssl_disabled=False
+
+            # 🔥 FINAL FIX FOR RAILWAY
+            ssl_ca="/etc/ssl/certs/ca-certificates.crt",
+            ssl_verify_cert=False,
+            auth_plugin='mysql_native_password'
         )
 
         if conn.is_connected():
