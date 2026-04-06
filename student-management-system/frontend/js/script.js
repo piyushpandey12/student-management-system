@@ -1,3 +1,8 @@
+const BASE_URL =
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000"
+    : "https://student-backend.onrender.com";
 const containerEl = document.querySelector(".container");
 const checkboxEl = document.querySelector(
   '.form-container .form-row input[type="checkbox"]',
@@ -157,142 +162,6 @@ passwordEl.addEventListener("input", () => {
   checkForm(); // ✅ important
 });
 
-submitBtn.addEventListener("click", async (e) => {
-  e.preventDefault();
-
-  if (!(passwordValid && checkboxEl.checked && rollnoValid)) return;
-
-  const rollno = rollnoEl.value.trim();
-  const password = passwordEl.value.trim();
-
-  try {
-    const res = await fetch(
-      "https://student-management-system-jg5j.onrender.com/auth/login",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ rollno, password }),
-      },
-    );
-
-    const data = await res.json();
-    console.log("LOGIN RESPONSE:", data);
-
-    if (data.status === "success" || data.success === true) {
-      // ✅ Save user
-      localStorage.setItem("user", JSON.stringify(data.student));
-
-      // ✅ 🔥 GREEN SUCCESS POPUP
-      // ✅ MODERN SUCCESS POPUP (LIKE YOUR IMAGE)
-      const overlay = document.createElement("div");
-      overlay.style.position = "fixed";
-      overlay.style.top = "0";
-      overlay.style.left = "0";
-      overlay.style.width = "100%";
-      overlay.style.height = "100%";
-      overlay.style.background = "rgba(0,0,0,0.4)";
-      overlay.style.display = "flex";
-      overlay.style.justifyContent = "center";
-      overlay.style.alignItems = "center";
-      overlay.style.zIndex = "9999";
-
-      const popup = document.createElement("div");
-      popup.style.background = "#fff";
-      popup.style.padding = "30px";
-      popup.style.borderRadius = "12px";
-      popup.style.textAlign = "center";
-      popup.style.width = "300px";
-      popup.style.boxShadow = "0 10px 30px rgba(0,0,0,0.2)";
-      popup.style.fontFamily = "Poppins, sans-serif";
-
-      // ✅ Tick icon
-      const tick = document.createElement("div");
-      tick.innerHTML = "✔";
-      tick.style.fontSize = "40px";
-      tick.style.color = "#28a745";
-      tick.style.marginBottom = "10px";
-
-      // ✅ Title
-      const title = document.createElement("h2");
-      title.innerText = "Login Successful";
-      title.style.margin = "10px 0";
-
-      // ✅ Subtitle
-      const sub = document.createElement("p");
-      sub.innerText = "Login successful! Welcome to your dashboard.";
-      sub.style.fontSize = "14px";
-      sub.style.color = "#555";
-
-      // ✅ Button
-      const btn = document.createElement("button");
-      btn.innerText = "Go to Dashboard";
-      btn.style.marginTop = "15px";
-      btn.style.padding = "10px 20px";
-      btn.style.border = "none";
-      btn.style.background = "#28a745";
-      btn.style.color = "#fff";
-      btn.style.borderRadius = "6px";
-      btn.style.cursor = "pointer";
-
-      // 👉 click = redirect
-      btn.onclick = () => {
-        window.location.href = "dashboard.html";
-      };
-
-      // append
-      popup.appendChild(tick);
-      popup.appendChild(title);
-      popup.appendChild(sub);
-      popup.appendChild(btn);
-      overlay.appendChild(popup);
-      document.body.appendChild(overlay);
-      popup.style.position = "fixed";
-      popup.style.top = "50%";
-      popup.style.left = "50%";
-      popup.style.transform = "translate(-50%, -50%)";
-      popup.style.background = "#00c853";
-      popup.style.color = "#fff";
-      popup.style.padding = "20px 40px";
-      popup.style.borderRadius = "10px";
-      popup.style.fontSize = "18px";
-      popup.style.zIndex = "9999";
-      popup.style.boxShadow = "0 0 20px rgba(0,0,0,0.3)";
-      document.body.appendChild(popup);
-
-      // ✅ animation (keep your existing)
-      gsap
-        .timeline()
-        .to("svg > *", {
-          duration: 0.2,
-          opacity: 0,
-          stagger: { each: 0.02, from: "random" },
-        })
-        .to(".form-row", {
-          duration: 0.3,
-          opacity: 0,
-          y: -20,
-          stagger: 0.1,
-        })
-        .to(containerEl, {
-          duration: 0.5,
-          scale: 0.9,
-          ease: "power2.inOut",
-        });
-
-      // ✅ 🔥 REDIRECT AFTER 1.5 sec
-      setTimeout(() => {
-        window.location.href = "dashboard.html";
-      }, 1500);
-    } else {
-      alert(data.message || "Invalid credentials");
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
-  }
-});
 function layoutPreparation() {
   gsap.set(pullSystemContainer, {
     x: 375,
@@ -983,3 +852,51 @@ function checkForm() {
     duration: 0.3,
   });
 }
+submitBtn.addEventListener("click", async (e) => {
+  e.preventDefault();
+
+  const rollno = rollnoEl.value.trim();
+  const password = passwordEl.value.trim();
+
+  try {
+    // ===== REGISTER =====
+    const registerRes = await fetch(`${BASE_URL}/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ rollno, password }),
+    });
+
+    const registerData = await registerRes.json();
+
+    if (!registerRes.ok) {
+      alert(registerData.error || "Registration failed");
+      return;
+    }
+
+    // ===== LOGIN =====
+    const loginRes = await fetch(`${BASE_URL}/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ rollno, password }),
+    });
+
+    const loginData = await loginRes.json();
+
+    if (loginRes.ok) {
+      localStorage.setItem("user", JSON.stringify(loginData));
+
+      alert("Login Successful ✅");
+
+      window.location.href = "dashboard.html";
+    } else {
+      alert("Login failed");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
+  }
+});

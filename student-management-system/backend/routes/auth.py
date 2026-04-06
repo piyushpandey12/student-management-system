@@ -1,9 +1,13 @@
 from flask import Blueprint, request, jsonify
 from utils.db import get_db_connection
+from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint('auth', __name__)
 
-# ================= REGISTER =================
+
+# =========================================================
+# 📌 REGISTER
+# =========================================================
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -14,15 +18,27 @@ def register():
     if not rollno or not password:
         return jsonify({"status": "error", "message": "Missing fields"}), 400
 
+    db = None
+    cursor = None
+
     try:
         db = get_db_connection()
         cursor = db.cursor()
 
-        # 🔥 Save directly in students table
-        cursor.execute(
-            "INSERT INTO students (rollno, name, password) VALUES (%s, %s, %s)",
-            (rollno, "Student", password)
-        )
+        # 🔐 HASH PASSWORD
+        hashed_password = generate_password_hash(password)
+
+        # ✅ INSERT INTO USERS TABLE
+        cursor.execute("""
+            INSERT INTO users (rollno, password)
+            VALUES (%s, %s)
+        """, (rollno, hashed_password))
+
+        # 🔥 ALSO CREATE STUDENT RECORD (IMPORTANT)
+        cursor.execute("""
+            INSERT INTO students (rollno, name)
+            VALUES (%s, %s)
+        """, (rollno, "Student"))
 
         db.commit()
 
@@ -35,11 +51,15 @@ def register():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
-# ================= LOGIN =================
+# =========================================================
+# 📌 LOGIN
+# =========================================================
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -50,22 +70,30 @@ def login():
     if not rollno or not password:
         return jsonify({"status": "error"}), 400
 
+    db = None
+    cursor = None
+
     try:
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
 
-        cursor.execute(
-            "SELECT * FROM students WHERE rollno=%s AND password=%s",
-            (rollno, password)
-        )
+        # ✅ GET USER FROM USERS TABLE
+        cursor.execute("""
+            SELECT * FROM users WHERE rollno=%s
+        """, (rollno,))
 
         user = cursor.fetchone()
 
-        if user:
+        # 🔐 CHECK PASSWORD
+        if user and check_password_hash(user["password"], password):
+
             return jsonify({
                 "status": "success",
-                "student": user
+                "student": {
+                    "rollno": rollno
+                }
             })
+
         else:
             return jsonify({
                 "status": "error",
@@ -76,5 +104,7 @@ def login():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()

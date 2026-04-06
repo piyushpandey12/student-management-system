@@ -6,24 +6,13 @@ const BASE_URL =
         : "https://student-management-system-jg5j.onrender.com";
 
 
-// ================= COMMON FETCH =================
+// ================= COMMON =================
 async function handleResponse(res) {
     if (!res.ok) {
         const text = await res.text();
         throw new Error(text || "Request failed");
     }
     return res.json();
-}
-
-
-// ================= AUTH =================
-async function loginUser(data) {
-    const res = await fetch(`${BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
-    return handleResponse(res);
 }
 
 
@@ -40,33 +29,30 @@ async function login(event) {
     }
 
     try {
-        const res = await loginUser({ rollno, password });
+        const res = await fetch(`${BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rollno, password })
+        });
 
-        if (res.status === "success") {
-            localStorage.setItem("user", JSON.stringify(res.student));
+        const data = await handleResponse(res);
+
+        if (data.status === "success") {
+            localStorage.setItem("user", JSON.stringify(data.student));
             window.location.href = "dashboard.html";
         } else {
             alert("Invalid credentials");
         }
 
-    } catch (err) {
+    } catch {
         alert("Server error");
     }
 }
 
 
-// ================= STUDENTS =================
+// ================= GET STUDENTS =================
 async function getStudents() {
-    const res = await fetch(`${BASE_URL}/students/`);
-    return handleResponse(res);
-}
-
-async function addStudentAPI(data) {
-    const res = await fetch(`${BASE_URL}/students/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
+    const res = await fetch(`${BASE_URL}/students`);
     return handleResponse(res);
 }
 
@@ -74,15 +60,18 @@ async function addStudentAPI(data) {
 // ================= ADD STUDENT =================
 async function addStudent() {
     const name = document.getElementById("name").value.trim();
-    const rollno = document.getElementById("roll").value.trim();
-    const email = document.getElementById("email")?.value || "";
+    const roll = document.getElementById("roll").value.trim();
 
-    if (!name || !rollno) {
+    if (!name || !roll) {
         alert("Fill all fields");
         return;
     }
 
-    await addStudentAPI({ name, rollno, email });
+    await fetch(`${BASE_URL}/students`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, roll })
+    });
 
     clearInputs();
     loadStudents();
@@ -93,26 +82,31 @@ async function addStudent() {
 // ================= LOAD STUDENTS =================
 async function loadStudents() {
     const data = await getStudents();
-
     const list = document.getElementById("list");
+
     if (!list) return;
 
     list.innerHTML = "";
 
-    data.forEach(s => {
+    data.forEach((s) => {
         const row = document.createElement("tr");
 
         row.innerHTML = `
             <td>${s.name}</td>
-            <td>${s.rollno}</td>
+            <td>${s.roll}</td>
 
             <td>
-                <button onclick="markAttendance(${s.id})">Present</button>
+                <input type="checkbox"
+                onchange="markAttendance(${s.id})">
             </td>
 
             <td>
-                <input type="number"
+                <input type="number" value="${s.marks || 0}"
                 onchange="updateMarks(${s.id}, this.value)">
+            </td>
+
+            <td>
+                <button onclick="deleteStudent(${s.id})">Delete</button>
             </td>
         `;
 
@@ -121,29 +115,40 @@ async function loadStudents() {
 }
 
 
+// ================= DELETE =================
+async function deleteStudent(id) {
+    await fetch(`${BASE_URL}/students/${id}`, {
+        method: "DELETE"
+    });
+
+    loadStudents();
+    loadDashboardStats();
+}
+
+
 // ================= DASHBOARD =================
 async function loadDashboardStats() {
     try {
         const students = await getStudents();
-        document.getElementById("totalStudents").innerText = students.length;
+        document.getElementById("total").innerText = students.length;
 
         const att = await fetch(`${BASE_URL}/attendance/stats`).then(r => r.json());
-        document.getElementById("attendance").innerText =
+        document.getElementById("att").innerText =
             (att.attendance_percentage || 0) + "%";
 
         const marks = await fetch(`${BASE_URL}/marks/stats`).then(r => r.json());
-        document.getElementById("avgMarks").innerText = marks.avg_marks || 0;
-        document.getElementById("topScore").innerText = marks.top_score || 0;
+        document.getElementById("marks").innerText = marks.avg_marks || 0;
+        document.getElementById("top").innerText = marks.top_score || 0;
 
     } catch (err) {
-        console.error("Dashboard error", err);
+        console.error(err);
     }
 }
 
 
 // ================= ATTENDANCE =================
 async function markAttendance(id) {
-    await fetch(`${BASE_URL}/attendance/`, {
+    await fetch(`${BASE_URL}/attendance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -159,7 +164,7 @@ async function markAttendance(id) {
 
 // ================= MARKS =================
 async function updateMarks(id, marks) {
-    await fetch(`${BASE_URL}/marks/`, {
+    await fetch(`${BASE_URL}/marks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -177,8 +182,6 @@ async function updateMarks(id, marks) {
 function clearInputs() {
     document.getElementById("name").value = "";
     document.getElementById("roll").value = "";
-    if (document.getElementById("email"))
-        document.getElementById("email").value = "";
 }
 
 

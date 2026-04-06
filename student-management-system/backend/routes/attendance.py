@@ -4,17 +4,20 @@ from utils.db import get_connection
 attendance_bp = Blueprint('attendance', __name__)
 
 
-# ================= MARK ATTENDANCE =================
+# =========================================================
+# 📌 MARK ATTENDANCE (UPSERT - NO DUPLICATE ERROR)
+# =========================================================
 @attendance_bp.route("/", methods=["POST"])
 def mark_attendance():
     data = request.get_json()
 
     student_id = data.get("student_id")
-    total = data.get("total")
-    attended = data.get("attended")
+    total = data.get("total", 1)
+    attended = data.get("attended", 1)
 
-    if not student_id or total is None or attended is None:
-        return jsonify({"error": "Missing fields"}), 400
+    # ✅ Validation
+    if not student_id:
+        return jsonify({"error": "student_id is required"}), 400
 
     db = None
     cursor = None
@@ -23,17 +26,21 @@ def mark_attendance():
         db = get_connection()
         cursor = db.cursor()
 
-        cursor.execute(
-            """
+        # 🔥 UPSERT LOGIC (IMPORTANT FIX)
+        cursor.execute("""
             INSERT INTO attendance (student_id, total_classes, attended_classes)
             VALUES (%s, %s, %s)
-            """,
-            (student_id, total, attended)
-        )
+            ON DUPLICATE KEY UPDATE
+                total_classes = total_classes + VALUES(total_classes),
+                attended_classes = attended_classes + VALUES(attended_classes)
+        """, (student_id, total, attended))
 
         db.commit()
 
-        return jsonify({"message": "Attendance recorded"})
+        return jsonify({
+            "status": "success",
+            "message": "Attendance updated"
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -45,8 +52,10 @@ def mark_attendance():
             db.close()
 
 
-# ================= GET ATTENDANCE % =================
-@attendance_bp.route("/attendance", methods=["GET"])
+# =========================================================
+# 📌 GET OVERALL ATTENDANCE %
+# =========================================================
+@attendance_bp.route("/", methods=["GET"])
 def get_attendance():
     db = None
     cursor = None
@@ -57,17 +66,19 @@ def get_attendance():
 
         cursor.execute("""
             SELECT 
-            COALESCE(
-                (SUM(attended_classes) * 100.0) / NULLIF(SUM(total_classes), 0),
-                0
-            ) AS percentage
+                IFNULL(
+                    ROUND(SUM(attended_classes) / SUM(total_classes) * 100, 2),
+                    0
+                )
             FROM attendance
         """)
 
         result = cursor.fetchone()
         percentage = float(result[0]) if result and result[0] else 0
 
-        return jsonify({"attendance": percentage})
+        return jsonify({
+            "attendance_percentage": percentage
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -79,7 +90,9 @@ def get_attendance():
             db.close()
 
 
-# ================= DASHBOARD STATS =================
+# =========================================================
+# 📌 DASHBOARD STATS (USED IN FRONTEND)
+# =========================================================
 @attendance_bp.route("/stats", methods=["GET"])
 def attendance_stats():
     db = None
@@ -91,20 +104,23 @@ def attendance_stats():
 
         cursor.execute("""
             SELECT 
-                SUM(total_classes) AS total_classes,
-                SUM(attended_classes) AS attended_classes
+                IFNULL(SUM(total_classes), 0) AS total_classes,
+                IFNULL(SUM(attended_classes), 0) AS attended_classes
             FROM attendance
         """)
 
         result = cursor.fetchone()
 
-        total = result["total_classes"] or 0
-        attended = result["attended_classes"] or 0
+        total = result["total_classes"]
+        attended = result["attended_classes"]
 
         percentage = round((attended / total) * 100, 2) if total else 0
 
         return jsonify({
-            "attendance_percentage": percentage
+            "status": "success",
+            "attendance_percentage": percentage,
+            "total_classes": total,
+            "attended_classes": attended
         })
 
     except Exception as e:

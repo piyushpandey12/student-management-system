@@ -1,6 +1,8 @@
+# =========================================================
+# 📌 DATABASE CONFIG (UNIFIED - PRODUCTION READY)
+# =========================================================
 import os
 
-# ✅ Unified DB Config (Render + Railway + others supported)
 DB_CONFIG = {
     "host": os.getenv("DB_HOST") or os.getenv("MYSQLHOST") or os.getenv("MYSQL_HOST"),
     "user": os.getenv("DB_USER") or os.getenv("MYSQLUSER") or os.getenv("MYSQL_USER"),
@@ -10,8 +12,10 @@ DB_CONFIG = {
 }
 
 
-# ✅ Validate config (VERY IMPORTANT)
+# =========================================================
+# 📌 VALIDATION (SAFE)
+# =========================================================
 missing = [key for key, value in DB_CONFIG.items() if value is None]
 
 if missing:
-    raise Exception(f"❌ Missing DB environment variables: {missing}")
+    print(f"⚠️ Warning: Missing DB environment variables: {missing}")

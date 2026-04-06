@@ -210,18 +210,58 @@ canvas{
 </div>
 
 <script>
-let students=[];
+// ================= BASE URL =================
+const BASE_URL =
+  window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5000"
+    : "https://student-backend.onrender.com";
+
+// 🔐 LOGIN PROTECTION
+const user = localStorage.getItem("user");
+if (!user) window.location.href = "login.html";
+
+let students = [];
 let attendanceChart, marksChart;
 
-// ================= ADD =================
-function add(){
-let name=nameEl("name");
-let roll=nameEl("roll");
-let marks=Number(nameEl("marksInput"));
+// ================= LOAD FROM DB =================
+async function loadStudents(){
+    try{
+        const res = await fetch(`${BASE_URL}/students`);
+        const data = await res.json();
 
-students.push({name,roll,marks,attendance:false});
-closeModal();
-update();
+        students = data.map(s => ({
+            name: s.name,
+            roll: s.roll,
+            marks: s.marks || 0,
+            attendance: s.attendance || false
+        }));
+
+        update();
+
+    }catch(err){
+        console.error(err);
+    }
+}
+
+// ================= ADD =================
+async function add(){
+    let name=nameEl("name");
+    let roll=nameEl("roll");
+    let marks=Number(nameEl("marksInput"));
+
+    try{
+        await fetch(`${BASE_URL}/students`, {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({name, roll, marks})
+        });
+
+        closeModal();
+        loadStudents();
+
+    }catch(err){
+        console.error(err);
+    }
 }
 
 // ================= UPDATE =================
@@ -264,6 +304,17 @@ drawCharts(att,avg,top);
 generateInsights(total,att,avg,top);
 }
 
+// ================= DELETE =================
+async function del(i){
+    const student = students[i];
+
+    await fetch(`${BASE_URL}/students/${student.roll}`, {
+        method: "DELETE"
+    });
+
+    loadStudents();
+}
+
 // ================= CHARTS =================
 function drawCharts(att,avg,top){
 
@@ -303,9 +354,16 @@ document.getElementById("insightText").innerText=text;
 }
 
 // ================= HELPERS =================
-function toggleAttendance(i){students[i].attendance=!students[i].attendance;update();}
-function updateMarks(i,val){students[i].marks=Number(val);update();}
-function del(i){students.splice(i,1);update();}
+function toggleAttendance(i){
+    students[i].attendance=!students[i].attendance;
+    update();
+}
+
+function updateMarks(i,val){
+    students[i].marks=Number(val);
+    update();
+}
+
 function search(){
 let val=document.getElementById("search").value.toLowerCase();
 document.querySelectorAll("#list tr").forEach(r=>{
@@ -320,8 +378,16 @@ document.getElementById("analytics").style.display=id==="analytics"?"block":"non
 
 function openModal(){document.getElementById("modal").style.display="flex";}
 function closeModal(){document.getElementById("modal").style.display="none";}
-function logout(){window.location.href="login.html";}
+
+function logout(){
+    localStorage.removeItem("user");
+    window.location.href="login.html";
+}
+
 function nameEl(id){return document.getElementById(id).value.trim();}
+
+// ================= INIT =================
+loadStudents();
 </script>
 
 </body>

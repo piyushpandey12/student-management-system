@@ -1,21 +1,28 @@
 import mysql.connector
-import os
+from config import DB_CONFIG
+
 
 def get_connection():
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("MYSQLHOST"),
-            user=os.getenv("MYSQLUSER"),
-            password=os.getenv("MYSQLPASSWORD"),
-            database=os.getenv("MYSQLDATABASE"),
-            port=int(os.getenv("MYSQLPORT"))
+            host=DB_CONFIG["host"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"],
+            database=DB_CONFIG["database"],
+            port=DB_CONFIG["port"],
+            connection_timeout=10
         )
-        return conn
+
+        if conn.is_connected():
+            return conn
+
+        return None
+
     except Exception as e:
-        print("DB ERROR:", e)
+        print("❌ DB CONNECTION ERROR:", e)
         return None
 
 
-# 🔥 ADD THIS (IMPORTANT FIX)
+# Backward compatibility
 def get_db_connection():
     return get_connection()
