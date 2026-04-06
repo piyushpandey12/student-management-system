@@ -1,5 +1,5 @@
 import mysql.connector
-from backend.config import DB_CONFIG   # ✅ correct for Render
+from config import DB_CONFIG   # ✅ CORRECT
 
 def get_db_connection():
     try:
