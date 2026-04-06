@@ -52,11 +52,12 @@ from utils.db import get_db_connection
 
 @app.route("/test-db")
 def test_db():
-    db = get_db_connection()
-    if db:
+    try:
+        from utils.db import get_db_connection
+        db = get_db_connection()
         return {"status": "DB connected ✅"}
-    else:
-        return {"status": "DB failed ❌"}
+    except Exception as e:
+        return {"error": str(e)}   # 🔥 SHOW REAL ERROR
 
 # =========================================================
 # ❌ ERROR HANDLERS
