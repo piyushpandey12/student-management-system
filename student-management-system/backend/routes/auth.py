@@ -4,7 +4,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint('auth', __name__)
 
-
 # =========================================================
 # 📌 REGISTER
 # =========================================================
@@ -15,15 +14,29 @@ def register():
     rollno = data.get("rollno")
     password = data.get("password")
 
+    # 🔍 VALIDATION
     if not rollno or not password:
-        return jsonify({"status": "error", "message": "Missing fields"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "Missing fields"
+        }), 400
 
     db = None
     cursor = None
 
     try:
         db = get_db_connection()
-        cursor = db.cursor()
+        cursor = db.cursor(dictionary=True)
+
+        # 🔍 CHECK IF USER ALREADY EXISTS
+        cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            return jsonify({
+                "status": "error",
+                "message": "User already exists"
+            }), 409
 
         # 🔐 HASH PASSWORD
         hashed_password = generate_password_hash(password)
@@ -34,7 +47,7 @@ def register():
             VALUES (%s, %s)
         """, (rollno, hashed_password))
 
-        # 🔥 ALSO CREATE STUDENT RECORD (IMPORTANT)
+        # ✅ INSERT INTO STUDENTS TABLE
         cursor.execute("""
             INSERT INTO students (rollno, name)
             VALUES (%s, %s)
@@ -45,10 +58,13 @@ def register():
         return jsonify({
             "status": "success",
             "message": "Registered successfully"
-        })
+        }), 201
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:
@@ -67,8 +83,12 @@ def login():
     rollno = data.get("rollno")
     password = data.get("password")
 
+    # 🔍 VALIDATION
     if not rollno or not password:
-        return jsonify({"status": "error"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "Missing fields"
+        }), 400
 
     db = None
     cursor = None
@@ -77,22 +97,18 @@ def login():
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
 
-        # ✅ GET USER FROM USERS TABLE
-        cursor.execute("""
-            SELECT * FROM users WHERE rollno=%s
-        """, (rollno,))
-
+        # 🔍 FETCH USER
+        cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
         user = cursor.fetchone()
 
-        # 🔐 CHECK PASSWORD
+        # 🔐 VERIFY PASSWORD
         if user and check_password_hash(user["password"], password):
-
             return jsonify({
                 "status": "success",
                 "student": {
                     "rollno": rollno
                 }
-            })
+            }), 200
 
         else:
             return jsonify({
@@ -101,7 +117,10 @@ def login():
             }), 401
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:

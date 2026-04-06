@@ -6,7 +6,6 @@
 <title>Student Signup</title>
 
 <style>
-/* ===== RESET ===== */
 * {
     margin: 0;
     padding: 0;
@@ -14,7 +13,6 @@
     font-family: 'Segoe UI', sans-serif;
 }
 
-/* ===== BODY ===== */
 body {
     height: 100vh;
     background: linear-gradient(135deg, #1d2671, #c33764);
@@ -23,7 +21,6 @@ body {
     align-items: center;
 }
 
-/* ===== CARD ===== */
 .container {
     background: rgba(255,255,255,0.1);
     backdrop-filter: blur(15px);
@@ -33,27 +30,15 @@ body {
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     color: white;
     text-align: center;
-    animation: fadeIn 1s ease;
 }
 
-@keyframes fadeIn {
-    from {opacity: 0; transform: translateY(20px);}
-    to {opacity: 1; transform: translateY(0);}
-}
-
-/* ===== TITLE ===== */
 .container h2 {
     margin-bottom: 20px;
 }
 
-/* ===== INPUT ===== */
 .input-group {
     margin: 15px 0;
     text-align: left;
-}
-
-.input-group label {
-    font-size: 14px;
 }
 
 .input-group input {
@@ -62,10 +47,8 @@ body {
     margin-top: 5px;
     border: none;
     border-radius: 8px;
-    outline: none;
 }
 
-/* ===== BUTTON ===== */
 button {
     width: 100%;
     padding: 12px;
@@ -75,34 +58,23 @@ button {
     color: white;
     font-size: 16px;
     cursor: pointer;
-    margin-top: 15px;
-    transition: 0.3s;
 }
 
 button:hover {
     background: #ff416c;
-    transform: scale(1.05);
 }
 
-/* ===== LINK ===== */
 .link {
     margin-top: 15px;
     font-size: 14px;
 }
 
-.link a {
-    color: #ffd;
-    text-decoration: none;
-}
-
-/* ===== MESSAGE ===== */
 .message {
     margin-top: 10px;
-    font-size: 14px;
 }
 </style>
-
 </head>
+
 <body>
 
 <div class="container">
@@ -145,7 +117,7 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
     const password = e.target.password.value.trim();
     const messageEl = document.getElementById("message");
 
-    // validation
+    // ✅ validation
     if (!rollno || !password) {
         messageEl.innerText = "All fields are required!";
         messageEl.style.color = "yellow";
@@ -153,7 +125,8 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
     }
 
     try {
-        const res = await fetch(`${BASE_URL}/register`, {
+        // 🔥 CORRECT API (IMPORTANT)
+        const res = await fetch(`${BASE_URL}/auth/register`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({ rollno, password })
@@ -162,23 +135,20 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
         const data = await res.json();
 
         if (res.ok) {
-            // ✅ SUCCESS
-            messageEl.innerText = "✅ Registered successfully! Redirecting to login...";
+            messageEl.innerText = "✅ Registered successfully! Redirecting...";
             messageEl.style.color = "lightgreen";
 
-            // 🔥 redirect after 1.5 sec
             setTimeout(() => {
                 window.location.href = "login.html";
             }, 1500);
 
         } else {
-            // ❌ ERROR FROM BACKEND
-            messageEl.innerText = "❌ " + (data.error || "Registration failed");
+            messageEl.innerText = "❌ " + (data.message || data.error);
             messageEl.style.color = "red";
         }
 
     } catch (err) {
-        // ⚠️ SERVER ERROR
+        console.error(err);
         messageEl.innerText = "⚠️ Server error!";
         messageEl.style.color = "orange";
     }
