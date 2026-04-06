@@ -1,24 +1,17 @@
 import mysql.connector
+import os
 
-
-def get_connection():
+def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host="centerbeam.proxy.rlwy.net",   
-            user="root",                       
-            password="gpNYiPlqWaeXxYcsqssdwgSeDPWshwR",  
-            database="railway",               
-            port=55552                         
+            host=os.getenv("DB_HOST"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            database=os.getenv("DB_NAME"),
+            port=int(os.getenv("DB_PORT"))
         )
-
-        print("✅ DB Connected Successfully")
         return conn
 
     except Exception as e:
-        print("❌ DB CONNECTION ERROR:", e)
+        print("DB ERROR:", e)
         return None
-
-
-# Optional (for compatibility)
-def get_db_connection():
-    return get_connection()
