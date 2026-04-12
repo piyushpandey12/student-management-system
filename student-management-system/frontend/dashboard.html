@@ -214,213 +214,257 @@ canvas{
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
+    ? "http://127.0.0.1:5000/api"
     : "https://student-management-backend-if04.onrender.com/api";
 
-// 🔐 LOGIN PROTECTION
-const user = localStorage.getItem("user");
-if (!user) window.location.href = "login.html";
+// 🔐 LOGIN CHECK
+if (!localStorage.getItem("user")) {
+  window.location.href = "login.html";
+}
 
 let students = [];
 let attendanceChart, marksChart;
 
-// ================= LOAD FROM DB =================
-async function loadStudents(){
-    try{
-        const res = await fetch(`${BASE_URL}/students`);
-        const data = await res.json();
+// ================= LOAD =================
+async function loadStudents() {
+  try {
+    const res = await fetch(`${BASE_URL}/students`);
 
-        students = data.map(s => ({
-            name: s.name,
-            roll: s.roll,
-            marks: s.marks || 0,
-            attendance: s.attendance || false
-        }));
-
-        update();
-
-    }catch(err){
-        console.error(err);
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      data = [];
     }
+
+    console.log("API RESPONSE:", data);
+
+    const list = Array.isArray(data)
+      ? data
+      : data.students || data.data || [];
+
+    students = list.map((s) => ({
+      name: s.name,
+      roll: s.rollno || s.roll,
+      marks: s.marks || 0,
+      attendance: s.attendance || false,
+    }));
+
+    update();
+  } catch (err) {
+    console.error("LOAD ERROR:", err);
+  }
 }
 
 // ================= ADD =================
-async function add(){
-    let name = nameEl("name");
-    let roll = nameEl("roll");
-    let marks = Number(nameEl("marksInput"));
+async function add() {
+  let name = nameEl("name");
+  let roll = nameEl("roll");
+  let marks = Number(nameEl("marksInput"));
 
-    if(!name || !roll){
-        alert("Name & Roll required");
-        return;
-    }
+  if (!name || !roll) {
+    alert("Name & Roll required");
+    return;
+  }
 
-    try{
-        await fetch(`${BASE_URL}/students`, {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({name, roll, marks})
-        });
+  try {
+    await fetch(`${BASE_URL}/students`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        rollno: roll,   // ✅ FIXED
+        marks,
+      }),
+    });
 
-        closeModal();
-        loadStudents();
-
-    }catch(err){
-        console.error(err);
-    }
-}
-
-// ================= UPDATE API =================
-async function updateStudent(student){
-    try{
-        await fetch(`${BASE_URL}/students/${student.roll}`,{
-            method:"PUT",
-            headers:{"Content-Type":"application/json"},
-            body: JSON.stringify(student)
-        });
-    }catch(err){
-        console.error(err);
-    }
+    closeModal();
+    loadStudents();
+  } catch (err) {
+    console.error("ADD ERROR:", err);
+  }
 }
 
 // ================= UPDATE =================
-function update(){
-let list = document.getElementById("list");
-let html = "";
+async function updateStudent(student) {
+  try {
+    await fetch(`${BASE_URL}/students/${student.roll}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: student.name,
+        rollno: student.roll,
+        marks: student.marks,
+        attendance: student.attendance,
+      }),
+    });
+  } catch (err) {
+    console.error("UPDATE ERROR:", err);
+  }
+}
 
-let totalMarks = 0, top = 0, present = 0;
+// ================= DELETE =================
+async function del(i) {
+  if (!confirm("Delete student?")) return;
 
-students.forEach((s,i)=>{
+  const student = students[i];
+
+  await fetch(`${BASE_URL}/students/${student.roll}`, {
+    method: "DELETE",
+  });
+
+  loadStudents();
+}
+
+// ================= UPDATE UI =================
+function update() {
+  let list = document.getElementById("list");
+  let html = "";
+
+  let totalMarks = 0,
+    top = 0,
+    present = 0;
+
+  students.forEach((s, i) => {
     totalMarks += s.marks;
-    if(s.marks > top) top = s.marks;
-    if(s.attendance) present++;
+    if (s.marks > top) top = s.marks;
+    if (s.attendance) present++;
 
     html += `
     <tr>
     <td>${s.name}</td>
     <td>${s.roll}</td>
     <td>
-    <input type="checkbox" ${s.attendance?"checked":""}
+    <input type="checkbox" ${s.attendance ? "checked" : ""}
     onchange="toggleAttendance(${i})">
     </td>
     <td>
-    <input type="number" value="${s.marks}" onchange="updateMarks(${i},this.value)">
+    <input type="number" value="${s.marks}"
+    onchange="updateMarks(${i},this.value)">
     </td>
     <td><button onclick="del(${i})">Delete</button></td>
     </tr>`;
-});
+  });
 
-list.innerHTML = html;
+  list.innerHTML = html;
 
-let total = students.length;
-let avg = total ? Math.round(totalMarks/total) : 0;
-let att = total ? Math.round((present/total)*100) : 0;
+  let total = students.length;
+  let avg = total ? Math.round(totalMarks / total) : 0;
+  let att = total ? Math.round((present / total) * 100) : 0;
 
-document.getElementById("total").innerText = total;
-document.getElementById("marks").innerText = avg;
-document.getElementById("top").innerText = top;
-document.getElementById("att").innerText = att + "%";
+  document.getElementById("total").innerText = total;
+  document.getElementById("marks").innerText = avg;
+  document.getElementById("top").innerText = top;
+  document.getElementById("att").innerText = att + "%";
 
-drawCharts(att,avg,top);
-generateInsights(total,att,avg,top);
+  drawCharts(att, avg, top);
+  generateInsights(total, att, avg, top);
 }
 
-// ================= DELETE =================
-async function del(i){
-    if(!confirm("Delete student?")) return;
-
-    const student = students[i];
-
-    await fetch(`${BASE_URL}/students/${student.roll}`, {
-        method: "DELETE"
-    });
-
-    loadStudents();
+// ================= TOGGLE =================
+async function toggleAttendance(i) {
+  students[i].attendance = !students[i].attendance;
+  await updateStudent(students[i]);
+  update();
 }
 
-// ================= FIXED ATTENDANCE =================
-async function toggleAttendance(i){
-    students[i].attendance = !students[i].attendance;
-    await updateStudent(students[i]);   // ✅ save to DB
-    update();
-}
-
-// ================= FIXED MARKS =================
-async function updateMarks(i,val){
-    students[i].marks = Number(val);
-    await updateStudent(students[i]);   // ✅ save to DB
-    update();
+// ================= MARKS =================
+async function updateMarks(i, val) {
+  students[i].marks = Number(val);
+  await updateStudent(students[i]);
+  update();
 }
 
 // ================= CHARTS =================
-function drawCharts(att,avg,top){
+function drawCharts(att, avg, top) {
+  if (attendanceChart) attendanceChart.destroy();
+  if (marksChart) marksChart.destroy();
 
-if(attendanceChart) attendanceChart.destroy();
-if(marksChart) marksChart.destroy();
+  attendanceChart = new Chart(document.getElementById("attendanceChart"), {
+    type: "pie",
+    data: {
+      labels: ["Present", "Absent"],
+      datasets: [
+        {
+          data: [att, 100 - att],
+          backgroundColor: ["#00ff88", "#ff4d4d"],
+        },
+      ],
+    },
+  });
 
-attendanceChart=new Chart(document.getElementById("attendanceChart"),{
-type:"pie",
-data:{
-labels:["Present","Absent"],
-datasets:[{data:[att,100-att],backgroundColor:["#00ff88","#ff4d4d"]}]
-}
-});
-
-marksChart=new Chart(document.getElementById("marksChart"),{
-type:"bar",
-data:{
-labels:["Average","Top"],
-datasets:[{data:[avg,top],backgroundColor:["#4facfe","#00f2fe"]}]
-}
-});
+  marksChart = new Chart(document.getElementById("marksChart"), {
+    type: "bar",
+    data: {
+      labels: ["Average", "Top"],
+      datasets: [
+        {
+          data: [avg, top],
+          backgroundColor: ["#4facfe", "#00f2fe"],
+        },
+      ],
+    },
+  });
 }
 
 // ================= INSIGHTS =================
-function generateInsights(total,att,avg,top){
-let text=`Total Students: ${total}. `;
+function generateInsights(total, att, avg, top) {
+  let text = `Total Students: ${total}. `;
 
-text+=att>75?"Excellent attendance 👍. ":
-att>50?"Average attendance ⚠️. ":"Low attendance ❌. ";
+  text +=
+    att > 75
+      ? "Excellent attendance 👍. "
+      : att > 50
+      ? "Average attendance ⚠️. "
+      : "Low attendance ❌. ";
 
-text+=avg>75?"Great performance 📈. ":
-avg>40?"Moderate ⚠️. ":"Poor ❌. ";
+  text +=
+    avg > 75
+      ? "Great performance 📈. "
+      : avg > 40
+      ? "Moderate ⚠️. "
+      : "Poor ❌. ";
 
-text+=`Top score: ${top}`;
+  text += `Top score: ${top}`;
 
-document.getElementById("insightText").innerText=text;
+  document.getElementById("insightText").innerText = text;
 }
 
 // ================= HELPERS =================
-function search(){
-let val=document.getElementById("search").value.toLowerCase();
-document.querySelectorAll("#list tr").forEach(r=>{
-r.style.display=r.innerText.toLowerCase().includes(val)?"":"none";
-});
+function search() {
+  let val = document.getElementById("search").value.toLowerCase();
+  document.querySelectorAll("#list tr").forEach((r) => {
+    r.style.display = r.innerText.toLowerCase().includes(val)
+      ? ""
+      : "none";
+  });
 }
 
-function show(id){
-document.getElementById("students").style.display=id==="students"?"block":"none";
-document.getElementById("analytics").style.display=id==="analytics"?"block":"none";
+function show(id) {
+  document.getElementById("students").style.display =
+    id === "students" ? "block" : "none";
+  document.getElementById("analytics").style.display =
+    id === "analytics" ? "block" : "none";
 }
 
-function openModal(){
-    document.getElementById("modal").style.display="flex";
+function openModal() {
+  document.getElementById("modal").style.display = "flex";
 }
 
-function closeModal(){
-    document.getElementById("modal").style.display="none";
-    document.getElementById("name").value="";
-    document.getElementById("roll").value="";
-    document.getElementById("marksInput").value="";
+function closeModal() {
+  document.getElementById("modal").style.display = "none";
+  document.getElementById("name").value = "";
+  document.getElementById("roll").value = "";
+  document.getElementById("marksInput").value = "";
 }
 
-function logout(){
-    localStorage.removeItem("user");
-    window.location.href="login.html";
+function logout() {
+  localStorage.removeItem("user");
+  window.location.href = "login.html";
 }
 
-function nameEl(id){
-    return document.getElementById(id).value.trim();
+function nameEl(id) {
+  return document.getElementById(id).value.trim();
 }
 
 // ================= INIT =================

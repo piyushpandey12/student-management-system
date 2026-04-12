@@ -1,8 +1,7 @@
-// ================= BASE URL =================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
+    ? "http://127.0.0.1:5000/api"
     : "https://student-management-backend-if04.onrender.com/api";
 
 // ================= AUTO REDIRECT =================
