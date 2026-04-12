@@ -3,7 +3,7 @@ const BASE_URL =
     window.location.hostname === "127.0.0.1" ||
     window.location.hostname === "localhost"
         ? "http://127.0.0.1:5000"
-        : "https://student-management-system-jg5j.onrender.com";
+        :"https://student-management-backend-if04.onrender.com/api";
 
 
 // ================= COMMON =================
