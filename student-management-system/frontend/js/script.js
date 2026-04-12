@@ -1,8 +1,14 @@
+// ================= BASE URL =================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
     ? "http://127.0.0.1:5000"
     : "https://student-backend.onrender.com";
+
+// ================= AUTO REDIRECT =================
+if (localStorage.getItem("user")) {
+  window.location.href = "dashboard.html";
+}
 const containerEl = document.querySelector(".container");
 const checkboxEl = document.querySelector(
   '.form-container .form-row input[type="checkbox"]',
@@ -859,42 +865,53 @@ submitBtn.addEventListener("click", async (e) => {
   const password = passwordEl.value.trim();
 
   try {
-    // ===== REGISTER =====
-    const registerRes = await fetch(`${BASE_URL}/register`, {
+    // ================= LOGIN =================
+    const loginRes = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ rollno, password }),
     });
 
-    const registerData = await registerRes.json();
+    let loginData = {};
+    try { loginData = await loginRes.json(); } catch {}
 
-    if (!registerRes.ok) {
-      alert(registerData.error || "Registration failed");
+    if (loginRes.ok) {
+      localStorage.setItem("user", rollno);
+      alert("Login Successful ✅");
+      window.location.href = "dashboard.html";
       return;
     }
 
-    // ===== LOGIN =====
-    const loginRes = await fetch(`${BASE_URL}/login`, {
+    // ================= SIGNUP =================
+    const registerRes = await fetch(`${BASE_URL}/auth/register`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ rollno, password }),
     });
 
-    const loginData = await loginRes.json();
+    let registerData = {};
+    try { registerData = await registerRes.json(); } catch {}
 
-    if (loginRes.ok) {
-      localStorage.setItem("user", JSON.stringify(loginData));
+    if (!registerRes.ok) {
+      alert(registerData.error || "Signup failed");
+      return;
+    }
 
-      alert("Login Successful ✅");
+    // ================= LOGIN AGAIN =================
+    const loginAgain = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ rollno, password }),
+    });
 
+    if (loginAgain.ok) {
+      localStorage.setItem("user", rollno);
+      alert("Account created & logged in ✅");
       window.location.href = "dashboard.html";
     } else {
-      alert("Login failed");
+      alert("Login failed after signup");
     }
+
   } catch (err) {
     console.error(err);
     alert("Server error");

@@ -5,22 +5,47 @@ const BASE_URL =
     window.location.hostname === "127.0.0.1" ||
     window.location.hostname === "localhost"
         ? "http://127.0.0.1:5000"
-        : "https://student-management-system-jg5j.onrender.com";
+        : import.meta.env.VITE_API_URL;
 
 
 // =========================================================
-// 📌 COMMON FETCH HANDLER (SAFE)
+// 📌 DEFAULT HEADERS
+// =========================================================
+const defaultHeaders = {
+    "Content-Type": "application/json"
+};
+
+
+// =========================================================
+// ⏱️ FETCH WITH TIMEOUT
+// =========================================================
+function fetchWithTimeout(url, options = {}, timeout = 8000) {
+    return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Request timeout")), timeout)
+        )
+    ]);
+}
+
+
+// =========================================================
+// 📌 COMMON RESPONSE HANDLER
 // =========================================================
 async function handleResponse(res) {
-    if (!res.ok) {
-        try {
-            const error = await res.json();
-            throw new Error(error.error || error.message || "Request failed");
-        } catch {
-            throw new Error("Server error");
-        }
+    let data;
+
+    try {
+        data = await res.json();
+    } catch {
+        throw new Error("Invalid server response");
     }
-    return res.json();
+
+    if (!res.ok) {
+        throw new Error(data.error || data.message || "Request failed");
+    }
+
+    return data;
 }
 
 
@@ -31,9 +56,9 @@ async function handleResponse(res) {
 // LOGIN
 export async function loginUser(data) {
     try {
-        const res = await fetch(`${BASE_URL}/auth/login`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/auth/login`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: defaultHeaders,
             body: JSON.stringify(data)
         });
 
@@ -49,9 +74,9 @@ export async function loginUser(data) {
 // REGISTER
 export async function registerUser(data) {
     try {
-        const res = await fetch(`${BASE_URL}/auth/register`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/auth/register`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: defaultHeaders,
             body: JSON.stringify(data)
         });
 
@@ -71,7 +96,7 @@ export async function registerUser(data) {
 // GET ALL STUDENTS
 export async function getStudents() {
     try {
-        const res = await fetch(`${BASE_URL}/students/`);
+        const res = await fetchWithTimeout(`${BASE_URL}/students/`);
         return await handleResponse(res);
 
     } catch (error) {
@@ -84,9 +109,9 @@ export async function getStudents() {
 // ADD STUDENT
 export async function addStudentAPI(data) {
     try {
-        const res = await fetch(`${BASE_URL}/students/`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/students/`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: defaultHeaders,
             body: JSON.stringify(data)
         });
 
@@ -102,7 +127,7 @@ export async function addStudentAPI(data) {
 // DELETE STUDENT
 export async function deleteStudentAPI(id) {
     try {
-        const res = await fetch(`${BASE_URL}/students/${id}`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/students/${id}`, {
             method: "DELETE"
         });
 
@@ -122,9 +147,9 @@ export async function deleteStudentAPI(id) {
 // MARK ATTENDANCE
 export async function markAttendanceAPI(student_id) {
     try {
-        const res = await fetch(`${BASE_URL}/attendance/`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/attendance/`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: defaultHeaders,
             body: JSON.stringify({
                 student_id,
                 total: 1,
@@ -144,7 +169,7 @@ export async function markAttendanceAPI(student_id) {
 // GET ATTENDANCE STATS
 export async function getAttendanceStats() {
     try {
-        const res = await fetch(`${BASE_URL}/attendance/stats`);
+        const res = await fetchWithTimeout(`${BASE_URL}/attendance/stats`);
         return await handleResponse(res);
 
     } catch (error) {
@@ -161,9 +186,9 @@ export async function getAttendanceStats() {
 // ADD / UPDATE MARKS
 export async function addMarksAPI(student_id, marks) {
     try {
-        const res = await fetch(`${BASE_URL}/marks/`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/marks/`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: defaultHeaders,
             body: JSON.stringify({
                 student_id,
                 marks
@@ -182,7 +207,7 @@ export async function addMarksAPI(student_id, marks) {
 // GET MARKS STATS
 export async function getMarksStats() {
     try {
-        const res = await fetch(`${BASE_URL}/marks/stats`);
+        const res = await fetchWithTimeout(`${BASE_URL}/marks/stats`);
         return await handleResponse(res);
 
     } catch (error) {

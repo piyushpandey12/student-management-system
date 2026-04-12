@@ -212,7 +212,8 @@ canvas{
 <script>
 // ================= BASE URL =================
 const BASE_URL =
-  window.location.hostname === "127.0.0.1"
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
     ? "http://127.0.0.1:5000"
     : "https://student-backend.onrender.com";
 
@@ -245,9 +246,14 @@ async function loadStudents(){
 
 // ================= ADD =================
 async function add(){
-    let name=nameEl("name");
-    let roll=nameEl("roll");
-    let marks=Number(nameEl("marksInput"));
+    let name = nameEl("name");
+    let roll = nameEl("roll");
+    let marks = Number(nameEl("marksInput"));
+
+    if(!name || !roll){
+        alert("Name & Roll required");
+        return;
+    }
 
     try{
         await fetch(`${BASE_URL}/students`, {
@@ -264,41 +270,56 @@ async function add(){
     }
 }
 
+// ================= UPDATE API =================
+async function updateStudent(student){
+    try{
+        await fetch(`${BASE_URL}/students/${student.roll}`,{
+            method:"PUT",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify(student)
+        });
+    }catch(err){
+        console.error(err);
+    }
+}
+
 // ================= UPDATE =================
 function update(){
-let list=document.getElementById("list");
-list.innerHTML="";
+let list = document.getElementById("list");
+let html = "";
 
-let totalMarks=0,top=0,present=0;
+let totalMarks = 0, top = 0, present = 0;
 
 students.forEach((s,i)=>{
-totalMarks+=s.marks;
-if(s.marks>top)top=s.marks;
-if(s.attendance)present++;
+    totalMarks += s.marks;
+    if(s.marks > top) top = s.marks;
+    if(s.attendance) present++;
 
-list.innerHTML+=`
-<tr>
-<td>${s.name}</td>
-<td>${s.roll}</td>
-<td>
-<input type="checkbox" ${s.attendance?"checked":""}
-onchange="toggleAttendance(${i})">
-</td>
-<td>
-<input type="number" value="${s.marks}" onchange="updateMarks(${i},this.value)">
-</td>
-<td><button onclick="del(${i})">Delete</button></td>
-</tr>`;
+    html += `
+    <tr>
+    <td>${s.name}</td>
+    <td>${s.roll}</td>
+    <td>
+    <input type="checkbox" ${s.attendance?"checked":""}
+    onchange="toggleAttendance(${i})">
+    </td>
+    <td>
+    <input type="number" value="${s.marks}" onchange="updateMarks(${i},this.value)">
+    </td>
+    <td><button onclick="del(${i})">Delete</button></td>
+    </tr>`;
 });
 
-let total=students.length;
-let avg=total?Math.round(totalMarks/total):0;
-let att=total?Math.round((present/total)*100):0;
+list.innerHTML = html;
 
-document.getElementById("total").innerText=total;
-document.getElementById("marks").innerText=avg;
-document.getElementById("top").innerText=top;
-document.getElementById("att").innerText=att+"%";
+let total = students.length;
+let avg = total ? Math.round(totalMarks/total) : 0;
+let att = total ? Math.round((present/total)*100) : 0;
+
+document.getElementById("total").innerText = total;
+document.getElementById("marks").innerText = avg;
+document.getElementById("top").innerText = top;
+document.getElementById("att").innerText = att + "%";
 
 drawCharts(att,avg,top);
 generateInsights(total,att,avg,top);
@@ -306,6 +327,8 @@ generateInsights(total,att,avg,top);
 
 // ================= DELETE =================
 async function del(i){
+    if(!confirm("Delete student?")) return;
+
     const student = students[i];
 
     await fetch(`${BASE_URL}/students/${student.roll}`, {
@@ -313,6 +336,20 @@ async function del(i){
     });
 
     loadStudents();
+}
+
+// ================= FIXED ATTENDANCE =================
+async function toggleAttendance(i){
+    students[i].attendance = !students[i].attendance;
+    await updateStudent(students[i]);   // ✅ save to DB
+    update();
+}
+
+// ================= FIXED MARKS =================
+async function updateMarks(i,val){
+    students[i].marks = Number(val);
+    await updateStudent(students[i]);   // ✅ save to DB
+    update();
 }
 
 // ================= CHARTS =================
@@ -354,16 +391,6 @@ document.getElementById("insightText").innerText=text;
 }
 
 // ================= HELPERS =================
-function toggleAttendance(i){
-    students[i].attendance=!students[i].attendance;
-    update();
-}
-
-function updateMarks(i,val){
-    students[i].marks=Number(val);
-    update();
-}
-
 function search(){
 let val=document.getElementById("search").value.toLowerCase();
 document.querySelectorAll("#list tr").forEach(r=>{
@@ -376,15 +403,25 @@ document.getElementById("students").style.display=id==="students"?"block":"none"
 document.getElementById("analytics").style.display=id==="analytics"?"block":"none";
 }
 
-function openModal(){document.getElementById("modal").style.display="flex";}
-function closeModal(){document.getElementById("modal").style.display="none";}
+function openModal(){
+    document.getElementById("modal").style.display="flex";
+}
+
+function closeModal(){
+    document.getElementById("modal").style.display="none";
+    document.getElementById("name").value="";
+    document.getElementById("roll").value="";
+    document.getElementById("marksInput").value="";
+}
 
 function logout(){
     localStorage.removeItem("user");
     window.location.href="login.html";
 }
 
-function nameEl(id){return document.getElementById(id).value.trim();}
+function nameEl(id){
+    return document.getElementById(id).value.trim();
+}
 
 // ================= INIT =================
 loadStudents();

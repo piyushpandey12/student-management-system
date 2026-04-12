@@ -1,28 +1,51 @@
-import mysql.connector
-from backend.config import DB_CONFIG
+import psycopg2
+import os
 
-def get_db_connection():
+# Optional: for local config fallback
+try:
+    from backend.config import DB_CONFIG
+except ImportError:
+    DB_CONFIG = None
+
+
+def get_connection():
     try:
-        conn = mysql.connector.connect(
-            host=DB_CONFIG["host"],
-            user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
-            database=DB_CONFIG["database"],
-            port=DB_CONFIG["port"],
-
-            # 🔥 FINAL FIX FOR RAILWAY
-            ssl_ca="/etc/ssl/certs/ca-certificates.crt",
-            ssl_verify_cert=False,
-            auth_plugin='mysql_native_password'
-        )
-
-        if conn.is_connected():
-            print("✅ DB CONNECTED")
+        # =========================================
+        # 🔥 PRIORITY 1: ENV VARIABLES (PRODUCTION)
+        # =========================================
+        if os.getenv("DB_HOST"):
+            conn = psycopg2.connect(
+                host=os.getenv("DB_HOST"),
+                database=os.getenv("DB_NAME"),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASS"),
+                port=os.getenv("DB_PORT", 5432),
+                sslmode="require"   # ✅ needed for Render / Railway / Supabase
+            )
+            print("✅ PostgreSQL Connected (ENV)")
             return conn
+
+        # =========================================
+        # 🏠 PRIORITY 2: LOCAL CONFIG
+        # =========================================
+        elif DB_CONFIG:
+            conn = psycopg2.connect(
+                host=DB_CONFIG["host"],
+                database=DB_CONFIG["database"],
+                user=DB_CONFIG["user"],
+                password=DB_CONFIG["password"],
+                port=DB_CONFIG.get("port", 5432),
+                sslmode="require"
+            )
+            print("✅ PostgreSQL Connected (CONFIG)")
+            return conn
+
+        # =========================================
+        # ❌ NO CONFIG FOUND
+        # =========================================
         else:
-            print("❌ DB NOT CONNECTED")
-            return None
+            raise Exception("No DB configuration found")
 
     except Exception as e:
-        print("🔥 DB ERROR:", e)
+        print("🔥 DB CONNECTION ERROR:", e)
         return None

@@ -4,7 +4,7 @@ import os
 
 # 🔥 IMPORT BLUEPRINTS
 from routes.auth import auth_bp
-from routes.student import student_bp
+from routes.students import students_bp   # ✅ MAIN API
 from routes.attendance import attendance_bp
 from routes.marks import marks_bp
 
@@ -14,7 +14,7 @@ from routes.marks import marks_bp
 app = Flask(__name__)
 
 # =========================================================
-# 🌐 CORS CONFIG (SAFE + CLEAN)
+# 🌐 CORS CONFIG (ALLOW FRONTEND)
 # =========================================================
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -22,9 +22,15 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # 📌 REGISTER BLUEPRINTS
 # =========================================================
 app.register_blueprint(auth_bp, url_prefix="/auth")
-app.register_blueprint(student_bp, url_prefix="/students")
+
+# ✅ IMPORTANT: already contains /students routes
+app.register_blueprint(students_bp)
+
+# Optional modules (keep if used)
 app.register_blueprint(attendance_bp, url_prefix="/attendance")
 app.register_blueprint(marks_bp, url_prefix="/marks")
+
+# ❌ DO NOT USE OLD student_bp (causes conflicts)
 
 # =========================================================
 # 🏠 HOME ROUTE
@@ -37,7 +43,7 @@ def home():
     })
 
 # =========================================================
-# 🔍 DEBUG ROUTES
+# 🔍 DEBUG ROUTES (VERY USEFUL)
 # =========================================================
 @app.route("/routes")
 def routes():
@@ -46,18 +52,21 @@ def routes():
     })
 
 # =========================================================
-# 🧪 DB TEST ROUTE (TEMPORARY BUT USEFUL)
+# 🧪 DATABASE TEST
 # =========================================================
-from utils.db import get_db_connection
+from utils.db import get_connection
 
 @app.route("/test-db")
 def test_db():
     try:
-        from utils.db import get_db_connection
-        db = get_db_connection()
-        return {"status": "DB connected ✅"}
+        db = get_connection()
+        if db:
+            db.close()
+            return {"status": "DB connected ✅"}
+        else:
+            return {"status": "DB connection failed ❌"}
     except Exception as e:
-        return {"error": str(e)}   # 🔥 SHOW REAL ERROR
+        return {"error": str(e)}
 
 # =========================================================
 # ❌ ERROR HANDLERS
@@ -71,8 +80,10 @@ def server_error(e):
     return jsonify({"error": "Internal server error"}), 500
 
 # =========================================================
-# 🚀 RUN SERVER (LOCAL ONLY)
+# 🚀 RUN SERVER
 # =========================================================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    
+    # Debug OFF for production safety
+    app.run(host="0.0.0.0", port=port)

@@ -1,23 +1,40 @@
 # =========================================================
-# 📌 DATABASE CONFIG (UNIFIED - PRODUCTION READY)
+# 📌 DATABASE CONFIG (POSTGRESQL READY)
 # =========================================================
 import os
+from urllib.parse import urlparse
 
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST") or os.getenv("MYSQLHOST") or os.getenv("MYSQL_HOST"),
-    "user": os.getenv("DB_USER") or os.getenv("MYSQLUSER") or os.getenv("MYSQL_USER"),
-    "password": os.getenv("DB_PASSWORD") or os.getenv("MYSQLPASSWORD") or os.getenv("MYSQL_PASSWORD"),
-    "database": os.getenv("DB_NAME") or os.getenv("MYSQLDATABASE") or os.getenv("MYSQL_DB"),
-    "port": int(os.getenv("DB_PORT") or os.getenv("MYSQLPORT") or os.getenv("MYSQL_PORT") or 3306)
-}
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    # ✅ Parse Render PostgreSQL URL
+    url = urlparse(DATABASE_URL)
+
+    DB_CONFIG = {
+        "host": url.hostname,
+        "database": url.path[1:],   # remove leading '/'
+        "user": url.username,
+        "password": url.password,
+        "port": url.port or 5432
+    }
+
+else:
+    # ✅ Fallback (manual env variables)
+    DB_CONFIG = {
+        "host": os.getenv("DB_HOST"),
+        "database": os.getenv("DB_NAME"),
+        "user": os.getenv("DB_USER"),
+        "password": os.getenv("DB_PASSWORD"),
+        "port": int(os.getenv("DB_PORT", 5432))   # ✅ PostgreSQL default
+    }
 
 
 # =========================================================
-# 📌 VALIDATION (SAFE)
+# 📌 VALIDATION
 # =========================================================
 missing = [key for key, value in DB_CONFIG.items() if not value]
 
 if missing:
-    print(f"⚠️ WARNING: Missing DB environment variables: {missing}")
+    print(f"⚠️ Missing DB config: {missing}")
 else:
-    print("✅ DB CONFIG LOADED SUCCESSFULLY")
+    print("✅ PostgreSQL config loaded successfully")

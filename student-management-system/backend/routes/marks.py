@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_db_connection
+from utils.db import get_connection   # ✅ updated
 
 marks_bp = Blueprint('marks', __name__)
 
@@ -21,14 +21,16 @@ def add_or_update_marks():
     cursor = None
 
     try:
-        db = get_db_connection()   # ✅ FIXED
+        db = get_connection()
         cursor = db.cursor()
 
+        # ✅ PostgreSQL UPSERT
         cursor.execute("""
             INSERT INTO marks (student_id, subject, marks)
             VALUES (%s, 'General', %s)
-            ON DUPLICATE KEY UPDATE
-                marks = VALUES(marks)
+            ON CONFLICT (student_id, subject)
+            DO UPDATE SET
+                marks = EXCLUDED.marks
         """, (student_id, marks))
 
         db.commit()
@@ -39,6 +41,8 @@ def add_or_update_marks():
         })
 
     except Exception as e:
+        if db:
+            db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
@@ -57,13 +61,14 @@ def get_marks():
     cursor = None
 
     try:
-        db = get_db_connection()   # ✅ FIXED
+        db = get_connection()
         cursor = db.cursor()
 
+        # ✅ IFNULL → COALESCE
         cursor.execute("""
             SELECT 
-                IFNULL(AVG(marks), 0),
-                IFNULL(MAX(marks), 0)
+                COALESCE(AVG(marks), 0),
+                COALESCE(MAX(marks), 0)
             FROM marks
         """)
 
@@ -96,26 +101,31 @@ def marks_stats():
     cursor = None
 
     try:
-        db = get_db_connection()   # ✅ FIXED
-        cursor = db.cursor(dictionary=True)
+        db = get_connection()
+        cursor = db.cursor()
 
         cursor.execute("""
             SELECT 
-                IFNULL(AVG(marks), 0) AS avg_marks,
-                IFNULL(MAX(marks), 0) AS top_score,
-                IFNULL(MIN(marks), 0) AS lowest_score,
-                COUNT(*) AS total_entries
+                COALESCE(AVG(marks), 0),
+                COALESCE(MAX(marks), 0),
+                COALESCE(MIN(marks), 0),
+                COUNT(*)
             FROM marks
         """)
 
         result = cursor.fetchone()
 
+        avg_marks = float(result[0])
+        top_score = result[1]
+        lowest_score = result[2]
+        total_entries = result[3]
+
         return jsonify({
             "status": "success",
-            "avg_marks": round(result["avg_marks"], 2),
-            "top_score": result["top_score"],
-            "lowest_score": result["lowest_score"],
-            "total_entries": result["total_entries"]
+            "avg_marks": round(avg_marks, 2),
+            "top_score": top_score,
+            "lowest_score": lowest_score,
+            "total_entries": total_entries
         })
 
     except Exception as e:

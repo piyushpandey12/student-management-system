@@ -2,60 +2,52 @@
 -- 📌 USERS TABLE
 -- =========================================
 CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     rollno VARCHAR(20) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
+);
 
 -- =========================================
 -- 📌 STUDENTS TABLE
 -- =========================================
 CREATE TABLE IF NOT EXISTS students (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     rollno VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
+);
 
 -- =========================================
 -- 📌 ATTENDANCE TABLE
 -- =========================================
 CREATE TABLE IF NOT EXISTS attendance (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    student_id INT NOT NULL UNIQUE,
+    student_id INT PRIMARY KEY,
     total_classes INT DEFAULT 0,
     attended_classes INT DEFAULT 0,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
+);
 
 -- =========================================
 -- 📌 MARKS TABLE
 -- =========================================
 CREATE TABLE IF NOT EXISTS marks (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    student_id INT NOT NULL UNIQUE,
+    student_id INT PRIMARY KEY,
     subject VARCHAR(50) DEFAULT 'General',
     marks INT DEFAULT 0,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-
--- =========================================
--- 📌 INDEXES (Performance Boost 🚀)
--- =========================================
-CREATE INDEX idx_students_rollno ON students(rollno);
-CREATE INDEX idx_users_rollno ON users(rollno);
-
+);
 
 -- =========================================
--- 📌 VIEW (IMPORTANT FOR FRONTEND 🔥)
+-- 📌 INDEXES
 -- =========================================
--- This combines all data for dashboard
+CREATE INDEX IF NOT EXISTS idx_students_rollno ON students(rollno);
+CREATE INDEX IF NOT EXISTS idx_users_rollno ON users(rollno);
+
+-- =========================================
+-- 📌 VIEW (FOR FRONTEND)
+-- =========================================
 CREATE OR REPLACE VIEW student_dashboard AS
 SELECT 
     s.id,
@@ -70,82 +62,47 @@ FROM students s
 LEFT JOIN marks m ON s.id = m.student_id
 LEFT JOIN attendance a ON s.id = a.student_id;
 
-
 -- =========================================
--- 📌 STORED PROCEDURE: ADD STUDENT
+-- 📌 FUNCTIONS (POSTGRESQL)
 -- =========================================
-DELIMITER $$
 
-CREATE PROCEDURE add_student(IN p_roll VARCHAR(20), IN p_name VARCHAR(100))
+-- ADD STUDENT
+CREATE OR REPLACE FUNCTION add_student(p_roll VARCHAR, p_name VARCHAR)
+RETURNS VOID AS $$
 BEGIN
     INSERT INTO students (rollno, name)
     VALUES (p_roll, p_name);
-END$$
+END;
+$$ LANGUAGE plpgsql;
 
-DELIMITER ;
-
-
--- =========================================
--- 📌 STORED PROCEDURE: MARK ATTENDANCE
--- =========================================
-DELIMITER $$
-
-CREATE PROCEDURE mark_attendance(IN p_student_id INT)
+-- MARK ATTENDANCE
+CREATE OR REPLACE FUNCTION mark_attendance(p_student_id INT)
+RETURNS VOID AS $$
 BEGIN
     INSERT INTO attendance (student_id, total_classes, attended_classes)
     VALUES (p_student_id, 1, 1)
-    ON DUPLICATE KEY UPDATE
-        total_classes = total_classes + 1,
-        attended_classes = attended_classes + 1;
-END$$
+    ON CONFLICT (student_id)
+    DO UPDATE SET
+        total_classes = attendance.total_classes + 1,
+        attended_classes = attendance.attended_classes + 1;
+END;
+$$ LANGUAGE plpgsql;
 
-DELIMITER ;
-
-
--- =========================================
--- 📌 STORED PROCEDURE: UPDATE MARKS
--- =========================================
-DELIMITER $$
-
-CREATE PROCEDURE update_marks(IN p_student_id INT, IN p_marks INT)
+-- UPDATE MARKS
+CREATE OR REPLACE FUNCTION update_marks(p_student_id INT, p_marks INT)
+RETURNS VOID AS $$
 BEGIN
     INSERT INTO marks (student_id, subject, marks)
     VALUES (p_student_id, 'General', p_marks)
-    ON DUPLICATE KEY UPDATE
-        marks = p_marks;
-END$$
+    ON CONFLICT (student_id)
+    DO UPDATE SET marks = EXCLUDED.marks;
+END;
+$$ LANGUAGE plpgsql;
 
-DELIMITER ;
-
-
--- =========================================
--- 📌 STORED PROCEDURE: DELETE STUDENT
--- =========================================
-DELIMITER $$
-
-CREATE PROCEDURE delete_student(IN p_id INT)
+-- DELETE STUDENT
+CREATE OR REPLACE FUNCTION delete_student(p_id INT)
+RETURNS VOID AS $$
 BEGIN
     DELETE FROM students WHERE id = p_id;
-END$$
-
-DELIMITER ;
-
-
--- =========================================
--- 📌 STATS QUERIES (FOR DASHBOARD)
--- =========================================
-
--- Attendance %
-SELECT 
-    IFNULL(
-        ROUND(SUM(attended_classes) / SUM(total_classes) * 100),
-        0
-    ) AS attendance_percentage
-FROM attendance;
-
-
--- Marks Stats
-SELECT 
-    IFNULL(AVG(marks), 0) AS avg_marks,
-    IFNULL(MAX(marks), 0) AS top_score
-FROM marks;
+END;
+$$ LANGUAGE plpgsql;

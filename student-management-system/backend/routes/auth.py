@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
-from utils.db import get_db_connection
-from utils.auth_utils import hash_password, verify_password   # ✅ use your utils
+from utils.db import get_connection   # ✅ updated
+from utils.auth_utils import hash_password, verify_password
 
 auth_bp = Blueprint('auth', __name__)
+
 
 # =========================================================
 # 📌 REGISTER
@@ -14,7 +15,6 @@ def register():
     rollno = data.get("rollno")
     password = data.get("password")
 
-    # 🔍 VALIDATION
     if not rollno or not password:
         return jsonify({
             "status": "error",
@@ -25,7 +25,7 @@ def register():
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
 
         if db is None:
             return jsonify({
@@ -33,19 +33,17 @@ def register():
                 "message": "Database connection failed"
             }), 500
 
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor()
 
         # 🔍 CHECK IF USER EXISTS
-        cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
-        existing_user = cursor.fetchone()
-
-        if existing_user:
+        cursor.execute("SELECT 1 FROM users WHERE rollno=%s", (rollno,))
+        if cursor.fetchone():
             return jsonify({
                 "status": "error",
                 "message": "User already exists"
             }), 409
 
-        # 🔐 HASH PASSWORD (USING UTILS ✅)
+        # 🔐 HASH PASSWORD
         hashed_password = hash_password(password)
 
         # ✅ INSERT USER
@@ -68,7 +66,10 @@ def register():
         }), 201
 
     except Exception as e:
+        if db:
+            db.rollback()   # ✅ important for PostgreSQL
         print("REGISTER ERROR:", e)
+
         return jsonify({
             "status": "error",
             "message": str(e)
@@ -101,7 +102,7 @@ def login():
     cursor = None
 
     try:
-        db = get_db_connection()
+        db = get_connection()
 
         if db is None:
             return jsonify({
@@ -109,28 +110,35 @@ def login():
                 "message": "Database connection failed"
             }), 500
 
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor()
 
-        cursor.execute("SELECT * FROM users WHERE rollno=%s", (rollno,))
+        cursor.execute(
+            "SELECT rollno, password FROM users WHERE rollno=%s",
+            (rollno,)
+        )
+
         user = cursor.fetchone()
 
-        # 🔐 VERIFY PASSWORD (USING UTILS ✅)
-        if user and verify_password(user["password"], password):
-            return jsonify({
-                "status": "success",
-                "student": {
-                    "rollno": rollno
-                }
-            }), 200
+        # user = (rollno, password)
+        if user:
+            db_rollno, db_password = user
 
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid credentials"
-            }), 401
+            if verify_password(db_password, password):
+                return jsonify({
+                    "status": "success",
+                    "student": {
+                        "rollno": db_rollno
+                    }
+                }), 200
+
+        return jsonify({
+            "status": "error",
+            "message": "Invalid credentials"
+        }), 401
 
     except Exception as e:
         print("LOGIN ERROR:", e)
+
         return jsonify({
             "status": "error",
             "message": str(e)

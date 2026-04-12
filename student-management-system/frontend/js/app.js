@@ -8,11 +8,19 @@ const BASE_URL =
 
 // ================= COMMON =================
 async function handleResponse(res) {
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Request failed");
+    let data;
+
+    try {
+        data = await res.json();
+    } catch {
+        throw new Error("Invalid server response");
     }
-    return res.json();
+
+    if (!res.ok) {
+        throw new Error(data.error || data.message || "Request failed");
+    }
+
+    return data;
 }
 
 
@@ -44,15 +52,15 @@ async function login(event) {
             alert("Invalid credentials");
         }
 
-    } catch {
-        alert("Server error");
+    } catch (err) {
+        alert(err.message || "Server error");
     }
 }
 
 
 // ================= GET STUDENTS =================
 async function getStudents() {
-    const res = await fetch(`${BASE_URL}/students`);
+    const res = await fetch(`${BASE_URL}/students/`); // ✅ fixed slash
     return handleResponse(res);
 }
 
@@ -67,62 +75,80 @@ async function addStudent() {
         return;
     }
 
-    await fetch(`${BASE_URL}/students`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, roll })
-    });
+    try {
+        await fetch(`${BASE_URL}/students/`, { // ✅ fixed slash
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name,
+                rollno: roll   // ✅ FIXED (backend expects rollno)
+            })
+        });
 
-    clearInputs();
-    loadStudents();
-    loadDashboardStats();
+        clearInputs();
+        loadStudents();
+        loadDashboardStats();
+
+    } catch (err) {
+        alert("Failed to add student");
+    }
 }
 
 
 // ================= LOAD STUDENTS =================
 async function loadStudents() {
-    const data = await getStudents();
-    const list = document.getElementById("list");
+    try {
+        const data = await getStudents();
+        const list = document.getElementById("list");
 
-    if (!list) return;
+        if (!list) return;
 
-    list.innerHTML = "";
+        list.innerHTML = "";
 
-    data.forEach((s) => {
-        const row = document.createElement("tr");
+        data.forEach((s) => {
+            const row = document.createElement("tr");
 
-        row.innerHTML = `
-            <td>${s.name}</td>
-            <td>${s.roll}</td>
+            row.innerHTML = `
+                <td>${s.name}</td>
+                <td>${s.roll}</td>
 
-            <td>
-                <input type="checkbox"
-                onchange="markAttendance(${s.id})">
-            </td>
+                <td>
+                    <input type="checkbox"
+                    onchange="markAttendance(${s.id})">
+                </td>
 
-            <td>
-                <input type="number" value="${s.marks || 0}"
-                onchange="updateMarks(${s.id}, this.value)">
-            </td>
+                <td>
+                    <input type="number" value="${s.marks || 0}"
+                    onchange="updateMarks(${s.id}, this.value)">
+                </td>
 
-            <td>
-                <button onclick="deleteStudent(${s.id})">Delete</button>
-            </td>
-        `;
+                <td>
+                    <button onclick="deleteStudent(${s.id})">Delete</button>
+                </td>
+            `;
 
-        list.appendChild(row);
-    });
+            list.appendChild(row);
+        });
+
+    } catch (err) {
+        console.error("Load Students Error:", err.message);
+    }
 }
 
 
 // ================= DELETE =================
 async function deleteStudent(id) {
-    await fetch(`${BASE_URL}/students/${id}`, {
-        method: "DELETE"
-    });
+    try {
+        await fetch(`${BASE_URL}/students/${id}`, {
+            method: "DELETE"
+        });
 
-    loadStudents();
-    loadDashboardStats();
+        loadStudents();
+        loadDashboardStats();
+
+    } catch (err) {
+        alert("Delete failed");
+    }
 }
 
 
@@ -132,11 +158,15 @@ async function loadDashboardStats() {
         const students = await getStudents();
         document.getElementById("total").innerText = students.length;
 
-        const att = await fetch(`${BASE_URL}/attendance/stats`).then(r => r.json());
+        const att = await fetch(`${BASE_URL}/attendance/stats`)
+            .then(handleResponse);
+
         document.getElementById("att").innerText =
             (att.attendance_percentage || 0) + "%";
 
-        const marks = await fetch(`${BASE_URL}/marks/stats`).then(r => r.json());
+        const marks = await fetch(`${BASE_URL}/marks/stats`)
+            .then(handleResponse);
+
         document.getElementById("marks").innerText = marks.avg_marks || 0;
         document.getElementById("top").innerText = marks.top_score || 0;
 
@@ -148,33 +178,42 @@ async function loadDashboardStats() {
 
 // ================= ATTENDANCE =================
 async function markAttendance(id) {
-    await fetch(`${BASE_URL}/attendance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            student_id: id,
-            total: 1,
-            attended: 1
-        })
-    });
+    try {
+        await fetch(`${BASE_URL}/attendance/`, { // ✅ fixed slash
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                student_id: id,
+                total: 1,
+                attended: 1
+            })
+        });
 
-    loadDashboardStats();
+        loadDashboardStats();
+
+    } catch (err) {
+        console.error("Attendance Error:", err);
+    }
 }
 
 
 // ================= MARKS =================
 async function updateMarks(id, marks) {
-    await fetch(`${BASE_URL}/marks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            student_id: id,
-            subject: "General",
-            marks: Number(marks)
-        })
-    });
+    try {
+        await fetch(`${BASE_URL}/marks/`, { // ✅ fixed slash
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                student_id: id,
+                marks: Number(marks)
+            })
+        });
 
-    loadDashboardStats();
+        loadDashboardStats();
+
+    } catch (err) {
+        console.error("Marks Error:", err);
+    }
 }
 
 

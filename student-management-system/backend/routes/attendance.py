@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_db_connection
+from utils.db import get_connection  # ✅ renamed for consistency
 
 attendance_bp = Blueprint('attendance', __name__)
 
@@ -22,15 +22,17 @@ def mark_attendance():
     cursor = None
 
     try:
-        db = get_db_connection()   # ✅ FIXED
+        db = get_connection()
         cursor = db.cursor()
 
+        # ✅ PostgreSQL UPSERT (IMPORTANT CHANGE)
         cursor.execute("""
             INSERT INTO attendance (student_id, total_classes, attended_classes)
             VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                total_classes = total_classes + VALUES(total_classes),
-                attended_classes = attended_classes + VALUES(attended_classes)
+            ON CONFLICT (student_id)
+            DO UPDATE SET
+                total_classes = attendance.total_classes + EXCLUDED.total_classes,
+                attended_classes = attendance.attended_classes + EXCLUDED.attended_classes
         """, (student_id, total, attended))
 
         db.commit()
@@ -59,13 +61,14 @@ def get_attendance():
     cursor = None
 
     try:
-        db = get_db_connection()   # ✅ FIXED
+        db = get_connection()
         cursor = db.cursor()
 
+        # ✅ IFNULL → COALESCE
         cursor.execute("""
             SELECT 
-                IFNULL(
-                    ROUND(SUM(attended_classes) / SUM(total_classes) * 100, 2),
+                COALESCE(
+                    ROUND(SUM(attended_classes) * 100.0 / NULLIF(SUM(total_classes), 0), 2),
                     0
                 )
             FROM attendance
@@ -97,20 +100,22 @@ def attendance_stats():
     cursor = None
 
     try:
-        db = get_db_connection()   # ✅ FIXED
-        cursor = db.cursor(dictionary=True)
+        db = get_connection()
 
+        # ✅ PostgreSQL dict cursor
+        cursor = db.cursor()
+        
         cursor.execute("""
             SELECT 
-                IFNULL(SUM(total_classes), 0) AS total_classes,
-                IFNULL(SUM(attended_classes), 0) AS attended_classes
+                COALESCE(SUM(total_classes), 0),
+                COALESCE(SUM(attended_classes), 0)
             FROM attendance
         """)
 
         result = cursor.fetchone()
 
-        total = result["total_classes"]
-        attended = result["attended_classes"]
+        total = result[0]
+        attended = result[1]
 
         percentage = round((attended / total) * 100, 2) if total else 0
 
