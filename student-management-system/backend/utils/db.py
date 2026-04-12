@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg
 import os
 
 # Optional local config
@@ -14,7 +14,7 @@ def get_connection():
         # 🔥 PRIORITY 1: RAILWAY / POSTGRES ENV
         # =========================================
         if os.getenv("PGHOST"):
-            conn = psycopg2.connect(
+            conn = psycopg.connect(
                 host=os.getenv("PGHOST"),
                 database=os.getenv("PGDATABASE"),
                 user=os.getenv("PGUSER"),
