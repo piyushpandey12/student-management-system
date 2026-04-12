@@ -4,7 +4,7 @@ import os
 
 # 🔥 IMPORT BLUEPRINTS
 from routes.auth import auth_bp
-from routes.students import students_bp   # ✅ MAIN API
+from routes.students import students_bp   # ✅ USE THIS (FINAL)
 from routes.attendance import attendance_bp
 from routes.marks import marks_bp
 
@@ -14,7 +14,7 @@ from routes.marks import marks_bp
 app = Flask(__name__)
 
 # =========================================================
-# 🌐 CORS CONFIG (ALLOW FRONTEND)
+# 🌐 CORS CONFIG
 # =========================================================
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -23,14 +23,15 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # =========================================================
 app.register_blueprint(auth_bp, url_prefix="/auth")
 
-# ✅ IMPORTANT: already contains /students routes
+# ✅ IMPORTANT: students_bp already has /students inside it
 app.register_blueprint(students_bp)
 
-# Optional modules (keep if used)
+# (Optional - keep if used elsewhere)
 app.register_blueprint(attendance_bp, url_prefix="/attendance")
 app.register_blueprint(marks_bp, url_prefix="/marks")
 
-# ❌ DO NOT USE OLD student_bp (causes conflicts)
+# ❌ REMOVE THIS (CAUSE OF BUGS)
+# app.register_blueprint(student_bp, url_prefix="/students")
 
 # =========================================================
 # 🏠 HOME ROUTE
@@ -43,7 +44,7 @@ def home():
     })
 
 # =========================================================
-# 🔍 DEBUG ROUTES (VERY USEFUL)
+# 🔍 DEBUG ROUTES
 # =========================================================
 @app.route("/routes")
 def routes():
@@ -52,7 +53,7 @@ def routes():
     })
 
 # =========================================================
-# 🧪 DATABASE TEST
+# 🧪 DB TEST ROUTE
 # =========================================================
 from utils.db import get_connection
 
@@ -61,7 +62,6 @@ def test_db():
     try:
         db = get_connection()
         if db:
-            db.close()
             return {"status": "DB connected ✅"}
         else:
             return {"status": "DB connection failed ❌"}
@@ -84,6 +84,4 @@ def server_error(e):
 # =========================================================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    
-    # Debug OFF for production safety
     app.run(host="0.0.0.0", port=port)
