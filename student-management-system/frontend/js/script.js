@@ -18,10 +18,7 @@ const rollnoEl = document.querySelector(
 const passwordEl = document.querySelector(
   '.form-container .form-row input[name="password"]',
 );
-const submitBtn = document.querySelector(
-  '.form-container .form-row input[type="submit"]',
-);
-
+const submitBtn = document.getElementById("submitBtn");
 const sprayer = document.querySelector(".sprayer");
 const sprayHandContainer = document.querySelector(".spray-hand-container");
 const sprayLines = Array.from(document.querySelectorAll(".spray-line"));
@@ -860,50 +857,54 @@ function checkForm() {
 submitBtn.addEventListener("click", async (e) => {
   e.preventDefault();
 
-  const rollno = rollnoEl.value.trim();
-  const password = passwordEl.value.trim();
+  const rollno = document.getElementById("rollno").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  if (!rollno || !password) {
+    alert("All fields required");
+    return;
+  }
 
   try {
     // ================= LOGIN =================
-    const loginRes = await fetch(`${BASE_URL}/auth/login`, {
+    let res = await fetch(`${BASE_URL}/login`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ rollno, password }),
+      body: JSON.stringify({ rollno, password })
     });
 
-    let loginData = {};
-    try { loginData = await loginRes.json(); } catch {}
+    let data = {};
+    try { data = await res.json(); } catch {}
 
-    if (loginRes.ok) {
+    if (res.ok) {
       localStorage.setItem("user", rollno);
       alert("Login Successful ✅");
       window.location.href = "dashboard.html";
       return;
     }
 
-    // ================= SIGNUP =================
-    const registerRes = await fetch(`${BASE_URL}/auth/register`, {
+    // ================= REGISTER =================
+    res = await fetch(`${BASE_URL}/register`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ rollno, password }),
+      body: JSON.stringify({ rollno, password })
     });
 
-    let registerData = {};
-    try { registerData = await registerRes.json(); } catch {}
+    try { data = await res.json(); } catch {}
 
-    if (!registerRes.ok) {
-      alert(registerData.error || "Signup failed");
+    if (!res.ok) {
+      alert(data.error || "Signup failed");
       return;
     }
 
     // ================= LOGIN AGAIN =================
-    const loginAgain = await fetch(`${BASE_URL}/auth/login`, {
+    res = await fetch(`${BASE_URL}/login`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ rollno, password }),
+      body: JSON.stringify({ rollno, password })
     });
 
-    if (loginAgain.ok) {
+    if (res.ok) {
       localStorage.setItem("user", rollno);
       alert("Account created & logged in ✅");
       window.location.href = "dashboard.html";
@@ -913,6 +914,6 @@ submitBtn.addEventListener("click", async (e) => {
 
   } catch (err) {
     console.error(err);
-    alert("Server error");
+    alert("⚠️ Backend not reachable!");
   }
 });

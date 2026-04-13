@@ -102,72 +102,72 @@ button:hover {
 </div>
 
 <script>
+// ================= BASE URL =================
 const BASE_URL =
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "localhost"
-        ? "http://127.0.0.1:5000"
-        : "https://student-management-backend-if04.onrender.com/api";
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-backend-if04.onrender.com/api";
 
-// auto redirect
+// ================= AUTO REDIRECT =================
 if (localStorage.getItem("user")) {
-    window.location.href = "dashboard.html";
+  window.location.href = "dashboard.html";
 }
 
+// ================= SIGNUP =================
 document.getElementById("signupForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    const rollno = e.target.rollno.value.trim();
-    const password = e.target.password.value.trim();
-    const messageEl = document.getElementById("message");
+  const rollno = e.target.rollno.value.trim();
+  const password = e.target.password.value.trim();
+  const messageEl = document.getElementById("message");
 
-    if (!rollno || !password) {
-        messageEl.innerText = "All fields are required!";
-        messageEl.style.color = "yellow";
-        return;
-    }
+  if (!rollno || !password) {
+    messageEl.innerText = "All fields are required!";
+    messageEl.style.color = "yellow";
+    return;
+  }
 
+  try {
+    messageEl.innerText = "⏳ Registering...";
+    messageEl.style.color = "white";
+
+    // ✅ FIXED URL
+    const res = await fetch(`${BASE_URL}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rollno, password }),
+    });
+
+    let data;
     try {
-        messageEl.innerText = "⏳ Registering...";
-        messageEl.style.color = "white";
-
-        const res = await fetch(`${BASE_URL}/auth/register`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ rollno, password })
-        });
-
-        // 🔥 FIX: safe JSON parsing
-        let data;
-        try {
-            data = await res.json();
-        } catch {
-            data = {};
-        }
-
-        console.log("STATUS:", res.status);
-        console.log("RESPONSE:", data);
-
-        if (res.ok) {
-            messageEl.innerText = "✅ Registered successfully!";
-            messageEl.style.color = "lightgreen";
-
-            setTimeout(() => {
-                window.location.href = "login.html";
-            }, 1500);
-
-        } else {
-            messageEl.innerText =
-                "❌ " + (data.error || data.message || `Error ${res.status}`);
-            messageEl.style.color = "red";
-        }
-
-    } catch (err) {
-        console.error("NETWORK ERROR:", err);
-        messageEl.innerText = "⚠️ Backend not reachable!";
-        messageEl.style.color = "orange";
+      data = await res.json();
+    } catch {
+      data = {};
     }
+
+    console.log("STATUS:", res.status);
+    console.log("RESPONSE:", data);
+
+    if (res.ok) {
+      messageEl.innerText = "✅ Registered successfully!";
+      messageEl.style.color = "lightgreen";
+
+      setTimeout(() => {
+        window.location.href = "login.html";
+      }, 1500);
+    } else {
+      messageEl.innerText =
+        "❌ " + (data.error || data.message || `Error ${res.status}`);
+      messageEl.style.color = "red";
+    }
+
+  } catch (err) {
+    console.error("NETWORK ERROR:", err);
+    messageEl.innerText = "⚠️ Backend not reachable!";
+    messageEl.style.color = "orange";
+  }
 });
 </script>
-
 </body>
 </html>
