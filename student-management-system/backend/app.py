@@ -11,16 +11,28 @@ from routes.marks import marks_bp
 # ================= CREATE APP =================
 app = Flask(__name__)
 
-# ================= CORS =================
-CORS(app, resources={r"/*": {"origins": "*"}})
+# ================= CORS (FINAL FIX) =================
+CORS(
+    app,
+    resources={r"/api/*": {"origins": "*"}},  # allow all for API
+    supports_credentials=True
+)
+
+# 🔥 HANDLE PREFLIGHT (VERY IMPORTANT)
+@app.after_request
+def after_request(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+    return response
+
 
 # ================= REGISTER BLUEPRINTS =================
-# ✅ All routes grouped under /api
-
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(students_bp, url_prefix="/api/students")
 app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
 app.register_blueprint(marks_bp, url_prefix="/api/marks")
+
 
 # ================= HOME =================
 @app.route("/")
@@ -30,10 +42,12 @@ def home():
         "message": "Backend running 🚀"
     })
 
+
 # ================= TEST API =================
 @app.route("/api/test")
 def test():
     return {"status": "API working ✅"}
+
 
 # ================= DEBUG ROUTES =================
 @app.route("/routes")
@@ -41,6 +55,7 @@ def routes():
     return jsonify({
         "routes": [str(rule) for rule in app.url_map.iter_rules()]
     })
+
 
 # ================= DATABASE TEST =================
 from utils.db import get_connection
@@ -57,6 +72,7 @@ def test_db():
     except Exception as e:
         return {"error": str(e)}
 
+
 # ================= ERROR HANDLERS =================
 @app.errorhandler(404)
 def not_found(e):
@@ -65,6 +81,7 @@ def not_found(e):
 @app.errorhandler(500)
 def server_error(e):
     return jsonify({"error": "Internal server error"}), 500
+
 
 # ================= RUN =================
 if __name__ == "__main__":
