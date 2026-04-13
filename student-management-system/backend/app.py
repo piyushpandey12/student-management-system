@@ -12,11 +12,11 @@ from routes.marks import marks_bp
 app = Flask(__name__)
 
 # ================= CORS (FINAL FIX) =================
-CORS(
-    app,
-    resources={r"/api/*": {"origins": "*"}},  # allow all for API
-    supports_credentials=True
-)
+CORS(app, origins=[
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "https://student-management-system-hxsr-izbo351q8.vercel.app"
+], supports_credentials=True)
 
 # 🔥 HANDLE PREFLIGHT (VERY IMPORTANT)
 @app.after_request
