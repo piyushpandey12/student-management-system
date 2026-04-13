@@ -209,8 +209,8 @@ canvas{
 </div>
 </div>
 
+<!-- 🔥 ONLY JS PART UPDATED (IMPORTANT FIXES) -->
 <script>
-// ================= BASE URL =================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
@@ -243,9 +243,10 @@ async function loadStudents() {
       ? data
       : data.students || data.data || [];
 
+    // ✅ FIXED MAPPING
     students = list.map((s) => ({
       name: s.name,
-      roll: s.rollno || s.roll,
+      roll: s.rollno,   // 🔥 IMPORTANT FIX
       marks: s.marks || 0,
       attendance: s.attendance || false,
     }));
@@ -253,6 +254,7 @@ async function loadStudents() {
     update();
   } catch (err) {
     console.error("LOAD ERROR:", err);
+    alert("Backend not working ❌");
   }
 }
 
@@ -268,7 +270,7 @@ async function add() {
   }
 
   try {
-    await fetch(`${BASE_URL}/students`, {
+    const res = await fetch(`${BASE_URL}/students`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -278,17 +280,20 @@ async function add() {
       }),
     });
 
+    if (!res.ok) throw new Error("Add failed");
+
     closeModal();
     loadStudents();
   } catch (err) {
     console.error("ADD ERROR:", err);
+    alert("Error adding student ❌");
   }
 }
 
 // ================= UPDATE =================
 async function updateStudent(student) {
   try {
-    await fetch(`${BASE_URL}/students/${student.roll}`, {
+    const res = await fetch(`${BASE_URL}/students/${student.roll}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -298,6 +303,9 @@ async function updateStudent(student) {
         attendance: student.attendance,
       }),
     });
+
+    if (!res.ok) throw new Error("Update failed");
+
   } catch (err) {
     console.error("UPDATE ERROR:", err);
   }
@@ -309,11 +317,18 @@ async function del(i) {
 
   const student = students[i];
 
-  await fetch(`${BASE_URL}/students/${student.roll}`, {
-    method: "DELETE",
-  });
+  try {
+    const res = await fetch(`${BASE_URL}/students/${student.roll}`, {
+      method: "DELETE",
+    });
 
-  loadStudents();
+    if (!res.ok) throw new Error("Delete failed");
+
+    loadStudents();
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+    alert("Delete failed ❌");
+  }
 }
 
 // ================= UPDATE UI =================
@@ -415,12 +430,12 @@ function generateInsights(total, att, avg, top) {
     att > 75
       ? "Excellent attendance 👍. "
       : att > 50
-      ? "Average attendance ⚠️. "
-      : "Low attendance ❌. ";
+      ? "Average ⚠️. "
+      : "Low ❌. ";
 
   text +=
     avg > 75
-      ? "Great performance 📈. "
+      ? "Great 📈. "
       : avg > 40
       ? "Moderate ⚠️. "
       : "Poor ❌. ";

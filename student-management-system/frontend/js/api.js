@@ -1,11 +1,11 @@
 // =========================================================
-// 🌐 BASE URL (AUTO SWITCH)
+// 🌐 BASE URL
 // =========================================================
 const BASE_URL =
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "localhost"
-        ? "http://127.0.0.1:5000"
-        : import.meta.env.VITE_API_URL;
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-backend-if04.onrender.com/api";
 
 
 // =========================================================
@@ -17,15 +17,16 @@ const defaultHeaders = {
 
 
 // =========================================================
-// ⏱️ FETCH WITH TIMEOUT
+// ⏱️ FETCH WITH TIMEOUT (SAFE)
 // =========================================================
 function fetchWithTimeout(url, options = {}, timeout = 8000) {
-    return Promise.race([
-        fetch(url, options),
-        new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Request timeout")), timeout)
-        )
-    ]);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    return fetch(url, {
+        ...options,
+        signal: controller.signal
+    }).finally(() => clearTimeout(timer));
 }
 
 
@@ -62,7 +63,14 @@ export async function loginUser(data) {
             body: JSON.stringify(data)
         });
 
-        return await handleResponse(res);
+        const result = await handleResponse(res);
+
+        // ✅ store user automatically
+        if (result.status === "success") {
+            localStorage.setItem("user", JSON.stringify(result.student));
+        }
+
+        return result;
 
     } catch (error) {
         console.error("Login Error:", error.message);
@@ -112,7 +120,10 @@ export async function addStudentAPI(data) {
         const res = await fetchWithTimeout(`${BASE_URL}/students/`, {
             method: "POST",
             headers: defaultHeaders,
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                name: data.name,
+                rollno: data.rollno
+            })
         });
 
         return await handleResponse(res);
@@ -191,7 +202,7 @@ export async function addMarksAPI(student_id, marks) {
             headers: defaultHeaders,
             body: JSON.stringify({
                 student_id,
-                marks
+                marks: Number(marks)
             })
         });
 
@@ -217,4 +228,13 @@ export async function getMarksStats() {
             top_score: 0
         };
     }
+}
+
+
+// =========================================================
+// 🚪 LOGOUT
+// =========================================================
+export function logout() {
+    localStorage.removeItem("user");
+    window.location.href = "index.html";
 }

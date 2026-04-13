@@ -5,9 +5,12 @@ const BASE_URL =
     : "https://student-management-backend-if04.onrender.com/api";
 
 // ================= AUTO REDIRECT =================
-if (localStorage.getItem("user")) {
+const user = localStorage.getItem("user");
+
+if (user && window.location.pathname.includes("index.html")) {
   window.location.href = "dashboard.html";
 }
+
 const containerEl = document.querySelector(".container");
 const checkboxEl = document.querySelector(
   '.form-container .form-row input[type="checkbox"]',
@@ -866,51 +869,26 @@ submitBtn.addEventListener("click", async (e) => {
   }
 
   try {
-    // ================= LOGIN =================
-    let res = await fetch(`${BASE_URL}/login`, {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rollno, password })
     });
 
     let data = {};
     try { data = await res.json(); } catch {}
 
-    if (res.ok) {
-      localStorage.setItem("user", rollno);
-      alert("Login Successful ✅");
-      window.location.href = "dashboard.html";
-      return;
-    }
-
-    // ================= REGISTER =================
-    res = await fetch(`${BASE_URL}/register`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ rollno, password })
-    });
-
-    try { data = await res.json(); } catch {}
-
+    // ✅ HANDLE ERROR PROPERLY
     if (!res.ok) {
-      alert(data.error || "Signup failed");
+      alert(data.message || data.error || "Invalid credentials ❌");
       return;
     }
 
-    // ================= LOGIN AGAIN =================
-    res = await fetch(`${BASE_URL}/login`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ rollno, password })
-    });
+    // ✅ SUCCESS LOGIN
+    localStorage.setItem("user", JSON.stringify({ rollno }));
 
-    if (res.ok) {
-      localStorage.setItem("user", rollno);
-      alert("Account created & logged in ✅");
-      window.location.href = "dashboard.html";
-    } else {
-      alert("Login failed after signup");
-    }
+    alert("Login Successful ✅");
+    window.location.href = "dashboard.html";
 
   } catch (err) {
     console.error(err);

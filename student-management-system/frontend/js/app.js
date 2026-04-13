@@ -1,9 +1,17 @@
 // ================= BASE URL =================
 const BASE_URL =
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "localhost"
-        ? "http://127.0.0.1:5000"
-        :"https://student-management-backend-if04.onrender.com/api";
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-backend-if04.onrender.com/api";
+
+
+// ================= AUTH CHECK =================
+const user = localStorage.getItem("user");
+
+if (!user && window.location.pathname.includes("dashboard.html")) {
+    window.location.href = "index.html";
+}
 
 
 // ================= COMMON =================
@@ -45,22 +53,18 @@ async function login(event) {
 
         const data = await handleResponse(res);
 
-        if (data.status === "success") {
-            localStorage.setItem("user", JSON.stringify(data.student));
-            window.location.href = "dashboard.html";
-        } else {
-            alert("Invalid credentials");
-        }
+        localStorage.setItem("user", JSON.stringify(data.student));
+        window.location.href = "dashboard.html";
 
     } catch (err) {
-        alert(err.message || "Server error");
+        alert(err.message || "Invalid credentials ❌");
     }
 }
 
 
 // ================= GET STUDENTS =================
 async function getStudents() {
-    const res = await fetch(`${BASE_URL}/students/`); // ✅ fixed slash
+    const res = await fetch(`${BASE_URL}/students/`);
     return handleResponse(res);
 }
 
@@ -76,21 +80,23 @@ async function addStudent() {
     }
 
     try {
-        await fetch(`${BASE_URL}/students/`, { // ✅ fixed slash
+        const res = await fetch(`${BASE_URL}/students/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 name,
-                rollno: roll   // ✅ FIXED (backend expects rollno)
+                rollno: roll
             })
         });
+
+        await handleResponse(res);
 
         clearInputs();
         loadStudents();
         loadDashboardStats();
 
     } catch (err) {
-        alert("Failed to add student");
+        alert(err.message || "Failed to add student");
     }
 }
 
@@ -110,7 +116,7 @@ async function loadStudents() {
 
             row.innerHTML = `
                 <td>${s.name}</td>
-                <td>${s.roll}</td>
+                <td>${s.rollno}</td>
 
                 <td>
                     <input type="checkbox"
@@ -139,15 +145,17 @@ async function loadStudents() {
 // ================= DELETE =================
 async function deleteStudent(id) {
     try {
-        await fetch(`${BASE_URL}/students/${id}`, {
+        const res = await fetch(`${BASE_URL}/students/${id}`, {
             method: "DELETE"
         });
+
+        await handleResponse(res);
 
         loadStudents();
         loadDashboardStats();
 
     } catch (err) {
-        alert("Delete failed");
+        alert(err.message || "Delete failed");
     }
 }
 
@@ -179,7 +187,7 @@ async function loadDashboardStats() {
 // ================= ATTENDANCE =================
 async function markAttendance(id) {
     try {
-        await fetch(`${BASE_URL}/attendance/`, { // ✅ fixed slash
+        const res = await fetch(`${BASE_URL}/attendance/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -189,10 +197,12 @@ async function markAttendance(id) {
             })
         });
 
+        await handleResponse(res);
+
         loadDashboardStats();
 
     } catch (err) {
-        console.error("Attendance Error:", err);
+        console.error("Attendance Error:", err.message);
     }
 }
 
@@ -200,7 +210,7 @@ async function markAttendance(id) {
 // ================= MARKS =================
 async function updateMarks(id, marks) {
     try {
-        await fetch(`${BASE_URL}/marks/`, { // ✅ fixed slash
+        const res = await fetch(`${BASE_URL}/marks/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -209,11 +219,20 @@ async function updateMarks(id, marks) {
             })
         });
 
+        await handleResponse(res);
+
         loadDashboardStats();
 
     } catch (err) {
-        console.error("Marks Error:", err);
+        console.error("Marks Error:", err.message);
     }
+}
+
+
+// ================= LOGOUT =================
+function logout() {
+    localStorage.removeItem("user");
+    window.location.href = "index.html";
 }
 
 

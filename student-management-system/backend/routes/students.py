@@ -1,12 +1,15 @@
 from flask import Blueprint, request, jsonify
 from utils.db import get_connection
 
+# ================= CREATE BLUEPRINT =================
 students_bp = Blueprint("students", __name__)
 
+
 # =========================================================
-# 📌 GET ALL STUDENTS (USING VIEW - BEST PRACTICE)
+# 📌 GET ALL STUDENTS
+# URL: /api/students/
 # =========================================================
-@students_bp.route('/students', methods=['GET'])
+@students_bp.route("/", methods=["GET"])
 def get_students():
     db = None
     cursor = None
@@ -15,7 +18,7 @@ def get_students():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ Using VIEW (clean & fast)
+        # ✅ Using VIEW (recommended)
         cursor.execute("SELECT * FROM student_dashboard")
         rows = cursor.fetchall()
 
@@ -24,7 +27,7 @@ def get_students():
             students.append({
                 "id": row[0],
                 "name": row[1],
-                "roll": row[2],
+                "rollno": row[2],   # ✅ FIXED (was roll)
                 "marks": row[3],
                 "attendance": bool(row[4])
             })
@@ -35,23 +38,26 @@ def get_students():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        if cursor: cursor.close()
-        if db: db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
 # =========================================================
 # 📌 ADD STUDENT
+# URL: /api/students/
 # =========================================================
-@students_bp.route('/students', methods=['POST'])
+@students_bp.route("/", methods=["POST"])
 def add_student():
     data = request.get_json()
 
-    name = data.get("name")
-    roll = data.get("roll")
-    marks = data.get("marks", 0)
+    name = data.get("name") if data else None
+    rollno = data.get("rollno") if data else None
+    marks = data.get("marks", 0) if data else 0
 
-    if not name or not roll:
-        return jsonify({"error": "Name & Roll required"}), 400
+    if not name or not rollno:
+        return jsonify({"error": "Name & RollNo required"}), 400
 
     db = None
     cursor = None
@@ -60,49 +66,55 @@ def add_student():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ PostgreSQL: RETURNING id
+        # 🔍 CHECK duplicate
+        cursor.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
+        if cursor.fetchone():
+            return jsonify({"error": "Student already exists"}), 409
+
+        # ✅ INSERT STUDENT
         cursor.execute(
             "INSERT INTO students (rollno, name) VALUES (%s, %s) RETURNING id",
-            (roll, name)
+            (rollno, name)
         )
         student_id = cursor.fetchone()[0]
 
-        # Insert marks
+        # ✅ INSERT MARKS
         cursor.execute(
             "INSERT INTO marks (student_id, marks) VALUES (%s, %s)",
             (student_id, marks)
         )
 
-        # Insert attendance
+        # ✅ INSERT ATTENDANCE
         cursor.execute(
-            "INSERT INTO attendance (student_id, attended_classes) VALUES (%s, %s)",
-            (student_id, 0)
+            "INSERT INTO attendance (student_id, total_classes, attended_classes) VALUES (%s, %s, %s)",
+            (student_id, 0, 0)
         )
 
         db.commit()
 
-        return jsonify({"msg": "Student added"})
+        return jsonify({
+            "status": "success",
+            "id": student_id
+        }), 201
 
     except Exception as e:
-        if db: db.rollback()
+        if db:
+            db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
-        if cursor: cursor.close()
-        if db: db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
 # =========================================================
-# 📌 UPDATE STUDENT
+# 📌 DELETE STUDENT (BY ID)
+# URL: /api/students/<id>
 # =========================================================
-@students_bp.route('/students/<roll>', methods=['PUT'])
-def update_student(roll):
-    data = request.get_json()
-
-    name = data.get("name")
-    marks = data.get("marks", 0)
-    attendance = data.get("attendance", False)
-
+@students_bp.route("/<int:id>", methods=["DELETE"])
+def delete_student(id):
     db = None
     cursor = None
 
@@ -110,80 +122,32 @@ def update_student(roll):
         db = get_connection()
         cursor = db.cursor()
 
-        # Get student id
-        cursor.execute("SELECT id FROM students WHERE rollno=%s", (roll,))
+        # 🔍 CHECK EXISTS
+        cursor.execute("SELECT id FROM students WHERE id=%s", (id,))
         result = cursor.fetchone()
 
         if not result:
             return jsonify({"error": "Student not found"}), 404
 
-        student_id = result[0]
-
-        # Update name
-        cursor.execute(
-            "UPDATE students SET name=%s WHERE id=%s",
-            (name, student_id)
-        )
-
-        # Update marks
-        cursor.execute(
-            "UPDATE marks SET marks=%s WHERE student_id=%s",
-            (marks, student_id)
-        )
-
-        # Update attendance (boolean → 0/1)
-        cursor.execute(
-            "UPDATE attendance SET attended_classes=%s WHERE student_id=%s",
-            (1 if attendance else 0, student_id)
-        )
+        # ✅ DELETE RELATED DATA FIRST
+        cursor.execute("DELETE FROM marks WHERE student_id=%s", (id,))
+        cursor.execute("DELETE FROM attendance WHERE student_id=%s", (id,))
+        cursor.execute("DELETE FROM students WHERE id=%s", (id,))
 
         db.commit()
 
-        return jsonify({"msg": "Student updated"})
+        return jsonify({
+            "status": "success",
+            "message": "Student deleted"
+        })
 
     except Exception as e:
-        if db: db.rollback()
+        if db:
+            db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
-        if cursor: cursor.close()
-        if db: db.close()
-
-
-# =========================================================
-# 📌 DELETE STUDENT
-# =========================================================
-@students_bp.route('/students/<roll>', methods=['DELETE'])
-def delete_student(roll):
-    db = None
-    cursor = None
-
-    try:
-        db = get_connection()
-        cursor = db.cursor()
-
-        # Get student id
-        cursor.execute("SELECT id FROM students WHERE rollno=%s", (roll,))
-        result = cursor.fetchone()
-
-        if not result:
-            return jsonify({"error": "Student not found"}), 404
-
-        student_id = result[0]
-
-        # Delete related data first
-        cursor.execute("DELETE FROM marks WHERE student_id=%s", (student_id,))
-        cursor.execute("DELETE FROM attendance WHERE student_id=%s", (student_id,))
-        cursor.execute("DELETE FROM students WHERE id=%s", (student_id,))
-
-        db.commit()
-
-        return jsonify({"msg": "Student deleted"})
-
-    except Exception as e:
-        if db: db.rollback()
-        return jsonify({"error": str(e)}), 500
-
-    finally:
-        if cursor: cursor.close()
-        if db: db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()

@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from utils.db import get_connection   # ✅ updated
+from utils.db import get_connection
 from utils.auth_utils import hash_password, verify_password
 
+# ================= CREATE BLUEPRINT =================
 auth_bp = Blueprint('auth', __name__)
 
 
@@ -12,8 +13,9 @@ auth_bp = Blueprint('auth', __name__)
 def register():
     data = request.get_json()
 
-    rollno = data.get("rollno")
-    password = data.get("password")
+    # ✅ SAFE INPUT HANDLING
+    rollno = data.get("rollno") if data else None
+    password = data.get("password") if data else None
 
     if not rollno or not password:
         return jsonify({
@@ -52,7 +54,7 @@ def register():
             (rollno, hashed_password)
         )
 
-        # ✅ INSERT STUDENT
+        # ✅ INSERT STUDENT (AUTO CREATE PROFILE)
         cursor.execute(
             "INSERT INTO students (rollno, name) VALUES (%s, %s)",
             (rollno, "Student")
@@ -67,7 +69,7 @@ def register():
 
     except Exception as e:
         if db:
-            db.rollback()   # ✅ important for PostgreSQL
+            db.rollback()
         print("REGISTER ERROR:", e)
 
         return jsonify({
@@ -89,8 +91,9 @@ def register():
 def login():
     data = request.get_json()
 
-    rollno = data.get("rollno")
-    password = data.get("password")
+    # ✅ SAFE INPUT HANDLING
+    rollno = data.get("rollno") if data else None
+    password = data.get("password") if data else None
 
     if not rollno or not password:
         return jsonify({
@@ -112,6 +115,7 @@ def login():
 
         cursor = db.cursor()
 
+        # 🔍 FETCH USER
         cursor.execute(
             "SELECT rollno, password FROM users WHERE rollno=%s",
             (rollno,)
@@ -119,10 +123,10 @@ def login():
 
         user = cursor.fetchone()
 
-        # user = (rollno, password)
         if user:
             db_rollno, db_password = user
 
+            # 🔐 VERIFY PASSWORD
             if verify_password(db_password, password):
                 return jsonify({
                     "status": "success",
@@ -131,6 +135,7 @@ def login():
                     }
                 }), 200
 
+        # ❌ INVALID LOGIN
         return jsonify({
             "status": "error",
             "message": "Invalid credentials"
