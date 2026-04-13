@@ -109,10 +109,13 @@ const BASE_URL =
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-backend-if04.onrender.com/api";
 
+
 // ================= AUTO REDIRECT =================
-if (localStorage.getItem("user")) {
-  window.location.href = "dashboard.html";
+const user = localStorage.getItem("user");
+if (user && window.location.pathname.includes("signup.html")) {
+    window.location.href = "dashboard.html";
 }
+
 
 // ================= SIGNUP =================
 document.getElementById("signupForm").addEventListener("submit", async (e) => {
@@ -123,7 +126,7 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
   const messageEl = document.getElementById("message");
 
   if (!rollno || !password) {
-    messageEl.innerText = "All fields are required!";
+    messageEl.innerText = "⚠️ All fields are required!";
     messageEl.style.color = "yellow";
     return;
   }
@@ -132,34 +135,44 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
     messageEl.innerText = "⏳ Registering...";
     messageEl.style.color = "white";
 
-    // ✅ FIXED URL
-    const res = await fetch(`${BASE_URL}/register`, {
+    // ✅ REGISTER
+    let res = await fetch(`${BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rollno, password }),
+      body: JSON.stringify({ rollno, password })
     });
 
-    let data;
-    try {
-      data = await res.json();
-    } catch {
-      data = {};
+    let data = {};
+    try { data = await res.json(); } catch {}
+
+    if (!res.ok) {
+      messageEl.innerText = "❌ " + (data.error || data.message || "Registration failed");
+      messageEl.style.color = "red";
+      return;
     }
 
-    console.log("STATUS:", res.status);
-    console.log("RESPONSE:", data);
+    // ✅ AUTO LOGIN AFTER REGISTER
+    res = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rollno, password })
+    });
+
+    try { data = await res.json(); } catch {}
 
     if (res.ok) {
-      messageEl.innerText = "✅ Registered successfully!";
+      localStorage.setItem("user", JSON.stringify({ rollno }));
+
+      messageEl.innerText = "✅ Registered & Logged in!";
       messageEl.style.color = "lightgreen";
 
       setTimeout(() => {
-        window.location.href = "login.html";
-      }, 1500);
+        window.location.href = "dashboard.html";
+      }, 1200);
+
     } else {
-      messageEl.innerText =
-        "❌ " + (data.error || data.message || `Error ${res.status}`);
-      messageEl.style.color = "red";
+      messageEl.innerText = "⚠️ Registered but login failed";
+      messageEl.style.color = "orange";
     }
 
   } catch (err) {
@@ -169,5 +182,6 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
   }
 });
 </script>
+
 </body>
 </html>
