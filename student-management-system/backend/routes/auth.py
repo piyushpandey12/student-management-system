@@ -9,11 +9,15 @@ auth_bp = Blueprint('auth', __name__)
 # =========================================================
 # 📌 REGISTER
 # =========================================================
-@auth_bp.route('/register', methods=['POST'])
+@auth_bp.route('/register', methods=['POST', 'OPTIONS'])
 def register():
+
+    # 🔥 HANDLE PREFLIGHT FIRST
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
     data = request.get_json()
 
-    # ✅ SAFE INPUT HANDLING
     rollno = data.get("rollno") if data else None
     password = data.get("password") if data else None
 
@@ -54,7 +58,7 @@ def register():
             (rollno, hashed_password)
         )
 
-        # ✅ INSERT STUDENT (AUTO CREATE PROFILE)
+        # ✅ INSERT STUDENT
         cursor.execute(
             "INSERT INTO students (rollno, name) VALUES (%s, %s)",
             (rollno, "Student")
@@ -70,6 +74,7 @@ def register():
     except Exception as e:
         if db:
             db.rollback()
+
         print("REGISTER ERROR:", e)
 
         return jsonify({
@@ -87,11 +92,15 @@ def register():
 # =========================================================
 # 📌 LOGIN
 # =========================================================
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login', methods=['POST', 'OPTIONS'])
 def login():
+
+    # 🔥 HANDLE PREFLIGHT FIRST
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
     data = request.get_json()
 
-    # ✅ SAFE INPUT HANDLING
     rollno = data.get("rollno") if data else None
     password = data.get("password") if data else None
 
@@ -115,7 +124,6 @@ def login():
 
         cursor = db.cursor()
 
-        # 🔍 FETCH USER
         cursor.execute(
             "SELECT rollno, password FROM users WHERE rollno=%s",
             (rollno,)
@@ -126,7 +134,6 @@ def login():
         if user:
             db_rollno, db_password = user
 
-            # 🔐 VERIFY PASSWORD
             if verify_password(db_password, password):
                 return jsonify({
                     "status": "success",
@@ -135,7 +142,6 @@ def login():
                     }
                 }), 200
 
-        # ❌ INVALID LOGIN
         return jsonify({
             "status": "error",
             "message": "Invalid credentials"

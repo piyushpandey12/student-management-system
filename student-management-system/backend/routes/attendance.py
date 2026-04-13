@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_connection  # ✅ renamed for consistency
+from utils.db import get_connection
 
 attendance_bp = Blueprint('attendance', __name__)
 
@@ -7,13 +7,18 @@ attendance_bp = Blueprint('attendance', __name__)
 # =========================================================
 # 📌 MARK ATTENDANCE
 # =========================================================
-@attendance_bp.route("/", methods=["POST"])
+@attendance_bp.route("/", methods=["POST", "OPTIONS"])
 def mark_attendance():
+
+    # 🔥 HANDLE PREFLIGHT
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
     data = request.get_json()
 
-    student_id = data.get("student_id")
-    total = data.get("total", 1)
-    attended = data.get("attended", 1)
+    student_id = data.get("student_id") if data else None
+    total = data.get("total", 1) if data else 1
+    attended = data.get("attended", 1) if data else 1
 
     if not student_id:
         return jsonify({"error": "student_id is required"}), 400
@@ -25,7 +30,7 @@ def mark_attendance():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ PostgreSQL UPSERT (IMPORTANT CHANGE)
+        # ✅ UPSERT
         cursor.execute("""
             INSERT INTO attendance (student_id, total_classes, attended_classes)
             VALUES (%s, %s, %s)
@@ -43,6 +48,8 @@ def mark_attendance():
         })
 
     except Exception as e:
+        if db:
+            db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
@@ -55,8 +62,13 @@ def mark_attendance():
 # =========================================================
 # 📌 GET ATTENDANCE %
 # =========================================================
-@attendance_bp.route("/", methods=["GET"])
+@attendance_bp.route("/", methods=["GET", "OPTIONS"])
 def get_attendance():
+
+    # 🔥 HANDLE PREFLIGHT
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
     db = None
     cursor = None
 
@@ -64,7 +76,6 @@ def get_attendance():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ IFNULL → COALESCE
         cursor.execute("""
             SELECT 
                 COALESCE(
@@ -94,17 +105,20 @@ def get_attendance():
 # =========================================================
 # 📌 DASHBOARD STATS
 # =========================================================
-@attendance_bp.route("/stats", methods=["GET"])
+@attendance_bp.route("/stats", methods=["GET", "OPTIONS"])
 def attendance_stats():
+
+    # 🔥 HANDLE PREFLIGHT
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
     db = None
     cursor = None
 
     try:
         db = get_connection()
-
-        # ✅ PostgreSQL dict cursor
         cursor = db.cursor()
-        
+
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(total_classes), 0),

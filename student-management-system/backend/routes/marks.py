@@ -7,13 +7,16 @@ marks_bp = Blueprint('marks', __name__)
 
 # =========================================================
 # 📌 ADD / UPDATE MARKS
-# URL: /api/marks/
 # =========================================================
-@marks_bp.route("/", methods=["POST"])
+@marks_bp.route("/", methods=["POST", "OPTIONS"])
 def add_marks():
+
+    # 🔥 HANDLE PREFLIGHT
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
     data = request.get_json()
 
-    # ✅ SAFE INPUT
     student_id = data.get("student_id") if data else None
     marks = data.get("marks") if data else None
 
@@ -37,13 +40,11 @@ def add_marks():
         )
 
         if cursor.fetchone():
-            # ✅ UPDATE
             cursor.execute(
                 "UPDATE marks SET marks=%s WHERE student_id=%s",
                 (marks, student_id)
             )
         else:
-            # ✅ INSERT
             cursor.execute(
                 "INSERT INTO marks (student_id, marks) VALUES (%s, %s)",
                 (student_id, marks)
@@ -69,11 +70,15 @@ def add_marks():
 
 
 # =========================================================
-# 📌 GET MARKS STATS (USED IN DASHBOARD)
-# URL: /api/marks/stats
+# 📌 GET MARKS STATS
 # =========================================================
-@marks_bp.route("/stats", methods=["GET"])
+@marks_bp.route("/stats", methods=["GET", "OPTIONS"])
 def stats():
+
+    # 🔥 HANDLE PREFLIGHT
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
     db = None
     cursor = None
 
