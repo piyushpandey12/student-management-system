@@ -11,14 +11,14 @@ from routes.marks import marks_bp
 # ================= CREATE APP =================
 app = Flask(__name__)
 
-# ================= CORS (FINAL FIX) =================
-CORS(app, origins=[
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "https://student-management-system-hxsr-izbo351q8.vercel.app"
-], supports_credentials=True)
+# ================= CORS (FINAL CORRECT) =================
+CORS(
+    app,
+    resources={r"/api/*": {"origins": "*"}},
+    supports_credentials=True
+)
 
-# 🔥 HANDLE PREFLIGHT (VERY IMPORTANT)
+# ================= GLOBAL HEADERS (IMPORTANT) =================
 @app.after_request
 def after_request(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -86,4 +86,4 @@ def server_error(e):
 # ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
