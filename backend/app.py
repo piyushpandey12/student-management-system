@@ -1,3 +1,4 @@
+print("🔥 App is starting...")
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
@@ -37,7 +38,7 @@ def handle_preflight():
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 
 # 🌐 GOOGLE OAUTH (IMPORTANT PATH)
-app.register_blueprint(google_bp, url_prefix="/login")
+# app.register_blueprint(google_bp, url_prefix="/login")
 
 # 📊 OTHER MODULES
 app.register_blueprint(students_bp, url_prefix="/api/students")
@@ -65,7 +66,10 @@ def routes():
     })
 
 # ================= DATABASE TEST =================
-from utils.db import get_connection
+try:
+    from utils.db import get_connection
+except Exception as e:
+    print("DB import error:", e)
 
 @app.route("/test-db")
 def test_db():
