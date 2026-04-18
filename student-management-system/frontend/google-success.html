@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Logging in...</title>
+
+<style>
+body{
+    margin:0;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-family:'Segoe UI',sans-serif;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    color:white;
+}
+
+/* GLASS CARD */
+.box{
+    background:rgba(255,255,255,0.1);
+    backdrop-filter:blur(15px);
+    padding:40px;
+    border-radius:20px;
+    text-align:center;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3);
+    width:300px;
+}
+
+/* LOADER */
+.loader{
+    width:50px;
+    height:50px;
+    border:5px solid rgba(255,255,255,0.2);
+    border-top:5px solid white;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+    margin:auto;
+}
+
+@keyframes spin{
+    0%{transform:rotate(0deg);}
+    100%{transform:rotate(360deg);}
+}
+
+h2{
+    margin-top:20px;
+    font-weight:500;
+}
+
+.error{
+    color:#ff4d4d;
+    margin-top:10px;
+}
+
+button{
+    margin-top:15px;
+    padding:8px 15px;
+    border:none;
+    border-radius:8px;
+    background:#ff4b2b;
+    color:white;
+    cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+    <div class="loader"></div>
+    <h2 id="status">Signing you in...</h2>
+    <div id="errorBox" class="error"></div>
+    <button id="retryBtn" style="display:none;" onclick="goLogin()">Go to Login</button>
+</div>
+
+<script>
+// ================= GET PARAM =================
+const params = new URLSearchParams(window.location.search);
+const userParam = params.get("user");
+
+const statusText = document.getElementById("status");
+const errorBox = document.getElementById("errorBox");
+const retryBtn = document.getElementById("retryBtn");
+
+// ================= ERROR HANDLER =================
+function showError(msg){
+    statusText.innerText = "Login Failed ❌";
+    errorBox.innerText = msg;
+    retryBtn.style.display = "inline-block";
+}
+
+// ================= REDIRECT =================
+function redirectUser(user){
+    localStorage.setItem("user", JSON.stringify(user));
+
+    statusText.innerText = "Redirecting...";
+
+    setTimeout(()=>{
+        if (user.role === "teacher") {
+            window.location.href = "teacher-dashboard.html";
+        } else {
+            window.location.href = "student-dashboard.html";
+        }
+    }, 800);
+}
+
+// ================= LOGIN FLOW =================
+if (!userParam) {
+    showError("No login data received.");
+} else {
+    try {
+        const user = JSON.parse(decodeURIComponent(userParam));
+
+        if (!user.role) {
+            throw new Error("Invalid user object");
+        }
+
+        redirectUser(user);
+
+    } catch (err) {
+        console.error("Parse error:", err);
+        showError("Invalid login data.");
+    }
+}
+
+// ================= NAV =================
+function goLogin(){
+    window.location.href = "login.html";
+}
+</script>
+
+</body>
+</html>

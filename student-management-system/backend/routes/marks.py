@@ -1,29 +1,27 @@
 from flask import Blueprint, jsonify, request
 from utils.db import get_connection
 
-# ================= CREATE BLUEPRINT =================
 marks_bp = Blueprint('marks', __name__)
 
-
 # =========================================================
-# 📌 ADD / UPDATE MARKS
+# 📌 ADD / UPDATE MARKS (SUBJECT-WISE)
 # =========================================================
-@marks_bp.route("/", methods=["POST", "OPTIONS"])
-def add_marks():
+@marks_bp.route("/update", methods=["POST", "OPTIONS"])
+def update_marks():
 
-    # 🔥 HANDLE PREFLIGHT
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
     data = request.get_json()
 
-    student_id = data.get("student_id") if data else None
-    marks = data.get("marks") if data else None
+    rollno = data.get("rollno")
+    subject = data.get("subject")
+    marks = data.get("marks")
 
-    if not student_id or marks is None:
+    if not rollno or not subject or marks is None:
         return jsonify({
             "status": "error",
-            "message": "student_id and marks required"
+            "message": "rollno, subject, marks required"
         }), 400
 
     db = None
@@ -33,28 +31,19 @@ def add_marks():
         db = get_connection()
         cursor = db.cursor()
 
-        # 🔍 CHECK IF EXISTS
-        cursor.execute(
-            "SELECT 1 FROM marks WHERE student_id=%s",
-            (student_id,)
-        )
-
-        if cursor.fetchone():
-            cursor.execute(
-                "UPDATE marks SET marks=%s WHERE student_id=%s",
-                (marks, student_id)
-            )
-        else:
-            cursor.execute(
-                "INSERT INTO marks (student_id, marks) VALUES (%s, %s)",
-                (student_id, marks)
-            )
+        # ✅ UPSERT (clean & efficient)
+        cursor.execute("""
+            INSERT INTO marks (rollno, subject, marks)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (rollno, subject)
+            DO UPDATE SET marks = EXCLUDED.marks
+        """, (rollno, subject, marks))
 
         db.commit()
 
         return jsonify({
             "status": "success",
-            "message": "Marks saved"
+            "message": "Marks updated"
         })
 
     except Exception as e:
@@ -70,12 +59,50 @@ def add_marks():
 
 
 # =========================================================
-# 📌 GET MARKS STATS
+# 📌 GET MARKS (STUDENT-WISE)
 # =========================================================
-@marks_bp.route("/stats", methods=["GET", "OPTIONS"])
-def stats():
+@marks_bp.route("/<rollno>", methods=["GET", "OPTIONS"])
+def get_marks(rollno):
 
-    # 🔥 HANDLE PREFLIGHT
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
+    db = None
+    cursor = None
+
+    try:
+        db = get_connection()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            SELECT subject, marks
+            FROM marks
+            WHERE rollno = %s
+        """, (rollno,))
+
+        rows = cursor.fetchall()
+
+        return jsonify([
+            {"subject": r[0], "marks": r[1]}
+            for r in rows
+        ])
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
+
+
+# =========================================================
+# 📌 MARKS STATS (FOR ANALYTICS)
+# =========================================================
+@marks_bp.route("/stats/<rollno>", methods=["GET", "OPTIONS"])
+def marks_stats(rollno):
+
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
@@ -91,7 +118,8 @@ def stats():
                 COALESCE(AVG(marks), 0),
                 COALESCE(MAX(marks), 0)
             FROM marks
-        """)
+            WHERE rollno = %s
+        """, (rollno,))
 
         result = cursor.fetchone()
 
@@ -99,8 +127,9 @@ def stats():
         top_score = int(result[1]) if result else 0
 
         return jsonify({
-            "avg_marks": round(avg_marks, 2),
-            "top_score": top_score
+            "status": "success",
+            "average": round(avg_marks, 2),
+            "highest": top_score
         })
 
     except Exception as e:

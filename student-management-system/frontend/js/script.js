@@ -4,6 +4,18 @@ const BASE_URL =
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-backend-if04.onrender.com/api";
 
+
+const AUTH_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5000"
+    : "https://student-management-backend-if04.onrender.com";
+
+// ================= GOOGLE LOGIN =================
+function googleLogin() {
+  window.location.href = `${AUTH_URL}/login/google`;
+}
+
 // ================= AUTO REDIRECT =================
 const user = localStorage.getItem("user");
 
@@ -860,11 +872,14 @@ function checkForm() {
 submitBtn.addEventListener("click", async (e) => {
   e.preventDefault();
 
+  const errorEl = document.getElementById("errorMsg");
+  errorEl.innerText = ""; // clear old errors
+
   const rollno = document.getElementById("rollno").value.trim();
   const password = document.getElementById("password").value.trim();
 
   if (!rollno || !password) {
-    alert("All fields required");
+    errorEl.innerText = "⚠️ All fields required";
     return;
   }
 
@@ -878,20 +893,24 @@ submitBtn.addEventListener("click", async (e) => {
     let data = {};
     try { data = await res.json(); } catch {}
 
-    // ✅ HANDLE ERROR PROPERLY
+    // ❌ ERROR
     if (!res.ok) {
-      alert(data.message || data.error || "Invalid credentials ❌");
+      errorEl.innerText = data.message || data.error || "Invalid credentials ❌";
       return;
     }
 
-    // ✅ SUCCESS LOGIN
-    localStorage.setItem("user", JSON.stringify({ rollno }));
+    // ✅ SAVE FULL USER (IMPORTANT)
+    localStorage.setItem("user", JSON.stringify(data.user));
 
-    alert("Login Successful ✅");
-    window.location.href = "dashboard.html";
+    // ✅ ROLE-BASED REDIRECT
+    if (data.user.role === "teacher") {
+      window.location.href = "teacher-dashboard.html";
+    } else {
+      window.location.href = "student-dashboard.html";
+    }
 
   } catch (err) {
     console.error(err);
-    alert("⚠️ Backend not reachable!");
+    errorEl.innerText = "⚠️ Backend not reachable!";
   }
 });

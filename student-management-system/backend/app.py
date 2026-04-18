@@ -3,7 +3,7 @@ from flask_cors import CORS
 import os
 
 # ================= IMPORT BLUEPRINTS =================
-from routes.auth import auth_bp
+from routes.auth import auth_bp, google_bp   # ✅ include google_bp
 from routes.students import students_bp
 from routes.attendance import attendance_bp
 from routes.marks import marks_bp
@@ -11,8 +11,11 @@ from routes.marks import marks_bp
 # ================= CREATE APP =================
 app = Flask(__name__)
 
+# 🔐 SECRET KEY (IMPORTANT for OAuth)
+app.secret_key = os.getenv("SECRET_KEY", "super-secret")
+
 # ================= CORS =================
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, supports_credentials=True)
 
 # ================= GLOBAL HEADERS =================
 @app.after_request
@@ -22,14 +25,21 @@ def after_request(response):
     response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
     return response
 
-# ================= HANDLE OPTIONS (FIXES CORS ERROR) =================
+# ================= HANDLE PREFLIGHT =================
 @app.before_request
 def handle_preflight():
     if request.method == "OPTIONS":
         return '', 200
 
 # ================= REGISTER BLUEPRINTS =================
+
+# 🔐 AUTH (NORMAL LOGIN/REGISTER)
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
+
+# 🌐 GOOGLE OAUTH (IMPORTANT PATH)
+app.register_blueprint(google_bp, url_prefix="/login")
+
+# 📊 OTHER MODULES
 app.register_blueprint(students_bp, url_prefix="/api/students")
 app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
 app.register_blueprint(marks_bp, url_prefix="/api/marks")

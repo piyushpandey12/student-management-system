@@ -1,86 +1,100 @@
-from flask import Blueprint, request, jsonify
+# auth.py
+import os
+import json  # ✅ ADDED
+from urllib.parse import quote
+from flask import Blueprint, redirect, url_for, jsonify, request
+from flask_dance.contrib.google import make_google_blueprint, google
+
 from utils.db import get_connection
 from utils.auth_utils import hash_password, verify_password
 
-# ================= CREATE BLUEPRINT =================
-auth_bp = Blueprint('auth', __name__)
-
+auth_bp = Blueprint("auth", __name__)
 
 # =========================================================
-# 📌 REGISTER
+# 🔐 GOOGLE OAUTH SETUP
 # =========================================================
-@auth_bp.route('/register', methods=['POST', 'OPTIONS'])
-def register():
+google_bp = make_google_blueprint(
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    scope=["profile", "email"],
+    redirect_to="auth.google_callback"
+)
 
-    # ✅ HANDLE PREFLIGHT (CORS FIX)
-    if request.method == "OPTIONS":
-        return '', 200
+# =========================================================
+# 🌐 GOOGLE LOGIN START
+# =========================================================
+@auth_bp.route("/google")
+def google_login():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+    return redirect(url_for("auth.google_callback"))
 
-    data = request.get_json()
+# =========================================================
+# 🌐 GOOGLE CALLBACK
+# =========================================================
+@auth_bp.route("/google/callback")
+def google_callback():
 
-    rollno = data.get("rollno") if data else None
-    password = data.get("password") if data else None
+    if not google.authorized:
+        return redirect(url_for("google.login"))
 
-    if not rollno or not password:
-        return jsonify({
-            "status": "error",
-            "message": "Missing fields"
-        }), 400
+    resp = google.get("/oauth2/v2/userinfo")
+
+    if not resp.ok:
+        return jsonify({"error": "Failed to fetch user"}), 400
+
+    info = resp.json()
+
+    email = info.get("email")
+    name = info.get("name")
+    photo = info.get("picture")
 
     db = None
     cursor = None
 
     try:
         db = get_connection()
-
-        if db is None:
-            return jsonify({
-                "status": "error",
-                "message": "Database connection failed"
-            }), 500
-
         cursor = db.cursor()
 
         # 🔍 CHECK IF USER EXISTS
-        cursor.execute("SELECT 1 FROM users WHERE rollno=%s", (rollno,))
-        if cursor.fetchone():
-            return jsonify({
-                "status": "error",
-                "message": "User already exists"
-            }), 409
+        cursor.execute("SELECT rollno, role FROM users WHERE rollno=%s", (email,))
+        user = cursor.fetchone()
 
-        # 🔐 HASH PASSWORD
-        hashed_password = hash_password(password)
+        if not user:
+            # 🆕 NEW GOOGLE USER → REGISTER
+            role = "student"
 
-        # ✅ INSERT USER
-        cursor.execute(
-            "INSERT INTO users (rollno, password) VALUES (%s, %s)",
-            (rollno, hashed_password)
+            cursor.execute(
+                "INSERT INTO users (rollno, password, role) VALUES (%s, %s, %s)",
+                (email, "google_auth", role)
+            )
+
+            cursor.execute(
+                "INSERT INTO students (rollno, name) VALUES (%s, %s)",
+                (email, name)
+            )
+
+            db.commit()
+        else:
+            role = user[1]
+
+        # 🎯 USER OBJECT
+        user_data = {
+            "rollno": email,
+            "name": name,
+            "photo": photo,
+            "role": role
+        }
+
+        # ✅ FIXED REDIRECT (PROPER JSON)
+        return redirect(
+            f"{os.getenv('FRONTEND_URL')}/google-success.html?user={quote(json.dumps(user_data))}"
         )
-
-        # ✅ INSERT STUDENT
-        cursor.execute(
-            "INSERT INTO students (rollno, name) VALUES (%s, %s)",
-            (rollno, "Student")
-        )
-
-        db.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Registered successfully"
-        }), 201
 
     except Exception as e:
         if db:
             db.rollback()
-
-        print("REGISTER ERROR:", e)
-
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"error": str(e)}), 500
 
     finally:
         if cursor:
@@ -90,55 +104,108 @@ def register():
 
 
 # =========================================================
-# 📌 LOGIN
+# 📌 REGISTER (NORMAL)
 # =========================================================
-@auth_bp.route('/login', methods=['POST', 'OPTIONS'])
-def login():
+@auth_bp.route('/register', methods=['POST', 'OPTIONS'])
+def register():
 
-    # ✅ HANDLE PREFLIGHT
     if request.method == "OPTIONS":
         return '', 200
 
     data = request.get_json()
 
-    rollno = data.get("rollno") if data else None
-    password = data.get("password") if data else None
+    rollno = data.get("rollno")
+    password = data.get("password")
+    role = data.get("role", "student")
 
     if not rollno or not password:
-        return jsonify({
-            "status": "error",
-            "message": "Missing fields"
-        }), 400
+        return jsonify({"status": "error", "message": "Missing fields"}), 400
 
     db = None
     cursor = None
 
     try:
         db = get_connection()
+        cursor = db.cursor()
 
-        if db is None:
-            return jsonify({
-                "status": "error",
-                "message": "Database connection failed"
-            }), 500
+        cursor.execute("SELECT 1 FROM users WHERE rollno=%s", (rollno,))
+        if cursor.fetchone():
+            return jsonify({"status": "error", "message": "User exists"}), 409
 
+        hashed_password = hash_password(password)
+
+        cursor.execute(
+            "INSERT INTO users (rollno, password, role) VALUES (%s, %s, %s)",
+            (rollno, hashed_password, role)
+        )
+
+        if role == "student":
+            cursor.execute(
+                "INSERT INTO students (rollno, name) VALUES (%s, %s)",
+                (rollno, "Student")
+            )
+
+        db.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Registered",
+            "role": role
+        }), 201
+
+    except Exception as e:
+        if db:
+            db.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
+
+
+# =========================================================
+# 📌 LOGIN (NORMAL)
+# =========================================================
+@auth_bp.route('/login', methods=['POST', 'OPTIONS'])
+def login():
+
+    if request.method == "OPTIONS":
+        return '', 200
+
+    data = request.get_json()
+
+    rollno = data.get("rollno")
+    password = data.get("password")
+
+    if not rollno or not password:
+        return jsonify({"status": "error", "message": "Missing fields"}), 400
+
+    db = None
+    cursor = None
+
+    try:
+        db = get_connection()
         cursor = db.cursor()
 
         cursor.execute(
-            "SELECT rollno, password FROM users WHERE rollno=%s",
+            "SELECT rollno, password, role FROM users WHERE rollno=%s",
             (rollno,)
         )
 
         user = cursor.fetchone()
 
         if user:
-            db_rollno, db_password = user
+            db_rollno, db_password, role = user
 
-            if verify_password(db_password, password):
+            # 🔐 GOOGLE USER LOGIN BYPASS PASSWORD
+            if db_password == "google_auth" or verify_password(db_password, password):
                 return jsonify({
                     "status": "success",
-                    "student": {
-                        "rollno": db_rollno
+                    "user": {
+                        "rollno": db_rollno,
+                        "role": role
                     }
                 }), 200
 
@@ -148,12 +215,7 @@ def login():
         }), 401
 
     except Exception as e:
-        print("LOGIN ERROR:", e)
-
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"error": str(e)}), 500
 
     finally:
         if cursor:

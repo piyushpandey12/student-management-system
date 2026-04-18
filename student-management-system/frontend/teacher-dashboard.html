@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Teacher Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ===== BODY ===== */
+body{
+    margin:0;
+    font-family:'Segoe UI',sans-serif;
+    background:linear-gradient(-45deg,#667eea,#764ba2,#6a11cb,#2575fc);
+    background-size:400% 400%;
+    animation:gradientBG 10s ease infinite;
+    color:white;
+}
+
+@keyframes gradientBG{
+    0%{background-position:0% 50%;}
+    50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+}
+
+/* ===== CONTAINER ===== */
+.container{
+    max-width:1100px;
+    margin:auto;
+    padding:20px;
+}
+
+/* ===== TITLE ===== */
+h2{
+    text-align:center;
+    font-size:28px;
+    margin-bottom:30px;
+}
+
+/* ===== GLASS CARD ===== */
+.card{
+    background:rgba(255,255,255,0.12);
+    backdrop-filter:blur(18px);
+    border-radius:18px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3);
+    transition:0.3s;
+}
+
+.card:hover{
+    transform:translateY(-5px);
+}
+
+/* ===== INPUTS ===== */
+input,select{
+    padding:12px;
+    margin:8px 5px;
+    border:none;
+    border-radius:12px;
+    background:rgba(255,255,255,0.18);
+    color:white;
+    outline:none;
+}
+
+input::placeholder{
+    color:#ddd;
+}
+
+/* ===== BUTTON ===== */
+button{
+    padding:12px 18px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#ff4b2b,#ff416c);
+    color:white;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+button:hover{
+    transform:scale(1.08);
+}
+
+/* ===== TABLE ===== */
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:14px;
+}
+
+thead{
+    background:rgba(255,255,255,0.25);
+}
+
+tbody tr{
+    background:rgba(255,255,255,0.08);
+}
+
+tbody tr:hover{
+    background:rgba(255,255,255,0.2);
+}
+
+/* ===== GRADE COLORS ===== */
+.gradeA{color:#00ffcc;font-weight:bold;}
+.gradeB{color:#ffd700;font-weight:bold;}
+.gradeC{color:#ff6b6b;font-weight:bold;}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2> Teacher Dashboard</h2>
+
+<!-- ADD STUDENT -->
+<div class="card">
+<h3>➕ Add Student</h3>
+<input id="name" placeholder="Name">
+<input id="roll" placeholder="Roll No">
+<button onclick="addStudent()">Add</button>
+</div>
+
+<!-- SEARCH -->
+<div class="card">
+<input id="search" placeholder="Search..." onkeyup="filterStudents()">
+</div>
+
+<!-- ATTENDANCE -->
+<div class="card">
+<h3> Attendance</h3>
+
+<input type="date" id="date">
+<input id="rollAtt" placeholder="Roll No">
+
+<select id="subjectAtt">
+<option>Big Data Analytics</option>
+<option>Big Data Analytics Lab</option>
+<option>Cloud Computing</option>
+<option>Cloud Computing Lab</option>
+<option>Engineering Aptitude - III</option>
+<option>Functional English - III</option>
+<option>Information Security</option>
+<option>Machine Learning</option>
+<option>Machine Learning Lab</option>
+<option>Mobile Application Development</option>
+<option>Mobile Application Development Lab</option>
+</select>
+
+<select id="status">
+<option value="present">Present</option>
+<option value="absent">Absent</option>
+</select>
+
+<button onclick="markAttendance()">Mark</button>
+</div>
+
+<!-- MARKS -->
+<div class="card">
+<h3> Marks</h3>
+
+<input id="rollMarks" placeholder="Roll No">
+
+<select id="subject">
+<option>Big Data Analytics</option>
+<option>Big Data Analytics Lab</option>
+<option>Cloud Computing</option>
+<option>Cloud Computing Lab</option>
+<option>Engineering Aptitude - III</option>
+<option>Functional English - III</option>
+<option>Information Security</option>
+<option>Machine Learning</option>
+<option>Machine Learning Lab</option>
+<option>Mobile Application Development</option>
+<option>Mobile Application Development Lab</option>
+</select>
+
+<input id="marks" placeholder="Marks (0-100)">
+<button onclick="addMarks()">Save</button>
+</div>
+
+<!-- STUDENTS TABLE -->
+<div class="card">
+<h3>📋 Students</h3>
+
+<table id="table">
+<thead>
+<tr>
+<th>Roll</th>
+<th>Name</th>
+<th>Marks</th>
+<th>Grade</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+</div>
+
+</div>
+
+<script>
+const BASE_URL = "https://student-management-backend-if04.onrender.com/api";
+
+// ADD STUDENT
+async function addStudent(){
+    const name = document.getElementById("name").value;
+    const roll = document.getElementById("roll").value;
+
+    if(!name || !roll){
+        alert("Enter name & roll");
+        return;
+    }
+
+    await fetch(`${BASE_URL}/students`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({name, rollno: roll})
+    });
+
+    loadStudents();
+}
+
+// DELETE
+async function deleteStudent(roll){
+    if(!confirm("Delete this student?")) return;
+
+    await fetch(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
+    loadStudents();
+}
+
+// MARK ATTENDANCE
+async function markAttendance(){
+    const roll = document.getElementById("rollAtt").value;
+    const date = document.getElementById("date").value;
+    const status = document.getElementById("status").value;
+    const subject = document.getElementById("subjectAtt").value;
+
+    if(!roll || !date){
+        alert("Enter roll & date");
+        return;
+    }
+
+    await fetch(`${BASE_URL}/attendance/mark`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({rollno: roll, subject, date, status})
+    });
+
+    alert("Attendance marked ✅");
+}
+
+// ADD MARKS
+async function addMarks(){
+    const roll = document.getElementById("rollMarks").value;
+    const subject = document.getElementById("subject").value;
+    const marks = document.getElementById("marks").value;
+
+    if(!roll || !marks){
+        alert("Enter roll & marks");
+        return;
+    }
+
+    await fetch(`${BASE_URL}/marks/update`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({rollno: roll, subject, marks})
+    });
+
+    alert("Marks updated ✅");
+}
+
+// LOAD STUDENTS
+async function loadStudents(){
+    const res = await fetch(`${BASE_URL}/students`);
+    const data = await res.json();
+
+    let html="";
+
+    data.forEach(s=>{
+        let grade="C";
+        if(s.avg_marks > 90) grade="A";
+        else if(s.avg_marks > 70) grade="B";
+
+        html += `
+        <tr>
+        <td>${s.rollno}</td>
+        <td>${s.name}</td>
+        <td>${s.avg_marks || 0}</td>
+        <td class="${grade === 'A' ? 'gradeA' : grade === 'B' ? 'gradeB' : 'gradeC'}">${grade}</td>
+        <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
+        </tr>`;
+    });
+
+    document.querySelector("#table tbody").innerHTML = html;
+}
+
+// SEARCH
+function filterStudents(){
+    const input = document.getElementById("search").value.toLowerCase();
+
+    document.querySelectorAll("#table tbody tr").forEach(row=>{
+        row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
+    });
+}
+
+// INIT
+loadStudents();
+</script>
+
+</body>
+</html>

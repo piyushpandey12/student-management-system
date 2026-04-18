@@ -3,25 +3,26 @@ from utils.db import get_connection
 
 attendance_bp = Blueprint('attendance', __name__)
 
-
 # =========================================================
-# 📌 MARK ATTENDANCE
+# 📌 MARK ATTENDANCE (SUBJECT + DATE-WISE)
 # =========================================================
-@attendance_bp.route("/", methods=["POST", "OPTIONS"])
+@attendance_bp.route("/mark", methods=["POST", "OPTIONS"])
 def mark_attendance():
 
-    # 🔥 HANDLE PREFLIGHT
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
     data = request.get_json()
 
-    student_id = data.get("student_id") if data else None
-    total = data.get("total", 1) if data else 1
-    attended = data.get("attended", 1) if data else 1
+    rollno = data.get("rollno")
+    subject = data.get("subject")   # ✅ NEW
+    date = data.get("date")
+    status = data.get("status")
 
-    if not student_id:
-        return jsonify({"error": "student_id is required"}), 400
+    if not rollno or not subject or not date or not status:
+        return jsonify({
+            "error": "rollno, subject, date, status required"
+        }), 400
 
     db = None
     cursor = None
@@ -30,21 +31,18 @@ def mark_attendance():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ UPSERT
         cursor.execute("""
-            INSERT INTO attendance (student_id, total_classes, attended_classes)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (student_id)
-            DO UPDATE SET
-                total_classes = attendance.total_classes + EXCLUDED.total_classes,
-                attended_classes = attendance.attended_classes + EXCLUDED.attended_classes
-        """, (student_id, total, attended))
+            INSERT INTO attendance (rollno, subject, date, status)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (rollno, subject, date)
+            DO UPDATE SET status = EXCLUDED.status
+        """, (rollno, subject, date, status))
 
         db.commit()
 
         return jsonify({
             "status": "success",
-            "message": "Attendance updated"
+            "message": "Attendance saved"
         })
 
     except Exception as e:
@@ -60,12 +58,11 @@ def mark_attendance():
 
 
 # =========================================================
-# 📌 GET ATTENDANCE %
+# 📌 GET ATTENDANCE (STUDENT-WISE + SUBJECT)
 # =========================================================
-@attendance_bp.route("/", methods=["GET", "OPTIONS"])
-def get_attendance():
+@attendance_bp.route("/<rollno>", methods=["GET", "OPTIONS"])
+def get_attendance(rollno):
 
-    # 🔥 HANDLE PREFLIGHT
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
@@ -77,20 +74,22 @@ def get_attendance():
         cursor = db.cursor()
 
         cursor.execute("""
-            SELECT 
-                COALESCE(
-                    ROUND(SUM(attended_classes) * 100.0 / NULLIF(SUM(total_classes), 0), 2),
-                    0
-                )
+            SELECT subject, date, status
             FROM attendance
-        """)
+            WHERE rollno = %s
+            ORDER BY date DESC
+        """, (rollno,))
 
-        result = cursor.fetchone()
-        percentage = float(result[0]) if result and result[0] else 0
+        rows = cursor.fetchall()
 
-        return jsonify({
-            "attendance_percentage": percentage
-        })
+        return jsonify([
+            {
+                "subject": r[0],
+                "date": str(r[1]),
+                "status": r[2]
+            }
+            for r in rows
+        ])
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -103,14 +102,15 @@ def get_attendance():
 
 
 # =========================================================
-# 📌 DASHBOARD STATS
+# 📌 ATTENDANCE STATS (SUBJECT-WISE OPTIONAL)
 # =========================================================
-@attendance_bp.route("/stats", methods=["GET", "OPTIONS"])
-def attendance_stats():
+@attendance_bp.route("/stats/<rollno>", methods=["GET", "OPTIONS"])
+def attendance_stats(rollno):
 
-    # 🔥 HANDLE PREFLIGHT
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
+
+    subject = request.args.get("subject")  # ✅ optional filter
 
     db = None
     cursor = None
@@ -119,25 +119,35 @@ def attendance_stats():
         db = get_connection()
         cursor = db.cursor()
 
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(total_classes), 0),
-                COALESCE(SUM(attended_classes), 0)
-            FROM attendance
-        """)
+        if subject:
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) FILTER (WHERE status='present'),
+                    COUNT(*)
+                FROM attendance
+                WHERE rollno = %s AND subject = %s
+            """, (rollno, subject))
+        else:
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) FILTER (WHERE status='present'),
+                    COUNT(*)
+                FROM attendance
+                WHERE rollno = %s
+            """, (rollno,))
 
         result = cursor.fetchone()
 
-        total = result[0]
-        attended = result[1]
+        present = result[0] if result else 0
+        total = result[1] if result else 0
 
-        percentage = round((attended / total) * 100, 2) if total else 0
+        percentage = round((present / total) * 100, 2) if total else 0
 
         return jsonify({
             "status": "success",
-            "attendance_percentage": percentage,
-            "total_classes": total,
-            "attended_classes": attended
+            "present": present,
+            "total": total,
+            "percentage": percentage
         })
 
     except Exception as e:

@@ -1,35 +1,29 @@
 from flask import Blueprint, request, jsonify
 from utils.db import get_connection
 
-# ================= CREATE BLUEPRINT =================
 students_bp = Blueprint("students", __name__)
 
-
 # =========================================================
-# 📌 GET ALL STUDENTS
-# URL: /api/students/
+# 📌 GET ALL STUDENTS (FROM VIEW)
 # =========================================================
 @students_bp.route("/", methods=["GET"])
 def get_students():
-    db = None
-    cursor = None
+    db = get_connection()
+    cursor = db.cursor()
 
     try:
-        db = get_connection()
-        cursor = db.cursor()
-
-        # ✅ Using VIEW (recommended)
         cursor.execute("SELECT * FROM student_dashboard")
         rows = cursor.fetchall()
 
         students = []
         for row in rows:
             students.append({
-                "id": row[0],
+                "rollno": row[0],
                 "name": row[1],
-                "rollno": row[2],   # ✅ FIXED (was roll)
-                "marks": row[3],
-                "attendance": bool(row[4])
+                "avg_marks": row[2],
+                "present_days": row[3],
+                "total_days": row[4],
+                "attendance_percent": float(row[5])
             })
 
         return jsonify(students)
@@ -38,83 +32,92 @@ def get_students():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        if cursor:
-            cursor.close()
-        if db:
-            db.close()
+        cursor.close()
+        db.close()
 
 
 # =========================================================
 # 📌 ADD STUDENT
-# URL: /api/students/
 # =========================================================
 @students_bp.route("/", methods=["POST"])
 def add_student():
     data = request.get_json()
 
-    name = data.get("name") if data else None
-    rollno = data.get("rollno") if data else None
-    marks = data.get("marks", 0) if data else 0
+    name = data.get("name")
+    rollno = data.get("rollno")
 
     if not name or not rollno:
         return jsonify({"error": "Name & RollNo required"}), 400
 
-    db = None
-    cursor = None
+    db = get_connection()
+    cursor = db.cursor()
 
     try:
-        db = get_connection()
-        cursor = db.cursor()
-
-        # 🔍 CHECK duplicate
         cursor.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
         if cursor.fetchone():
             return jsonify({"error": "Student already exists"}), 409
 
-        # ✅ INSERT STUDENT
         cursor.execute(
-            "INSERT INTO students (rollno, name) VALUES (%s, %s) RETURNING id",
+            "INSERT INTO students (rollno, name) VALUES (%s, %s)",
             (rollno, name)
         )
-        student_id = cursor.fetchone()[0]
 
-        # ✅ INSERT MARKS
         cursor.execute(
-            "INSERT INTO marks (student_id, marks) VALUES (%s, %s)",
-            (student_id, marks)
+            "INSERT INTO users (rollno, password, role) VALUES (%s, %s, %s)",
+            (rollno, "default123", "student")
         )
 
-        # ✅ INSERT ATTENDANCE
-        cursor.execute(
-            "INSERT INTO attendance (student_id, total_classes, attended_classes) VALUES (%s, %s, %s)",
-            (student_id, 0, 0)
-        )
+        db.commit()
+
+        return jsonify({"message": "Student added"}), 201
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =========================================================
+# 📌 DELETE STUDENT
+# =========================================================
+@students_bp.route("/<rollno>", methods=["DELETE"])
+def delete_student(rollno):
+    db = get_connection()
+    cursor = db.cursor()
+
+    try:
+        cursor.execute("SELECT rollno FROM students WHERE rollno=%s", (rollno,))
+        if not cursor.fetchone():
+            return jsonify({"error": "Student not found"}), 404
+
+        cursor.execute("DELETE FROM students WHERE rollno=%s", (rollno,))
+        cursor.execute("DELETE FROM users WHERE rollno=%s", (rollno,))
 
         db.commit()
 
         return jsonify({
             "status": "success",
-            "id": student_id
-        }), 201
+            "message": "Deleted successfully"
+        }), 200
 
     except Exception as e:
-        if db:
-            db.rollback()
+        db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
-        if cursor:
-            cursor.close()
-        if db:
-            db.close()
+        cursor.close()
+        db.close()
 
 
 # =========================================================
-# 📌 DELETE STUDENT (BY ID)
-# URL: /api/students/<id>
+# 📌 STUDENT DASHBOARD (FINAL FIX)
 # =========================================================
-@students_bp.route("/<int:id>", methods=["DELETE"])
-def delete_student(id):
+@students_bp.route("/dashboard/<rollno>", methods=["GET"])
+def student_dashboard(rollno):
+
     db = None
     cursor = None
 
@@ -122,28 +125,41 @@ def delete_student(id):
         db = get_connection()
         cursor = db.cursor()
 
-        # 🔍 CHECK EXISTS
-        cursor.execute("SELECT id FROM students WHERE id=%s", (id,))
-        result = cursor.fetchone()
+        # 📊 MARKS
+        cursor.execute("""
+            SELECT subject, marks 
+            FROM marks 
+            WHERE rollno=%s
+        """, (rollno,))
+        marks_rows = cursor.fetchall()
 
-        if not result:
-            return jsonify({"error": "Student not found"}), 404
+        marks = [
+            {"subject": m[0], "marks": m[1]}
+            for m in marks_rows
+        ]
 
-        # ✅ DELETE RELATED DATA FIRST
-        cursor.execute("DELETE FROM marks WHERE student_id=%s", (id,))
-        cursor.execute("DELETE FROM attendance WHERE student_id=%s", (id,))
-        cursor.execute("DELETE FROM students WHERE id=%s", (id,))
+        # 📅 ATTENDANCE
+        cursor.execute("""
+            SELECT status 
+            FROM attendance 
+            WHERE rollno=%s
+        """, (rollno,))
+        attendance_rows = cursor.fetchall()
 
-        db.commit()
+        present = sum(1 for a in attendance_rows if a[0] == "present")
+        total = len(attendance_rows)
+
+        attendance_percent = round((present / total) * 100, 2) if total else 0
 
         return jsonify({
             "status": "success",
-            "message": "Student deleted"
+            "marks": marks,
+            "attendance_percent": attendance_percent,
+            "total_days": total,
+            "present_days": present
         })
 
     except Exception as e:
-        if db:
-            db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
