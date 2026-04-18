@@ -12,9 +12,9 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route('/register', methods=['POST', 'OPTIONS'])
 def register():
 
-    # 🔥 HANDLE PREFLIGHT FIRST
+    # ✅ HANDLE PREFLIGHT (CORS FIX)
     if request.method == "OPTIONS":
-        return jsonify({"status": "ok"}), 200
+        return '', 200
 
     data = request.get_json()
 
@@ -95,9 +95,9 @@ def register():
 @auth_bp.route('/login', methods=['POST', 'OPTIONS'])
 def login():
 
-    # 🔥 HANDLE PREFLIGHT FIRST
+    # ✅ HANDLE PREFLIGHT
     if request.method == "OPTIONS":
-        return jsonify({"status": "ok"}), 200
+        return '', 200
 
     data = request.get_json()
 

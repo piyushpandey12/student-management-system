@@ -135,32 +135,31 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
     messageEl.innerText = "⏳ Registering...";
     messageEl.style.color = "white";
 
-    // ✅ REGISTER
-    let res = await fetch(`${BASE_URL}/auth/register`, {
+    // ✅ CORRECT REGISTER API
+    const res = await fetch(`${BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rollno, password })
     });
 
-    let data = {};
-    try { data = await res.json(); } catch {}
+    const data = await res.json();
 
     if (!res.ok) {
-      messageEl.innerText = "❌ " + (data.error || data.message || "Registration failed");
+      messageEl.innerText = "❌ " + (data.message || "Registration failed");
       messageEl.style.color = "red";
       return;
     }
 
-    // ✅ AUTO LOGIN AFTER REGISTER
-    res = await fetch(`${BASE_URL}/auth/login`, {
+    // ✅ AUTO LOGIN
+    const loginRes = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rollno, password })
     });
 
-    try { data = await res.json(); } catch {}
+    const loginData = await loginRes.json();
 
-    if (res.ok) {
+    if (loginRes.ok) {
       localStorage.setItem("user", JSON.stringify({ rollno }));
 
       messageEl.innerText = "✅ Registered & Logged in!";
@@ -169,7 +168,6 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
       setTimeout(() => {
         window.location.href = "dashboard.html";
       }, 1200);
-
     } else {
       messageEl.innerText = "⚠️ Registered but login failed";
       messageEl.style.color = "orange";
