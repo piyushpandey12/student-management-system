@@ -4,18 +4,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 
-# ================= SAFE IMPORTS =================
-try:
-    from backend.routes.auth import auth_bp
-    from backend.routes.students import students_bp
-    from backend.routes.attendance import attendance_bp
-    from backend.routes.marks import marks_bp
-
-    print("✅ Blueprints imported successfully")
-except Exception as e:
-    print("❌ Import Error:", e)
-    raise e
-
 # ================= CREATE APP =================
 app = Flask(__name__)
 
@@ -39,12 +27,32 @@ def handle_preflight():
     if request.method == "OPTIONS":
         return '', 200
 
+# ================= SAFE IMPORTS =================
+try:
+    from backend.routes.auth import auth_bp, google_bp   # ✅ FIXED
+    from backend.routes.students import students_bp
+    from backend.routes.attendance import attendance_bp
+    from backend.routes.marks import marks_bp
+
+    print("✅ Blueprints imported successfully")
+except Exception as e:
+    print("❌ Import Error:", e)
+    raise e
+
 # ================= REGISTER BLUEPRINTS =================
 try:
+    # 🔐 AUTH APIs
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+
+    # 🌐 GOOGLE OAUTH (IMPORTANT)
+    app.register_blueprint(google_bp, url_prefix="/login")   # ✅ FIXED
+
+    # 📊 OTHER MODULES
     app.register_blueprint(students_bp, url_prefix="/api/students")
     app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
     app.register_blueprint(marks_bp, url_prefix="/api/marks")
+
+    print("✅ Blueprints registered successfully")
 
 except Exception as e:
     print("❌ Blueprint Register Error:", e)
