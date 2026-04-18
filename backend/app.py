@@ -1,18 +1,24 @@
 print("🔥 App is starting...")
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 
-# ================= IMPORT BLUEPRINTS =================
-from routes.auth import auth_bp, google_bp   # ✅ include google_bp
-from routes.students import students_bp
-from routes.attendance import attendance_bp
-from routes.marks import marks_bp
+# ================= SAFE IMPORTS =================
+try:
+    from routes.auth import auth_bp, google_bp
+    from routes.students import students_bp
+    from routes.attendance import attendance_bp
+    from routes.marks import marks_bp
+    print("✅ Blueprints imported")
+except Exception as e:
+    print("❌ Import Error:", e)
+    raise e
 
 # ================= CREATE APP =================
 app = Flask(__name__)
 
-# 🔐 SECRET KEY (IMPORTANT for OAuth)
+# 🔐 SECRET KEY
 app.secret_key = os.getenv("SECRET_KEY", "super-secret")
 
 # ================= CORS =================
@@ -33,17 +39,17 @@ def handle_preflight():
         return '', 200
 
 # ================= REGISTER BLUEPRINTS =================
+try:
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(students_bp, url_prefix="/api/students")
+    app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
+    app.register_blueprint(marks_bp, url_prefix="/api/marks")
 
-# 🔐 AUTH (NORMAL LOGIN/REGISTER)
-app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    # ❌ Disabled for now (fix later)
+    # app.register_blueprint(google_bp, url_prefix="/login")
 
-# 🌐 GOOGLE OAUTH (IMPORTANT PATH)
-# app.register_blueprint(google_bp, url_prefix="/login")
-
-# 📊 OTHER MODULES
-app.register_blueprint(students_bp, url_prefix="/api/students")
-app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
-app.register_blueprint(marks_bp, url_prefix="/api/marks")
+except Exception as e:
+    print("❌ Blueprint Register Error:", e)
 
 # ================= HOME =================
 @app.route("/")
@@ -53,7 +59,7 @@ def home():
         "message": "Backend running 🚀"
     })
 
-# ================= TEST API =================
+# ================= SIMPLE TEST =================
 @app.route("/api/test")
 def test():
     return {"status": "API working ✅"}
@@ -65,23 +71,15 @@ def routes():
         "routes": [str(rule) for rule in app.url_map.iter_rules()]
     })
 
-# ================= DATABASE TEST =================
-try:
-    from utils.db import get_connection
-except Exception as e:
-    print("DB import error:", e)
+# ================= DISABLE DB TEMPORARILY =================
+# try:
+#     from utils.db import get_connection
+# except Exception as e:
+#     print("DB import error:", e)
 
-@app.route("/test-db")
-def test_db():
-    try:
-        db = get_connection()
-        if db:
-            db.close()
-            return {"status": "DB connected ✅"}
-        else:
-            return {"status": "DB connection failed ❌"}
-    except Exception as e:
-        return {"error": str(e)}
+# @app.route("/test-db")
+# def test_db():
+#     return {"status": "DB disabled temporarily"}
 
 # ================= ERROR HANDLERS =================
 @app.errorhandler(404)
