@@ -1,7 +1,7 @@
-import psycopg
+import psycopg2
 import os
 
-# Optional local config
+# Optional local config (for development only)
 try:
     from backend.config import DB_CONFIG
 except ImportError:
@@ -11,16 +11,17 @@ except ImportError:
 def get_connection():
     try:
         # =========================================
-        # 🔥 PRIORITY 1: RAILWAY / POSTGRES ENV
+        # 🔥 PRIORITY 1: RAILWAY / RENDER ENV
         # =========================================
         if os.getenv("PGHOST"):
-            conn = psycopg.connect(
+            conn = psycopg2.connect(
                 host=os.getenv("PGHOST"),
-                database=os.getenv("PGDATABASE"),
+                dbname=os.getenv("PGDATABASE"),   # ✅ FIXED
                 user=os.getenv("PGUSER"),
                 password=os.getenv("PGPASSWORD"),
-                port=os.getenv("PGPORT", 5432),
-                sslmode="require"
+                port=int(os.getenv("PGPORT")),
+                sslmode="require",
+                connect_timeout=10
             )
             print("✅ PostgreSQL Connected (RAILWAY)")
             return conn
@@ -31,10 +32,10 @@ def get_connection():
         elif os.getenv("DB_HOST"):
             conn = psycopg2.connect(
                 host=os.getenv("DB_HOST"),
-                database=os.getenv("DB_NAME"),
+                dbname=os.getenv("DB_NAME"),      # ✅ FIXED
                 user=os.getenv("DB_USER"),
                 password=os.getenv("DB_PASS"),
-                port=os.getenv("DB_PORT", 5432),
+                port=int(os.getenv("DB_PORT", 5432)),
                 sslmode="require"
             )
             print("✅ PostgreSQL Connected (ENV)")
@@ -46,13 +47,13 @@ def get_connection():
         elif DB_CONFIG:
             conn = psycopg2.connect(
                 host=DB_CONFIG["host"],
-                database=DB_CONFIG["database"],
+                dbname=DB_CONFIG["database"],     # ✅ FIXED
                 user=DB_CONFIG["user"],
                 password=DB_CONFIG["password"],
-                port=DB_CONFIG.get("port", 5432),
+                port=int(DB_CONFIG.get("port", 5432)),
                 sslmode="require"
             )
-            print("✅ PostgreSQL Connected (LOCAL CONFIG)")
+            print("✅ PostgreSQL Connected (LOCAL)")
             return conn
 
         # =========================================
@@ -62,5 +63,5 @@ def get_connection():
             raise Exception("No database configuration found")
 
     except Exception as e:
-        print("🔥 DB CONNECTION ERROR:", e)
+        print("🔥 DB CONNECTION ERROR:", str(e))
         return None
