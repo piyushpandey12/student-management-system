@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Signup</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    height:100vh;
+    background:linear-gradient(135deg,#1d2671,#c33764);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.container{
+    background:rgba(255,255,255,0.1);
+    backdrop-filter:blur(15px);
+    border-radius:15px;
+    padding:40px;
+    width:350px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
+    color:white;
+    text-align:center;
+}
+
+h2{
+    margin-bottom:20px;
+}
+
+.input-group{
+    margin:15px 0;
+    text-align:left;
+}
+
+.input-group input{
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border:none;
+    border-radius:8px;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#ff4b2b;
+    color:white;
+    font-size:16px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#ff416c;
+}
+
+.link{
+    margin-top:15px;
+    font-size:14px;
+}
+
+.message{
+    margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>Teacher Registration</h2>
+
+    <form id="signupForm">
+        <div class="input-group">
+            <label>Teacher ID</label>
+            <input type="text" name="teacherId" required>
+        </div>
+
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" name="password" required>
+        </div>
+
+        <button type="submit">Register</button>
+    </form>
+
+    <div class="message" id="message"></div>
+
+    <div class="link">
+        Already have an account? <a href="teacher-login.html">Login</a>
+    </div>
+</div>
+
+<script>
+// ================= BASE URL =================
+const BASE_URL =
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-backend-if04.onrender.com/api";
+
+
+// ================= AUTO REDIRECT =================
+const user = localStorage.getItem("user");
+if(user && window.location.pathname.includes("teacher-signup.html")){
+    window.location.href = "teacher-dashboard.html";
+}
+
+
+// ================= SIGNUP =================
+document.getElementById("signupForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+
+    const teacherId = e.target.teacherId.value.trim();
+    const password = e.target.password.value.trim();
+    const messageEl = document.getElementById("message");
+
+    if(!teacherId || !password){
+        messageEl.innerText = "⚠️ All fields are required!";
+        messageEl.style.color = "yellow";
+        return;
+    }
+
+    try{
+        messageEl.innerText = "⏳ Registering...";
+        messageEl.style.color = "white";
+
+        // ✅ REGISTER
+        const res = await fetch(`${BASE_URL}/auth/register`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                teacherId,
+                password,
+                role:"teacher"
+            })
+        });
+
+        const data = await res.json();
+
+        if(!res.ok){
+            messageEl.innerText = "❌ " + (data.message || "Registration failed");
+            messageEl.style.color = "red";
+            return;
+        }
+
+        // ✅ AUTO LOGIN
+        const loginRes = await fetch(`${BASE_URL}/auth/login`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                teacherId,
+                password,
+                role:"teacher"
+            })
+        });
+
+        const loginData = await loginRes.json();
+
+        if(loginRes.ok){
+            localStorage.setItem("user", JSON.stringify(loginData.user));
+
+            messageEl.innerText = "✅ Registered & Logged in!";
+            messageEl.style.color = "lightgreen";
+
+            setTimeout(()=>{
+                window.location.href = "teacher-dashboard.html";
+            },1200);
+        }else{
+            messageEl.innerText = "⚠️ Registered but login failed";
+            messageEl.style.color = "orange";
+        }
+
+    }catch(err){
+        console.error(err);
+        messageEl.innerText = "⚠️ Backend not reachable!";
+        messageEl.style.color = "orange";
+    }
+});
+</script>
+
+</body>
+</html>

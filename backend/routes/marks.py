@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from backend.utils.db import get_connection
+from backend.utils.db import get_connection, release_connection
 
 marks_bp = Blueprint('marks', __name__)
 
@@ -17,11 +17,19 @@ def update_marks():
     rollno = data.get("rollno")
     subject = data.get("subject")
     marks = data.get("marks")
+    teacher_id = data.get("teacher_id")
 
+    # ✅ VALIDATION
     if not rollno or not subject or marks is None:
         return jsonify({
             "status": "error",
             "message": "rollno, subject, marks required"
+        }), 400
+
+    if not isinstance(marks, (int, float)) or marks < 0 or marks > 100:
+        return jsonify({
+            "status": "error",
+            "message": "marks must be between 0 and 100"
         }), 400
 
     db = None
@@ -32,11 +40,13 @@ def update_marks():
         cursor = db.cursor()
 
         cursor.execute("""
-            INSERT INTO marks (rollno, subject, marks)
-            VALUES (%s, %s, %s)
+            INSERT INTO marks (rollno, subject, marks, teacher_id)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (rollno, subject)
-            DO UPDATE SET marks = EXCLUDED.marks
-        """, (rollno, subject, marks))
+            DO UPDATE SET 
+                marks = EXCLUDED.marks,
+                teacher_id = EXCLUDED.teacher_id
+        """, (rollno, subject, marks, teacher_id))
 
         db.commit()
 
@@ -48,13 +58,17 @@ def update_marks():
     except Exception as e:
         if db:
             db.rollback()
-        return jsonify({"error": str(e)}), 500
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED
 
 
 # =========================================================
@@ -74,7 +88,7 @@ def get_marks(rollno):
         cursor = db.cursor()
 
         cursor.execute("""
-            SELECT subject, marks
+            SELECT subject, marks, teacher_id
             FROM marks
             WHERE rollno = %s
         """, (rollno,))
@@ -82,18 +96,25 @@ def get_marks(rollno):
         rows = cursor.fetchall()
 
         return jsonify([
-            {"subject": r[0], "marks": r[1]}
+            {
+                "subject": r[0],
+                "marks": r[1],
+                "teacher_id": r[2]
+            }
             for r in rows
         ])
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED
 
 
 # =========================================================
@@ -115,7 +136,9 @@ def marks_stats(rollno):
         cursor.execute("""
             SELECT 
                 COALESCE(AVG(marks), 0),
-                COALESCE(MAX(marks), 0)
+                COALESCE(MAX(marks), 0),
+                COALESCE(MIN(marks), 0),
+                COUNT(*)
             FROM marks
             WHERE rollno = %s
         """, (rollno,))
@@ -123,19 +146,26 @@ def marks_stats(rollno):
         result = cursor.fetchone()
 
         avg_marks = float(result[0]) if result else 0
-        top_score = int(result[1]) if result else 0
+        max_marks = int(result[1]) if result else 0
+        min_marks = int(result[2]) if result else 0
+        total_subjects = int(result[3]) if result else 0
 
         return jsonify({
             "status": "success",
             "average": round(avg_marks, 2),
-            "highest": top_score
+            "highest": max_marks,
+            "lowest": min_marks,
+            "subjects": total_subjects
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED

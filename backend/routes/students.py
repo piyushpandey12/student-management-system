@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from backend.utils.db import get_connection
+from backend.utils.db import get_connection, release_connection
+from backend.utils.auth_utils import hash_password
 
 students_bp = Blueprint("students", __name__)
 
@@ -8,6 +9,7 @@ students_bp = Blueprint("students", __name__)
 # =========================================================
 @students_bp.route("/", methods=["GET"])
 def get_students():
+
     db = None
     cursor = None
 
@@ -22,7 +24,7 @@ def get_students():
             {
                 "rollno": row[0],
                 "name": row[1],
-                "avg_marks": row[2],
+                "avg_marks": float(row[2]),
                 "present_days": row[3],
                 "total_days": row[4],
                 "attendance_percent": float(row[5])
@@ -39,7 +41,7 @@ def get_students():
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED
 
 
 # =========================================================
@@ -47,7 +49,8 @@ def get_students():
 # =========================================================
 @students_bp.route("/", methods=["POST"])
 def add_student():
-    data = request.get_json() or {}   # ✅ FIX
+
+    data = request.get_json() or {}
 
     name = data.get("name")
     rollno = data.get("rollno")
@@ -66,19 +69,24 @@ def add_student():
         if cursor.fetchone():
             return jsonify({"error": "Student already exists"}), 409
 
-        cursor.execute(
-            "INSERT INTO students (rollno, name) VALUES (%s, %s)",
-            (rollno, name)
-        )
+        # ✅ insert student
+        cursor.execute("""
+            INSERT INTO students (rollno, name)
+            VALUES (%s, %s)
+        """, (rollno, name))
 
-        cursor.execute(
-            "INSERT INTO users (rollno, password, role) VALUES (%s, %s, %s)",
-            (rollno, "default123", "student")
-        )
+        # ✅ insert user (secure)
+        cursor.execute("""
+            INSERT INTO users (identifier, password, role)
+            VALUES (%s, %s, %s)
+        """, (rollno, hash_password("default123"), "student"))
 
         db.commit()
 
-        return jsonify({"message": "Student added"}), 201
+        return jsonify({
+            "status": "success",
+            "message": "Student added"
+        }), 201
 
     except Exception as e:
         if db:
@@ -89,7 +97,7 @@ def add_student():
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED
 
 
 # =========================================================
@@ -97,6 +105,7 @@ def add_student():
 # =========================================================
 @students_bp.route("/<rollno>", methods=["DELETE"])
 def delete_student(rollno):
+
     db = None
     cursor = None
 
@@ -109,14 +118,14 @@ def delete_student(rollno):
             return jsonify({"error": "Student not found"}), 404
 
         cursor.execute("DELETE FROM students WHERE rollno=%s", (rollno,))
-        cursor.execute("DELETE FROM users WHERE rollno=%s", (rollno,))
+        cursor.execute("DELETE FROM users WHERE identifier=%s", (rollno,))
 
         db.commit()
 
         return jsonify({
             "status": "success",
             "message": "Deleted successfully"
-        }), 200
+        })
 
     except Exception as e:
         if db:
@@ -127,7 +136,7 @@ def delete_student(rollno):
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED
 
 
 # =========================================================
@@ -143,7 +152,7 @@ def student_dashboard(rollno):
         db = get_connection()
         cursor = db.cursor()
 
-        # 📊 MARKS
+        # MARKS
         cursor.execute("""
             SELECT subject, marks 
             FROM marks 
@@ -156,7 +165,7 @@ def student_dashboard(rollno):
             for m in marks_rows
         ]
 
-        # 📅 ATTENDANCE
+        # ATTENDANCE
         cursor.execute("""
             SELECT status 
             FROM attendance 
@@ -169,8 +178,15 @@ def student_dashboard(rollno):
 
         attendance_percent = round((present / total) * 100, 2) if total else 0
 
+        # STUDENT INFO
+        cursor.execute("""
+            SELECT name FROM students WHERE rollno=%s
+        """, (rollno,))
+        student = cursor.fetchone()
+
         return jsonify({
             "status": "success",
+            "name": student[0] if student else "",
             "marks": marks,
             "attendance_percent": attendance_percent,
             "total_days": total,
@@ -184,4 +200,4 @@ def student_dashboard(rollno):
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED

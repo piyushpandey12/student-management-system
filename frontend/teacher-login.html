@@ -9,7 +9,6 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
-
 <body>
     <!---------- integrate.system -------->
     <div class="form-container">
@@ -42,22 +41,21 @@
         <div class="divider">OR</div>
 
         <!-- Google Login -->
-       <div class="form-row google-row">
+        <div class="form-row google-row">
 
-    <!-- Hidden official Google trigger -->
-    <div id="g_id_onload"
-        data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
-        data-callback="handleGoogleLogin"
-        data-auto_prompt="false">
-    </div>
+            <!-- Hidden official Google trigger -->
+            <div id="g_id_onload"
+                data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
+                data-callback="handleGoogleLogin" data-auto_prompt="false">
+            </div>
 
-    <!-- Custom Glass Button -->
-   <button class="glass-google-btn" onclick="triggerGoogleLogin()">
+            <!-- Custom Glass Button -->
+             <button class="glass-google-btn" onclick="triggerGoogleLogin()">
                 <img src="https://developers.google.com/identity/images/g-logo.png" />
                 Continue with Google
             </button>
 
-</div>
+        </div>
 
     </div>
 
@@ -238,7 +236,7 @@
     </svg>
     </div>
     <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
-    <script src="js/script.js"></script>
+    <script src="js/teacher-login.js"></script>
 </body>
 
 </html>

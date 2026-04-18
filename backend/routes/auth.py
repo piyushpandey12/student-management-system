@@ -6,7 +6,7 @@ from urllib.parse import quote
 from flask import Blueprint, redirect, url_for, jsonify, request
 from flask_dance.contrib.google import make_google_blueprint, google
 
-from backend.utils.db import get_connection
+from backend.utils.db import get_connection, release_connection
 from backend.utils.auth_utils import hash_password, verify_password
 
 # ================= BLUEPRINT =================
@@ -58,28 +58,31 @@ def google_callback():
         db = get_connection()
         cursor = db.cursor()
 
-        cursor.execute("SELECT rollno, role FROM users WHERE rollno=%s", (email,))
+        cursor.execute(
+            "SELECT identifier, role FROM users WHERE identifier=%s",
+            (email,)
+        )
         user = cursor.fetchone()
 
         if not user:
             role = "student"
 
-            cursor.execute(
-                "INSERT INTO users (rollno, password, role) VALUES (%s, %s, %s)",
-                (email, "google_auth", role)
-            )
+            cursor.execute("""
+                INSERT INTO users (identifier, password, role, email)
+                VALUES (%s, %s, %s, %s)
+            """, (email, None, role, email))
 
-            cursor.execute(
-                "INSERT INTO students (rollno, name) VALUES (%s, %s)",
-                (email, name)
-            )
+            cursor.execute("""
+                INSERT INTO students (rollno, name, email)
+                VALUES (%s, %s, %s)
+            """, (email, name, email))
 
             db.commit()
         else:
             role = user[1]
 
         user_data = {
-            "rollno": email,
+            "id": email,
             "name": name,
             "photo": photo,
             "role": role
@@ -98,7 +101,7 @@ def google_callback():
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED
 
 
 # =========================================================
@@ -110,14 +113,17 @@ def register():
     if request.method == "OPTIONS":
         return '', 200
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    rollno = data.get("rollno")
+    identifier = data.get("rollno")   # unified field
     password = data.get("password")
     role = data.get("role", "student")
 
-    if not rollno or not password:
-        return jsonify({"status": "error", "message": "Missing fields"}), 400
+    if not identifier or not password:
+        return jsonify({
+            "status": "error",
+            "message": "Missing fields"
+        }), 400
 
     db = None
     cursor = None
@@ -126,28 +132,39 @@ def register():
         db = get_connection()
         cursor = db.cursor()
 
-        cursor.execute("SELECT 1 FROM users WHERE rollno=%s", (rollno,))
+        cursor.execute("SELECT 1 FROM users WHERE identifier=%s", (identifier,))
         if cursor.fetchone():
-            return jsonify({"status": "error", "message": "User exists"}), 409
+            return jsonify({
+                "status": "error",
+                "message": "User already exists"
+            }), 409
 
         hashed_password = hash_password(password)
 
-        cursor.execute(
-            "INSERT INTO users (rollno, password, role) VALUES (%s, %s, %s)",
-            (rollno, hashed_password, role)
-        )
+        # ✅ INSERT USER
+        cursor.execute("""
+            INSERT INTO users (identifier, password, role)
+            VALUES (%s, %s, %s)
+        """, (identifier, hashed_password, role))
 
+        # ✅ CREATE PROFILE
         if role == "student":
-            cursor.execute(
-                "INSERT INTO students (rollno, name) VALUES (%s, %s)",
-                (rollno, "Student")
-            )
+            cursor.execute("""
+                INSERT INTO students (rollno, name)
+                VALUES (%s, %s)
+            """, (identifier, "Student"))
+
+        elif role == "teacher":
+            cursor.execute("""
+                INSERT INTO teachers (teacher_id, name)
+                VALUES (%s, %s)
+            """, (identifier, "Teacher"))
 
         db.commit()
 
         return jsonify({
             "status": "success",
-            "message": "Registered",
+            "message": "Registered successfully",
             "role": role
         }), 201
 
@@ -160,7 +177,7 @@ def register():
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED
 
 
 # =========================================================
@@ -172,13 +189,16 @@ def login():
     if request.method == "OPTIONS":
         return '', 200
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    rollno = data.get("rollno")
+    identifier = data.get("rollno")
     password = data.get("password")
 
-    if not rollno or not password:
-        return jsonify({"status": "error", "message": "Missing fields"}), 400
+    if not identifier or not password:
+        return jsonify({
+            "status": "error",
+            "message": "Missing fields"
+        }), 400
 
     db = None
     cursor = None
@@ -187,21 +207,33 @@ def login():
         db = get_connection()
         cursor = db.cursor()
 
-        cursor.execute(
-            "SELECT rollno, password, role FROM users WHERE rollno=%s",
-            (rollno,)
-        )
+        cursor.execute("""
+            SELECT identifier, password, role 
+            FROM users 
+            WHERE identifier=%s
+        """, (identifier,))
 
         user = cursor.fetchone()
 
         if user:
-            db_rollno, db_password, role = user
+            db_id, db_password, role = user
 
-            if db_password == "google_auth" or verify_password(db_password, password):
+            # ✅ GOOGLE USER
+            if db_password is None:
                 return jsonify({
                     "status": "success",
                     "user": {
-                        "rollno": db_rollno,
+                        "id": db_id,
+                        "role": role
+                    }
+                }), 200
+
+            # ✅ NORMAL LOGIN
+            if verify_password(db_password, password):
+                return jsonify({
+                    "status": "success",
+                    "user": {
+                        "id": db_id,
                         "role": role
                     }
                 }), 200
@@ -218,4 +250,4 @@ def login():
         if cursor:
             cursor.close()
         if db:
-            db.close()
+            release_connection(db)   # ✅ FIXED

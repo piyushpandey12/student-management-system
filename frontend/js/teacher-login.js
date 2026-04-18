@@ -102,17 +102,16 @@ function parseJwt(token) {
 // ================= AUTO REDIRECT =================
 const user = localStorage.getItem("user");
 
-if (user && window.location.pathname.includes("index.html")) {
-  window.location.href = "dashboard.html";
+if (user && window.location.pathname.includes("teacher-login.html")) {
+  window.location.href = "teacher-dashboard.html";
 }
 
 const containerEl = document.querySelector(".container");
 const checkboxEl = document.querySelector(
   '.form-container .form-row input[type="checkbox"]',
 );
-const rollnoEl = document.querySelector(
-  '.form-container .form-row input[name="rollno"]',
-);
+const teacherIdEl = document.getElementById("teacherId");
+
 const passwordEl = document.querySelector(
   '.form-container .form-row input[name="password"]',
 );
@@ -207,15 +206,15 @@ checkboxEl.addEventListener("change", () => {
   checkForm();
 });
 
-rollnoEl.addEventListener("input", () => {
-  rollnoValid = /^\d{5,}$/.test(rollnoEl.value);
+teacherIdEl.addEventListener("input", () => {
+  rollnoValid = /^\d{5,}$/.test(teacherIdEl.value);
 
   if (rollnoValid) {
     if (!state.handClosed) {
       emailTl.play();
     }
 
-    gsap.to(rollnoEl, {
+    gsap.to(teacherIdEl, {
       borderColor: "#00ff88",
       boxShadow: "0 0 8px #00ff88",
       duration: 0.3,
@@ -228,7 +227,7 @@ rollnoEl.addEventListener("input", () => {
       }
     });
   } else {
-    gsap.to(rollnoEl, {
+    gsap.to(teacherIdEl, {
       borderColor: "#ff4d4d",
       boxShadow: "0 0 8px #ff4d4d",
       duration: 0.3,
@@ -956,12 +955,12 @@ submitBtn.addEventListener("click", async (e) => {
   e.preventDefault();
 
   const errorEl = document.getElementById("errorMsg");
-  errorEl.innerText = ""; // clear old errors
+  errorEl.innerText = "";
 
-  const rollno = document.getElementById("rollno").value.trim();
+  const teacherId = document.getElementById("teacherId").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  if (!rollno || !password) {
+  if (!teacherId || !password) {
     errorEl.innerText = "⚠️ All fields required";
     return;
   }
@@ -970,27 +969,24 @@ submitBtn.addEventListener("click", async (e) => {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rollno, password })
+      body: JSON.stringify({
+        teacherId,
+        password,
+        role: "teacher"
+      })
     });
 
     let data = {};
     try { data = await res.json(); } catch {}
 
-    // ❌ ERROR
     if (!res.ok) {
       errorEl.innerText = data.message || data.error || "Invalid credentials ❌";
       return;
     }
 
-    // ✅ SAVE FULL USER (IMPORTANT)
     localStorage.setItem("user", JSON.stringify(data.user));
 
-    // ✅ ROLE-BASED REDIRECT
-    if (data.user.role === "teacher") {
-      window.location.href = "teacher-dashboard.html";
-    } else {
-      window.location.href = "student-dashboard.html";
-    }
+    window.location.href = "teacher-dashboard.html";
 
   } catch (err) {
     console.error(err);

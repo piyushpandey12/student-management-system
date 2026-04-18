@@ -1,12 +1,9 @@
-/*integrate.system - upgraded glass UI*/
-
-html,
-body {
+/* ================= BASE ================= */
+html, body {
     padding: 0;
     margin: 0;
     font-family: 'Poppins', sans-serif;
 
-    /* 🔥 Animated gradient background */
     background: linear-gradient(-45deg, #667eea, #764ba2, #00c6ff, #0072ff);
     background-size: 400% 400%;
     animation: gradientBG 10s ease infinite;
@@ -15,39 +12,33 @@ body {
     overflow: hidden;
 }
 
-/* 🌈 Background animation */
 @keyframes gradientBG {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
 
-/* 🌫️ Glass container */
+/* ================= CONTAINER ================= */
 .container {
     position: fixed;
     top: 38%;
     left: 50%;
     transform: translate(-50%, -50%);
-
     backdrop-filter: blur(25px);
     background: rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     padding: 40px;
-
     box-shadow: 0 15px 40px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.2);
-
     animation: float 4s ease-in-out infinite;
 }
 
-/* ✨ Floating effect */
 @keyframes float {
-    0% { transform: translate(-50%, -50%) translateY(0); }
+    0%,100% { transform: translate(-50%, -50%) translateY(0); }
     50% { transform: translate(-50%, -50%) translateY(-10px); }
-    100% { transform: translate(-50%, -50%) translateY(0); }
 }
 
-/* Keep your original alignment */
+/* ================= FORM ================= */
 svg,
 .form-container {
     position: absolute;
@@ -58,18 +49,25 @@ svg,
 
 .form-container {
     width: 270px;
+    z-index: 10;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
-/* ✨ SVG styling */
+/* ================= SVG ================= */
 svg {
     width: 1000px;
     pointer-events: none;
     stroke-width: 1.2px;
-    stroke: #ffffff; /* white for better contrast */
+    stroke: #ffffff;
     fill: none;
+    z-index: 1;
 }
 
-/* Inputs layout */
+/* ================= FORM ROW ================= */
 .form-container .form-row {
     width: 100%;
     height: 60px;
@@ -77,63 +75,144 @@ svg {
     align-items: center;
 }
 
-/* ✨ Glass inputs */
+/* ================= INPUT ================= */
 .form-container .form-row input {
     width: 100%;
     height: 30px;
     padding: 8px;
-
     border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.3);
-
     background: rgba(255,255,255,0.1);
     color: white;
     backdrop-filter: blur(10px);
-
     outline: none;
 }
 
-/* Placeholder color */
 .form-container input::placeholder {
     color: rgba(255,255,255,0.7);
 }
 
-/* Valid state */
 .form-container .form-row input.valid {
     border-color: #00c6ff;
     box-shadow: 0 0 8px rgba(0,198,255,0.6);
 }
 
-/* Checkbox */
+/* ================= CHECKBOX ================= */
 .form-container .form-row input[type="checkbox"] {
     width: 20px;
     height: 20px;
     margin-right: 10px;
 }
 
-/* ✨ Submit button */
-.form-container .form-row input[type="submit"] {
+.checkbox-row {
+    height: auto !important;
+}
+
+/* ================= BUTTON ================= */
+.form-container .form-row input[type="submit"],
+.form-container .form-row input[type="button"] {
     height: 40px;
     cursor: pointer;
-
     border-radius: 20px;
     border: none;
-
     background: linear-gradient(45deg, #00c6ff, #0072ff);
     color: white;
     font-weight: bold;
-
     transition: 0.3s;
 }
 
-/* Hover effect */
-.form-container input[type="submit"]:hover {
+.form-container input[type="submit"]:hover,
+.form-container input[type="button"]:hover {
     transform: scale(1.05);
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
-/* Text styling */
+/* ================= TEXT ================= */
 .form-container label {
     color: white;
     font-size: 14px;
+}
+
+/* ================= DIVIDER ================= */
+.divider {
+    width: 100%;
+    text-align: center;
+    margin: 10px 0;
+    color: #fff;
+    font-size: 13px;
+    position: relative;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    position: absolute;
+    width: 40%;
+    height: 1px;
+    background: #ccc;
+    top: 50%;
+}
+
+.divider::before { left: 0; }
+.divider::after { right: 0; }
+
+/* ================= GOOGLE BUTTON ================= */
+.form-container .google-row {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: auto;
+    margin-top: 5px;
+}
+
+.form-container .form-row.google-row {
+    height: auto !important;
+}
+
+/* prevent clipping */
+.g_id_signin {
+    width: 250px !important;
+    display: flex;
+    justify-content: center;
+    transform: scale(0.95);
+}
+/* 🔥 Glass Google Button */
+.glass-google-btn {
+    width: 250px;
+    height: 45px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+
+    border-radius: 50px;
+    border: 1px solid rgba(255,255,255,0.3);
+
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(12px);
+
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+
+    transition: all 0.3s ease;
+}
+
+/* Logo */
+.glass-google-btn img {
+    width: 18px;
+}
+
+/* ✨ Hover Glow Effect */
+.glass-google-btn:hover {
+    transform: translateY(-2px) scale(1.03);
+
+    background: linear-gradient(45deg, #00c6ff, #0072ff);
+
+    box-shadow:
+        0 0 10px rgba(0,198,255,0.6),
+        0 0 20px rgba(0,198,255,0.4),
+        0 0 30px rgba(0,198,255,0.2);
 }
