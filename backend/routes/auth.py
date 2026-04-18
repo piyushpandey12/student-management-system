@@ -1,12 +1,13 @@
 # auth.py
 import os
-import json  # ✅ ADDED
+import json
 from urllib.parse import quote
 from flask import Blueprint, redirect, url_for, jsonify, request
 from flask_dance.contrib.google import make_google_blueprint, google
 
-from utils.db import get_connection
-from utils.auth_utils import hash_password, verify_password
+# ✅ FIXED IMPORTS
+from backend.utils.db import get_connection
+from backend.utils.auth_utils import hash_password, verify_password
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -56,12 +57,10 @@ def google_callback():
         db = get_connection()
         cursor = db.cursor()
 
-        # 🔍 CHECK IF USER EXISTS
         cursor.execute("SELECT rollno, role FROM users WHERE rollno=%s", (email,))
         user = cursor.fetchone()
 
         if not user:
-            # 🆕 NEW GOOGLE USER → REGISTER
             role = "student"
 
             cursor.execute(
@@ -78,7 +77,6 @@ def google_callback():
         else:
             role = user[1]
 
-        # 🎯 USER OBJECT
         user_data = {
             "rollno": email,
             "name": name,
@@ -86,7 +84,6 @@ def google_callback():
             "role": role
         }
 
-        # ✅ FIXED REDIRECT (PROPER JSON)
         return redirect(
             f"{os.getenv('FRONTEND_URL')}/google-success.html?user={quote(json.dumps(user_data))}"
         )
@@ -104,7 +101,7 @@ def google_callback():
 
 
 # =========================================================
-# 📌 REGISTER (NORMAL)
+# 📌 REGISTER
 # =========================================================
 @auth_bp.route('/register', methods=['POST', 'OPTIONS'])
 def register():
@@ -166,7 +163,7 @@ def register():
 
 
 # =========================================================
-# 📌 LOGIN (NORMAL)
+# 📌 LOGIN
 # =========================================================
 @auth_bp.route('/login', methods=['POST', 'OPTIONS'])
 def login():
@@ -199,7 +196,6 @@ def login():
         if user:
             db_rollno, db_password, role = user
 
-            # 🔐 GOOGLE USER LOGIN BYPASS PASSWORD
             if db_password == "google_auth" or verify_password(db_password, password):
                 return jsonify({
                     "status": "success",

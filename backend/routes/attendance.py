@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_connection
+from backend.utils.db import get_connection   # ✅ FIXED
 
 attendance_bp = Blueprint('attendance', __name__)
 
@@ -15,7 +15,7 @@ def mark_attendance():
     data = request.get_json()
 
     rollno = data.get("rollno")
-    subject = data.get("subject")   # ✅ NEW
+    subject = data.get("subject")
     date = data.get("date")
     status = data.get("status")
 
@@ -58,7 +58,7 @@ def mark_attendance():
 
 
 # =========================================================
-# 📌 GET ATTENDANCE (STUDENT-WISE + SUBJECT)
+# 📌 GET ATTENDANCE
 # =========================================================
 @attendance_bp.route("/<rollno>", methods=["GET", "OPTIONS"])
 def get_attendance(rollno):
@@ -102,7 +102,7 @@ def get_attendance(rollno):
 
 
 # =========================================================
-# 📌 ATTENDANCE STATS (SUBJECT-WISE OPTIONAL)
+# 📌 ATTENDANCE STATS
 # =========================================================
 @attendance_bp.route("/stats/<rollno>", methods=["GET", "OPTIONS"])
 def attendance_stats(rollno):
@@ -110,7 +110,7 @@ def attendance_stats(rollno):
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
-    subject = request.args.get("subject")  # ✅ optional filter
+    subject = request.args.get("subject")
 
     db = None
     cursor = None

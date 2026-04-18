@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_connection
+from backend.utils.db import get_connection   # ✅ FIXED
 
 marks_bp = Blueprint('marks', __name__)
 
 # =========================================================
-# 📌 ADD / UPDATE MARKS (SUBJECT-WISE)
+# 📌 ADD / UPDATE MARKS
 # =========================================================
 @marks_bp.route("/update", methods=["POST", "OPTIONS"])
 def update_marks():
@@ -31,7 +31,6 @@ def update_marks():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ UPSERT (clean & efficient)
         cursor.execute("""
             INSERT INTO marks (rollno, subject, marks)
             VALUES (%s, %s, %s)
@@ -59,7 +58,7 @@ def update_marks():
 
 
 # =========================================================
-# 📌 GET MARKS (STUDENT-WISE)
+# 📌 GET MARKS
 # =========================================================
 @marks_bp.route("/<rollno>", methods=["GET", "OPTIONS"])
 def get_marks(rollno):
@@ -98,7 +97,7 @@ def get_marks(rollno):
 
 
 # =========================================================
-# 📌 MARKS STATS (FOR ANALYTICS)
+# 📌 MARKS STATS
 # =========================================================
 @marks_bp.route("/stats/<rollno>", methods=["GET", "OPTIONS"])
 def marks_stats(rollno):

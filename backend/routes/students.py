@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify
-from utils.db import get_connection
+from backend.utils.db import get_connection   # ✅ FIXED
 
 students_bp = Blueprint("students", __name__)
 
 # =========================================================
-# 📌 GET ALL STUDENTS (FROM VIEW)
+# 📌 GET ALL STUDENTS
 # =========================================================
 @students_bp.route("/", methods=["GET"])
 def get_students():
@@ -113,7 +113,7 @@ def delete_student(rollno):
 
 
 # =========================================================
-# 📌 STUDENT DASHBOARD (FINAL FIX)
+# 📌 STUDENT DASHBOARD
 # =========================================================
 @students_bp.route("/dashboard/<rollno>", methods=["GET"])
 def student_dashboard(rollno):
