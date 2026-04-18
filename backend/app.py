@@ -17,9 +17,6 @@ CORS(
     supports_credentials=True
 )
 
-# ❌ REMOVE this (causes CORS conflicts)
-# @app.after_request ...
-
 # ================= HANDLE PREFLIGHT =================
 @app.before_request
 def handle_preflight():
@@ -33,6 +30,7 @@ try:
     from backend.routes.students import students_bp
     from backend.routes.attendance import attendance_bp
     from backend.routes.marks import marks_bp
+    from backend.utils.db import get_connection, release_connection
 
     print("✅ Blueprints imported successfully")
 except Exception as e:
@@ -42,13 +40,9 @@ except Exception as e:
 
 # ================= REGISTER BLUEPRINTS =================
 try:
-    # 🔐 AUTH APIs
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
-
-    # 🌐 GOOGLE OAUTH
     app.register_blueprint(google_bp, url_prefix="/login")
 
-    # 📊 MODULES
     app.register_blueprint(students_bp, url_prefix="/api/students")
     app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
     app.register_blueprint(marks_bp, url_prefix="/api/marks")
@@ -81,6 +75,60 @@ def routes():
     })
 
 
+# =========================================================
+# ✅ TEST DATABASE (FIXED + SAFE)
+# =========================================================
+@app.route("/test-db")
+def test_db():
+    db = None
+    cursor = None
+
+    try:
+        db = get_connection()
+
+        if not db:
+            return jsonify({
+                "status": "error",
+                "message": "Database connection failed ❌"
+            }), 500
+
+        cursor = db.cursor()
+
+        # 🔥 TEST QUERY
+        cursor.execute("SELECT NOW();")
+        current_time = cursor.fetchone()[0]
+
+        # 🔥 CHECK TABLES
+        cursor.execute("""
+            SELECT tablename 
+            FROM pg_tables 
+            WHERE schemaname='public';
+        """)
+        tables = [t[0] for t in cursor.fetchall()]
+
+        return jsonify({
+            "status": "success",
+            "message": "Database connected ✅",
+            "time": str(current_time),
+            "tables": tables
+        })
+
+    except Exception as e:
+        if db:
+            db.rollback()
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            release_connection(db)
+
+
 # ================= ERROR HANDLERS =================
 @app.errorhandler(404)
 def not_found(e):
@@ -94,5 +142,5 @@ def server_error(e):
 
 # ================= RUN =================
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))   # ✅ IMPORTANT FOR RENDER
+    port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
