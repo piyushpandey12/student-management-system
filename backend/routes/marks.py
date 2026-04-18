@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from backend.utils.db import get_connection   # ✅ FIXED
+from backend.utils.db import get_connection
 
 marks_bp = Blueprint('marks', __name__)
 
@@ -12,7 +12,7 @@ def update_marks():
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
     rollno = data.get("rollno")
     subject = data.get("subject")

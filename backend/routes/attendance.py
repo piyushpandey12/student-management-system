@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request
-from backend.utils.db import get_connection   # ✅ FIXED
+from backend.utils.db import get_connection   # ✅ correct import
 
 attendance_bp = Blueprint('attendance', __name__)
 
 # =========================================================
-# 📌 MARK ATTENDANCE (SUBJECT + DATE-WISE)
+# 📌 MARK ATTENDANCE
 # =========================================================
 @attendance_bp.route("/mark", methods=["POST", "OPTIONS"])
 def mark_attendance():

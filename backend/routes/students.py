@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.utils.db import get_connection   # ✅ FIXED
+from backend.utils.db import get_connection
 
 students_bp = Blueprint("students", __name__)
 
@@ -8,23 +8,27 @@ students_bp = Blueprint("students", __name__)
 # =========================================================
 @students_bp.route("/", methods=["GET"])
 def get_students():
-    db = get_connection()
-    cursor = db.cursor()
+    db = None
+    cursor = None
 
     try:
+        db = get_connection()
+        cursor = db.cursor()
+
         cursor.execute("SELECT * FROM student_dashboard")
         rows = cursor.fetchall()
 
-        students = []
-        for row in rows:
-            students.append({
+        students = [
+            {
                 "rollno": row[0],
                 "name": row[1],
                 "avg_marks": row[2],
                 "present_days": row[3],
                 "total_days": row[4],
                 "attendance_percent": float(row[5])
-            })
+            }
+            for row in rows
+        ]
 
         return jsonify(students)
 
@@ -32,8 +36,10 @@ def get_students():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
 # =========================================================
@@ -41,7 +47,7 @@ def get_students():
 # =========================================================
 @students_bp.route("/", methods=["POST"])
 def add_student():
-    data = request.get_json()
+    data = request.get_json() or {}   # ✅ FIX
 
     name = data.get("name")
     rollno = data.get("rollno")
@@ -49,10 +55,13 @@ def add_student():
     if not name or not rollno:
         return jsonify({"error": "Name & RollNo required"}), 400
 
-    db = get_connection()
-    cursor = db.cursor()
+    db = None
+    cursor = None
 
     try:
+        db = get_connection()
+        cursor = db.cursor()
+
         cursor.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
         if cursor.fetchone():
             return jsonify({"error": "Student already exists"}), 409
@@ -72,12 +81,15 @@ def add_student():
         return jsonify({"message": "Student added"}), 201
 
     except Exception as e:
-        db.rollback()
+        if db:
+            db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
 # =========================================================
@@ -85,10 +97,13 @@ def add_student():
 # =========================================================
 @students_bp.route("/<rollno>", methods=["DELETE"])
 def delete_student(rollno):
-    db = get_connection()
-    cursor = db.cursor()
+    db = None
+    cursor = None
 
     try:
+        db = get_connection()
+        cursor = db.cursor()
+
         cursor.execute("SELECT rollno FROM students WHERE rollno=%s", (rollno,))
         if not cursor.fetchone():
             return jsonify({"error": "Student not found"}), 404
@@ -104,12 +119,15 @@ def delete_student(rollno):
         }), 200
 
     except Exception as e:
-        db.rollback()
+        if db:
+            db.rollback()
         return jsonify({"error": str(e)}), 500
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 
 # =========================================================

@@ -1,14 +1,15 @@
-# auth.py
+# ================= IMPORTS =================
 import os
 import json
 from urllib.parse import quote
+
 from flask import Blueprint, redirect, url_for, jsonify, request
 from flask_dance.contrib.google import make_google_blueprint, google
 
-# ✅ FIXED IMPORTS
 from backend.utils.db import get_connection
 from backend.utils.auth_utils import hash_password, verify_password
 
+# ================= BLUEPRINT =================
 auth_bp = Blueprint("auth", __name__)
 
 # =========================================================
@@ -22,7 +23,7 @@ google_bp = make_google_blueprint(
 )
 
 # =========================================================
-# 🌐 GOOGLE LOGIN START
+# 🌐 GOOGLE LOGIN
 # =========================================================
 @auth_bp.route("/google")
 def google_login():

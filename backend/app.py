@@ -10,7 +10,8 @@ try:
     from backend.routes.students import students_bp
     from backend.routes.attendance import attendance_bp
     from backend.routes.marks import marks_bp
-    print("✅ Blueprints imported")
+
+    print("✅ Blueprints imported successfully")
 except Exception as e:
     print("❌ Import Error:", e)
     raise e
@@ -44,10 +45,6 @@ try:
     app.register_blueprint(students_bp, url_prefix="/api/students")
     app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
     app.register_blueprint(marks_bp, url_prefix="/api/marks")
-
-    # ❌ Google OAuth disabled for now
-    # from backend.routes.auth import google_bp
-    # app.register_blueprint(google_bp, url_prefix="/login")
 
 except Exception as e:
     print("❌ Blueprint Register Error:", e)
