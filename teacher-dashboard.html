@@ -5,34 +5,53 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
+
+/* ===== BODY ===== */
 body{
     margin:0;
     font-family:'Segoe UI',sans-serif;
     background:linear-gradient(135deg,#5f2c82,#49a09d);
     color:white;
 }
+
+/* ===== CONTAINER ===== */
 .container{
     max-width:1200px;
     margin:auto;
     padding:20px;
 }
-h2{text-align:center;margin-bottom:25px;}
+
+/* ===== TITLE ===== */
+h2{
+    text-align:center;
+    margin-bottom:25px;
+}
+
+/* ===== GRID ===== */
 .grid{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
     gap:20px;
 }
+
+/* ===== CARD ===== */
 .card{
     background:rgba(255,255,255,0.12);
     backdrop-filter:blur(15px);
     border-radius:15px;
     padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
 }
+
+/* ===== INPUT GROUP ===== */
 .input-group{
     display:flex;
     gap:10px;
+    flex-wrap:wrap;
 }
-.input-group input{
+
+.input-group input,
+.input-group select{
     flex:1;
     padding:10px;
     border-radius:8px;
@@ -40,27 +59,71 @@ h2{text-align:center;margin-bottom:25px;}
     background:rgba(255,255,255,0.2);
     color:white;
 }
+
+input::placeholder{
+    color:#ddd;
+}
+
+/* ===== BUTTON ===== */
 button{
-    padding:10px;
+    padding:10px 14px;
     border:none;
     border-radius:8px;
     background:#ff4b2b;
     color:white;
     cursor:pointer;
+    transition:0.2s;
 }
+
+button:hover{
+    transform:scale(1.05);
+}
+
+/* ===== TABLE ===== */
 table{
     width:100%;
+    border-collapse:collapse;
     margin-top:10px;
 }
-.gradeA{color:#00ffcc;}
-.gradeB{color:#ffd700;}
-.gradeC{color:#ff6b6b;}
+
+th,td{
+    padding:12px;
+}
+
+thead{
+    background:rgba(255,255,255,0.25);
+}
+
+tbody tr{
+    background:rgba(255,255,255,0.08);
+}
+
+tbody tr:hover{
+    background:rgba(255,255,255,0.2);
+}
+
+/* ===== GRADES ===== */
+.gradeA{color:#00ffcc;font-weight:bold;}
+.gradeB{color:#ffd700;font-weight:bold;}
+.gradeC{color:#ff6b6b;font-weight:bold;}
+
+/* SEARCH */
+#search{
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:none;
+    background:rgba(255,255,255,0.2);
+    color:white;
+}
+
 </style>
 </head>
 
 <body>
 
 <div class="container">
+
 <h2>👨‍🏫 Teacher Dashboard</h2>
 
 <div class="grid">
@@ -70,7 +133,7 @@ table{
 <h3>➕ Add Student</h3>
 <div class="input-group">
 <input id="name" placeholder="Name">
-<input id="rollno" placeholder="Roll No">
+<input id="roll" placeholder="Roll No">
 <button onclick="addStudent()">Add</button>
 </div>
 </div>
@@ -79,6 +142,61 @@ table{
 <div class="card">
 <h3>🔍 Search</h3>
 <input id="search" placeholder="Search..." onkeyup="filterStudents()">
+</div>
+
+<!-- ATTENDANCE -->
+<div class="card">
+<h3>📅 Attendance</h3>
+<div class="input-group">
+<input type="date" id="date">
+<input id="rollAtt" placeholder="Roll No">
+
+<select id="subjectAtt">
+<option>Big Data Analytics</option>
+<option>Big Data Analytics Lab</option>
+<option>Cloud Computing</option>
+<option>Cloud Computing Lab</option>
+<option>Engineering Aptitude - III</option>
+<option>Functional English - III</option>
+<option>Information Security</option>
+<option>Machine Learning</option>
+<option>Machine Learning Lab</option>
+<option>Mobile Application Development</option>
+<option>Mobile Application Development Lab</option>
+</select>
+
+<select id="status">
+<option value="present">Present</option>
+<option value="absent">Absent</option>
+</select>
+
+<button onclick="markAttendance()">Mark</button>
+</div>
+</div>
+
+<!-- MARKS -->
+<div class="card">
+<h3>📊 Marks</h3>
+<div class="input-group">
+<input id="rollMarks" placeholder="Roll No">
+
+<select id="subject">
+<option>Big Data Analytics</option>
+<option>Big Data Analytics Lab</option>
+<option>Cloud Computing</option>
+<option>Cloud Computing Lab</option>
+<option>Engineering Aptitude - III</option>
+<option>Functional English - III</option>
+<option>Information Security</option>
+<option>Machine Learning</option>
+<option>Machine Learning Lab</option>
+<option>Mobile Application Development</option>
+<option>Mobile Application Development Lab</option>
+</select>
+
+<input id="marks" placeholder="Marks (0-100)">
+<button onclick="addMarks()">Save</button>
+</div>
 </div>
 
 <!-- TABLE -->
@@ -105,14 +223,27 @@ table{
 
 <script>
 
-// ================= CONFIG =================
+// ================= BASE URL =================
 const BASE_URL = "https://student-management-system-api-cznx.onrender.com/api";
-const token = localStorage.getItem("token");
 
-if (!token) {
+// ================= SAFE USER =================
+function getUser(){
+    try {
+        return JSON.parse(localStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
+
+const token = localStorage.getItem("token");
+const user = getUser();
+
+// 🔐 PROTECT PAGE
+if (!token || !user) {
     window.location.href = "teacher-login.html";
 }
 
+// ================= HEADERS =================
 function getHeaders() {
     return {
         "Content-Type": "application/json",
@@ -120,7 +251,7 @@ function getHeaders() {
     };
 }
 
-// ================= RESPONSE =================
+// ================= RESPONSE HANDLER =================
 async function handleResponse(res) {
     const text = await res.text();
 
@@ -128,7 +259,7 @@ async function handleResponse(res) {
     try {
         data = JSON.parse(text);
     } catch {
-        throw new Error("Server error → " + text);
+        throw new Error("Server returned non-JSON → " + text);
     }
 
     if (!res.ok) {
@@ -141,9 +272,9 @@ async function handleResponse(res) {
 // ================= ADD STUDENT =================
 async function addStudent() {
     const name = document.getElementById("name").value.trim();
-    const rollno = document.getElementById("rollno").value.trim().toLowerCase();
+    const roll = document.getElementById("roll").value.trim().toLowerCase();
 
-    if (!name || !rollno) {
+    if (!name || !roll) {
         alert("Enter name & roll");
         return;
     }
@@ -152,7 +283,7 @@ async function addStudent() {
         const res = await fetch(`${BASE_URL}/students/`, {
             method: "POST",
             headers: getHeaders(),
-            body: JSON.stringify({ name, rollno })
+            body: JSON.stringify({ name, rollno: roll })
         });
 
         await handleResponse(res);
@@ -161,17 +292,17 @@ async function addStudent() {
         loadStudents();
 
     } catch (err) {
-        console.error("ERROR:", err);
+        console.error("FULL ERROR:", err);
         alert("❌ " + err.message);
     }
 }
 
 // ================= DELETE =================
-async function deleteStudent(rollno) {
-    if (!confirm("Delete student?")) return;
+async function deleteStudent(roll) {
+    if (!confirm("Delete this student?")) return;
 
     try {
-        const res = await fetch(`${BASE_URL}/students/${rollno}`, {
+        const res = await fetch(`${BASE_URL}/students/${roll}`, {
             method: "DELETE",
             headers: getHeaders()
         });
@@ -187,7 +318,73 @@ async function deleteStudent(rollno) {
     }
 }
 
-// ================= LOAD =================
+// ================= ATTENDANCE =================
+async function markAttendance() {
+    const roll = document.getElementById("rollAtt").value.trim();
+    const date = document.getElementById("date").value;
+    const status = document.getElementById("status").value;
+
+    if (!roll || !date) {
+        alert("Enter roll & date");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${BASE_URL}/attendance/mark`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+                rollno: roll,
+                date,
+                status,
+                teacher_id: user.identifier   // ✅ FIXED
+            })
+        });
+
+        await handleResponse(res);
+
+        alert("✅ Attendance marked");
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ " + err.message);
+    }
+}
+
+// ================= MARKS =================
+async function addMarks() {
+    const roll = document.getElementById("rollMarks").value.trim();
+    const subject = document.getElementById("subject").value;
+    const marks = document.getElementById("marks").value;
+
+    if (!roll || !marks) {
+        alert("Enter roll & marks");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${BASE_URL}/marks/update`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+                rollno: roll,
+                subject,
+                marks,
+                teacher_id: user.identifier   // ✅ FIXED
+            })
+        });
+
+        await handleResponse(res);
+
+        alert("✅ Marks updated");
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ " + err.message);
+    }
+}
+
+// ================= LOAD STUDENTS =================
 async function loadStudents() {
     try {
         const res = await fetch(`${BASE_URL}/students/`, {
@@ -195,6 +392,7 @@ async function loadStudents() {
         });
 
         const data = await handleResponse(res);
+
         const students = data.data || [];
 
         let html = "";
@@ -231,7 +429,7 @@ function filterStudents() {
     });
 }
 
-// INIT
+// ================= INIT =================
 loadStudents();
 
 </script>
