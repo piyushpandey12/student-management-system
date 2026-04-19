@@ -1,8 +1,7 @@
 from flask import Blueprint, jsonify, request, g
 from backend.utils.db import get_connection, release_connection
 from datetime import datetime
-from auth_guard import login_required, role_required
-
+from backend.utils.auth_utils import login_required, role_required
 attendance_bp = Blueprint('attendance', __name__)
 
 

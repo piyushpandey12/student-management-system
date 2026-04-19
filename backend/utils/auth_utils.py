@@ -1,5 +1,66 @@
 # ================= IMPORTS =================
+from functools import wraps
+from flask import request, jsonify
+import jwt
+import os
+
 from werkzeug.security import generate_password_hash, check_password_hash
+
+
+# =========================================================
+# 🔐 SECRET KEY (JWT)
+# =========================================================
+SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
+
+
+# =========================================================
+# 🔐 LOGIN REQUIRED DECORATOR
+# =========================================================
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization")
+
+        if not token:
+            return jsonify({"error": "Token missing"}), 401
+
+        try:
+            # Remove "Bearer "
+            if token.startswith("Bearer "):
+                token = token.split(" ")[1]
+
+            decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            request.user = decoded
+
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+# =========================================================
+# 🔐 ROLE REQUIRED DECORATOR
+# =========================================================
+def role_required(role):
+    def wrapper(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            user = getattr(request, "user", None)
+
+            if not user:
+                return jsonify({"error": "Unauthorized"}), 401
+
+            if user.get("role") != role:
+                return jsonify({"error": "Forbidden"}), 403
+
+            return f(*args, **kwargs)
+
+        return decorated
+    return wrapper
 
 
 # =========================================================
@@ -11,7 +72,6 @@ def hash_password(password: str) -> str:
 
     password = password.strip()
 
-    # 🔒 Strength check
     if len(password) < 6:
         raise ValueError("Password must be at least 6 characters")
 
@@ -26,17 +86,10 @@ def hash_password(password: str) -> str:
 # 🔐 VERIFY PASSWORD
 # =========================================================
 def verify_password(stored_password: str, provided_password: str) -> bool:
-    """
-    Handles:
-    ✔ Normal login
-    ✔ Google users (no password)
-    """
 
-    # ❌ No stored password (Google users)
-    if stored_password is None or stored_password == "":
+    if not stored_password:
         return False
 
-    # ❌ Invalid input
     if not provided_password or not provided_password.strip():
         return False
 
@@ -50,22 +103,16 @@ def verify_password(stored_password: str, provided_password: str) -> bool:
 
 
 # =========================================================
-# 🔐 CHECK GOOGLE USER
+# 🔐 GOOGLE USER CHECK
 # =========================================================
 def is_google_user(stored_password: str) -> bool:
-    """
-    Google users have empty password ("")
-    """
-    return stored_password is None or stored_password == ""
+    return not stored_password
 
 
 # =========================================================
-# 🔐 VALIDATE PASSWORD INPUT
+# 🔐 VALIDATE PASSWORD
 # =========================================================
 def validate_password(password: str) -> tuple:
-    """
-    Returns (is_valid, message)
-    """
 
     if not password or not password.strip():
         return False, "Password cannot be empty"
@@ -78,7 +125,6 @@ def validate_password(password: str) -> tuple:
     if password.isdigit():
         return False, "Password cannot be only numbers"
 
-    # 🔥 Optional stronger validation
     if not any(c.isalpha() for c in password):
         return False, "Password must include letters"
 
