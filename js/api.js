@@ -1,5 +1,5 @@
 // =========================================================
-// 🌐 BASE URL
+// 🌐 BASE URL (ONLY ONCE ✅)
 // =========================================================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
@@ -34,7 +34,7 @@ function getAuthHeaders() {
 // =========================================================
 // ⏱️ FETCH WITH TIMEOUT
 // =========================================================
-function fetchWithTimeout(url, options = {}, timeout = 8000) {
+function fetchWithTimeout(url, options = {}, timeout = 10000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -51,6 +51,8 @@ function fetchWithTimeout(url, options = {}, timeout = 8000) {
 async function handleResponse(res) {
   const text = await res.text();
 
+  console.log("RAW RESPONSE:", text);   // 🔥 DEBUG
+
   let data;
   try {
     data = JSON.parse(text);
@@ -59,7 +61,8 @@ async function handleResponse(res) {
   }
 
   if (!res.ok) {
-    throw new Error(data.message || data.error || "Request failed");
+    console.error("SERVER ERROR:", data); // 🔥 DEBUG
+    throw new Error(data.message || data.error || "Server error");
   }
 
   return data;
@@ -69,8 +72,6 @@ async function handleResponse(res) {
 // =========================================================
 // 🔐 AUTH APIs
 // =========================================================
-
-// LOGIN
 export async function loginUser(data) {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/auth/login`, {
@@ -93,8 +94,6 @@ export async function loginUser(data) {
   }
 }
 
-
-// REGISTER
 export async function registerUser(data) {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/auth/register`, {
@@ -112,10 +111,8 @@ export async function registerUser(data) {
 
 
 // =========================================================
-// 👨‍🎓 STUDENT APIs (FIXED: TRAILING SLASH)
+// 👨‍🎓 STUDENT APIs
 // =========================================================
-
-// GET ALL STUDENTS
 export async function getStudents() {
   const res = await fetchWithTimeout(`${BASE_URL}/students/`, {
     headers: getAuthHeaders()
@@ -123,17 +120,18 @@ export async function getStudents() {
   return handleResponse(res);
 }
 
-// ADD STUDENT
 export async function addStudentAPI(data) {
+  console.log("ADDING STUDENT:", data); // 🔥 DEBUG
+
   const res = await fetchWithTimeout(`${BASE_URL}/students/`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(data)
   });
+
   return handleResponse(res);
 }
 
-// DELETE STUDENT
 export async function deleteStudentAPI(rollno) {
   const res = await fetchWithTimeout(`${BASE_URL}/students/${rollno}`, {
     method: "DELETE",
@@ -144,13 +142,10 @@ export async function deleteStudentAPI(rollno) {
 
 
 // =========================================================
-// 📅 ATTENDANCE APIs (FIXED: teacher_id)
+// 📅 ATTENDANCE APIs
 // =========================================================
-
 export async function markAttendanceAPI(rollno, date, status) {
-
   const user = getUser();
-
   if (!user) throw new Error("User not logged in");
 
   const res = await fetchWithTimeout(`${BASE_URL}/attendance/mark`, {
@@ -160,7 +155,7 @@ export async function markAttendanceAPI(rollno, date, status) {
       rollno,
       date,
       status,
-      teacher_id: user.identifier   // 🔥 AUTO FIXED
+      teacher_id: user.identifier
     })
   });
 
@@ -176,13 +171,10 @@ export async function getAttendanceStats(rollno) {
 
 
 // =========================================================
-// 📊 MARKS APIs (FIXED: teacher_id)
+// 📊 MARKS APIs
 // =========================================================
-
 export async function addMarksAPI(rollno, subject, marks) {
-
   const user = getUser();
-
   if (!user) throw new Error("User not logged in");
 
   const res = await fetchWithTimeout(`${BASE_URL}/marks/update`, {
@@ -192,7 +184,7 @@ export async function addMarksAPI(rollno, subject, marks) {
       rollno,
       subject,
       marks,
-      teacher_id: user.identifier   // 🔥 AUTO FIXED
+      teacher_id: user.identifier
     })
   });
 
