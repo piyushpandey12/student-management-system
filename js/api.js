@@ -15,6 +15,14 @@ function getToken() {
   return localStorage.getItem("token");
 }
 
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem("user"));
+  } catch {
+    return null;
+  }
+}
+
 function getAuthHeaders() {
   return {
     "Content-Type": "application/json",
@@ -104,110 +112,98 @@ export async function registerUser(data) {
 
 
 // =========================================================
-// 👨‍🎓 STUDENT APIs
+// 👨‍🎓 STUDENT APIs (FIXED: TRAILING SLASH)
 // =========================================================
 
+// GET ALL STUDENTS
 export async function getStudents() {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/students`, {
-      headers: getAuthHeaders()
-    });
-    return await handleResponse(res);
-  } catch {
-    return { data: [] };
-  }
+  const res = await fetchWithTimeout(`${BASE_URL}/students/`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
 }
 
+// ADD STUDENT
 export async function addStudentAPI(data) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/students`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data)
-    });
-
-    return await handleResponse(res);
-  } catch {
-    return null;
-  }
+  const res = await fetchWithTimeout(`${BASE_URL}/students/`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data)
+  });
+  return handleResponse(res);
 }
 
+// DELETE STUDENT
 export async function deleteStudentAPI(rollno) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/students/${rollno}`, {
-      method: "DELETE",
-      headers: getAuthHeaders()
-    });
-
-    return await handleResponse(res);
-  } catch {
-    return null;
-  }
+  const res = await fetchWithTimeout(`${BASE_URL}/students/${rollno}`, {
+    method: "DELETE",
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
 }
 
 
 // =========================================================
-// 📅 ATTENDANCE APIs
+// 📅 ATTENDANCE APIs (FIXED: teacher_id)
 // =========================================================
 
-export async function markAttendanceAPI(rollno, date, status, teacher_id) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/attendance/mark`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ rollno, date, status, teacher_id })
-    });
+export async function markAttendanceAPI(rollno, date, status) {
 
-    return await handleResponse(res);
-  } catch {
-    return null;
-  }
+  const user = getUser();
+
+  if (!user) throw new Error("User not logged in");
+
+  const res = await fetchWithTimeout(`${BASE_URL}/attendance/mark`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      rollno,
+      date,
+      status,
+      teacher_id: user.identifier   // 🔥 AUTO FIXED
+    })
+  });
+
+  return handleResponse(res);
 }
 
 export async function getAttendanceStats(rollno) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/attendance/stats/${rollno}`, {
-      headers: getAuthHeaders()
-    });
-
-    return await handleResponse(res);
-  } catch {
-    return { percentage: 0 };
-  }
+  const res = await fetchWithTimeout(`${BASE_URL}/attendance/stats/${rollno}`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
 }
 
 
 // =========================================================
-// 📊 MARKS APIs
+// 📊 MARKS APIs (FIXED: teacher_id)
 // =========================================================
 
-export async function addMarksAPI(rollno, subject, marks, teacher_id) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/marks/update`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ rollno, subject, marks, teacher_id })
-    });
+export async function addMarksAPI(rollno, subject, marks) {
 
-    return await handleResponse(res);
-  } catch {
-    return null;
-  }
+  const user = getUser();
+
+  if (!user) throw new Error("User not logged in");
+
+  const res = await fetchWithTimeout(`${BASE_URL}/marks/update`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      rollno,
+      subject,
+      marks,
+      teacher_id: user.identifier   // 🔥 AUTO FIXED
+    })
+  });
+
+  return handleResponse(res);
 }
 
 export async function getMarksStats(rollno) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/marks/stats/${rollno}`, {
-      headers: getAuthHeaders()
-    });
-
-    return await handleResponse(res);
-  } catch {
-    return {
-      average: 0,
-      highest: 0
-    };
-  }
+  const res = await fetchWithTimeout(`${BASE_URL}/marks/stats/${rollno}`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
 }
 
 
