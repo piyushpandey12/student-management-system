@@ -187,102 +187,173 @@ background:rgba(0,0,0,0.6); justify-content:center; align-items:center;">
 </div>
 
 <script>
-const BASE_URL = "https://student-management-backend-if04.onrender.com/api";
+// ================= BASE URL =================
+const BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5000/api"
+    : `${window.location.origin}/api`;
 
-const user = JSON.parse(localStorage.getItem("user"));
-if (!user) window.location.href = "login.html";
 
-document.getElementById("welcome").innerText = "Welcome " + user.rollno;
+// ================= SAFE USER =================
+function getUser(){
+    try {
+        return JSON.parse(localStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
 
+// ================= AUTH =================
+const token = localStorage.getItem("token");
+const user = getUser();
+
+// 🔐 PROTECT PAGE (MERGED + FIXED)
+if (!token || !user || !(user.id || user.identifier)) {
+    window.location.href = "login.html";
+}
+
+// backend identifier fix
+const rollno = user.id || user.identifier;
+
+document.getElementById("welcome").innerText = "Welcome " + rollno;
+
+
+// ================= COMMON HEADERS =================
+function getHeaders() {
+    return {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+    };
+}
+
+
+// ================= CHART INSTANCES =================
+let attendanceChartInstance = null;
+let marksChartInstance = null;
 let weeklyChartInstance = null;
+
 
 // ================= DASHBOARD =================
 async function loadDashboard(){
-    const res = await fetch(`${BASE_URL}/students/dashboard/${user.rollno}`);
-    const data = await res.json();
+    try {
+        const res = await fetch(`${BASE_URL}/students/dashboard/${rollno}`, {
+            headers: getHeaders()
+        });
 
-    document.getElementById("att").innerText = data.attendance_percent + "%";
-    document.getElementById("present").innerText = data.present_days;
-    document.getElementById("total").innerText = data.total_days;
+        const data = await res.json();
 
-    document.getElementById("marksList").innerHTML =
-        data.marks.map(m=>`<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
+        if (!res.ok || data.status === "error") {
+            throw new Error(data.message);
+        }
 
-    drawCharts(data);
+        const d = data.data;
+
+        document.getElementById("att").innerText = d.attendance_percent + "%";
+        document.getElementById("present").innerText = d.present_days;
+        document.getElementById("total").innerText = d.total_days;
+
+        document.getElementById("marksList").innerHTML =
+            d.marks.map(m => `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
+
+        drawCharts(d);
+
+    } catch (err) {
+        console.error(err);
+        alert("Failed to load dashboard");
+    }
 }
+
 
 // ================= CHARTS =================
 function drawCharts(data){
 
-    new Chart(document.getElementById("attendanceChart"), {
+    if(attendanceChartInstance) attendanceChartInstance.destroy();
+    if(marksChartInstance) marksChartInstance.destroy();
+
+    attendanceChartInstance = new Chart(document.getElementById("attendanceChart"), {
         type: 'pie',
         data: {
             labels: ['Present','Absent'],
-            datasets: [{ data:[data.present_days, data.total_days - data.present_days] }]
+            datasets: [{
+                data:[data.present_days, data.total_days - data.present_days]
+            }]
         }
     });
 
-    new Chart(document.getElementById("marksChart"), {
+    marksChartInstance = new Chart(document.getElementById("marksChart"), {
         type:'bar',
         data:{
             labels:data.marks.map(m=>m.subject),
-            datasets:[{label:'Marks',data:data.marks.map(m=>m.marks)}]
+            datasets:[{
+                label:'Marks',
+                data:data.marks.map(m=>m.marks)
+            }]
         }
     });
 }
+
 
 // ================= CALENDAR =================
 let currentDate = new Date();
 
 async function loadCalendar(){
-    const res = await fetch(`${BASE_URL}/attendance/${user.rollno}`);
-    const data = await res.json();
+    try {
+        const res = await fetch(`${BASE_URL}/attendance/${rollno}`, {
+            headers: getHeaders()
+        });
 
-    const map={};
-    data.forEach(d=>map[d.date]=d.status);
+        const data = await res.json();
 
-    const calendar=document.getElementById("calendar");
-    calendar.innerHTML="";
+        if (!res.ok || data.status === "error") throw new Error();
 
-    const y=currentDate.getFullYear();
-    const m=currentDate.getMonth();
+        const records = data.data || [];
 
-    document.getElementById("monthLabel").innerText =
-        currentDate.toLocaleString('default',{month:'long',year:'numeric'});
+        const map = {};
+        records.forEach(d => map[d.date] = d.status);
 
-    const days=new Date(y,m+1,0).getDate();
+        const calendar = document.getElementById("calendar");
+        calendar.innerHTML = "";
 
-    for(let i=1;i<=days;i++){
-        const dStr=`${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-        const div=document.createElement("div");
+        const y = currentDate.getFullYear();
+        const m = currentDate.getMonth();
 
-        div.className="day";
-        div.innerText=i;
+        document.getElementById("monthLabel").innerText =
+            currentDate.toLocaleString('default',{month:'long',year:'numeric'});
 
-        let status=map[dStr]||"no data";
+        const days = new Date(y, m + 1, 0).getDate();
 
-        if(status==="present") div.classList.add("present");
-        if(status==="absent") div.classList.add("absent");
+        for(let i=1;i<=days;i++){
+            const dStr=`${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+            const div=document.createElement("div");
 
-        div.setAttribute("data-tooltip",`${dStr} → ${status}`);
+            div.className="day";
+            div.innerText=i;
 
-        div.onclick=()=>{
-            document.getElementById("modalText").innerText =
-                `Date: ${dStr}\nStatus: ${status}`;
-            document.getElementById("modal").style.display="flex";
-        };
+            let status=map[dStr]||"no data";
 
-        calendar.appendChild(div);
+            if(status==="present") div.classList.add("present");
+            if(status==="absent") div.classList.add("absent");
+
+            div.setAttribute("data-tooltip",`${dStr} → ${status}`);
+
+            div.onclick=()=>{
+                document.getElementById("modalText").innerText =
+                    `Date: ${dStr}\nStatus: ${status}`;
+                document.getElementById("modal").style.display="flex";
+            };
+
+            calendar.appendChild(div);
+        }
+
+        drawWeeklyChart(records);
+        calculateStreak(records);
+
+    } catch {
+        console.error("Calendar load failed");
     }
-
-    drawWeeklyChart(data);
-    calculateStreak(data);
 }
 
-// ================= MODAL =================
-function closeModal(){
-    document.getElementById("modal").style.display="none";
-}
 
 // ================= WEEKLY =================
 function drawWeeklyChart(data){
@@ -305,23 +376,31 @@ function drawWeeklyChart(data){
     });
 }
 
+
 // ================= STREAK =================
 function calculateStreak(data){
 
     let streak=0;
 
-    const sorted=data.filter(d=>d.status==="present")
-        .map(d=>d.date).sort().reverse();
+    const sorted=data
+        .filter(d=>d.status==="present")
+        .map(d=>d.date)
+        .sort()
+        .reverse();
 
     let prev=new Date();
 
     for(let d of sorted){
         let diff=(prev-new Date(d))/(1000*60*60*24);
-        if(diff<=1){streak++;prev=new Date(d);} else break;
+        if(diff<=1){
+            streak++;
+            prev=new Date(d);
+        } else break;
     }
 
     document.getElementById("streak").innerText=streak;
 }
+
 
 // ================= NAV =================
 function show(id){
@@ -329,15 +408,28 @@ function show(id){
     document.getElementById("marks").style.display=id==="marks"?"block":"none";
 }
 
+
+// ================= LOGOUT =================
 function logout(){
     localStorage.removeItem("user");
-    window.location.href="login.html";
+    localStorage.removeItem("token");
+    window.location.href="index.html";
 }
 
-function nextMonth(){ currentDate.setMonth(currentDate.getMonth()+1); loadCalendar(); }
-function prevMonth(){ currentDate.setMonth(currentDate.getMonth()-1); loadCalendar(); }
 
-// INIT
+// ================= MONTH NAV =================
+function nextMonth(){
+    currentDate.setMonth(currentDate.getMonth()+1);
+    loadCalendar();
+}
+
+function prevMonth(){
+    currentDate.setMonth(currentDate.getMonth()-1);
+    loadCalendar();
+}
+
+
+// ================= INIT =================
 loadDashboard();
 loadCalendar();
 </script>

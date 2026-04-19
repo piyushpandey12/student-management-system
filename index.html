@@ -112,40 +112,44 @@ p{
 </div>
 
 <script>
-// ================= CHECK USER =================
-const user = JSON.parse(localStorage.getItem("user"));
+// ================= SAFE PARSE =================
+function getUser() {
+    try {
+        return JSON.parse(localStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
 
-if(user){
+// ================= CHECK TOKEN =================
+const token = localStorage.getItem("token");
+const user = getUser();
+
+// 🔐 Redirect ONLY if valid session exists
+if (token && user && user.role) {
     window.location.href =
         user.role === "teacher"
         ? "teacher-dashboard.html"
         : "student-dashboard.html";
 }
 
-// ================= MAIN LOGIC =================
+
+// ================= ROLE HANDLER =================
 function handleRole(role){
 
-    // Save role
+    // 🔥 Clear old session (prevents auto-login bug)
+    localStorage.clear();
+
+    // Save role for next page
     localStorage.setItem("role", role);
 
-    // Check if user already signed up (you can adjust this logic)
-    const existingUser = localStorage.getItem(role + "_registered");
-
-    if(existingUser){
-        // ✅ Go to login
-        window.location.href =
-            role === "teacher"
-            ? "teacher-login.html"
-            : "login.html";
+    // Redirect
+    if(role === "teacher"){
+        window.location.href = "teacher-signup.html";
     } else {
-        // ✅ Go to signup
-        window.location.href =
-            role === "teacher"
-            ? "teacher-signup.html"
-            : "signup.html";
+        window.location.href = "signup.html";
     }
 }
 </script>
-
 </body>
 </html>

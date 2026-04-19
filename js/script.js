@@ -4,107 +4,99 @@ const BASE_URL =
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-backend-if04.onrender.com/api";
 
-
 const AUTH_URL =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:5000"
     : "https://student-management-backend-if04.onrender.com";
 
-    // ================= GOOGLE INIT =================
-function initGoogle() {
-    if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.initialize({
-            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleLogin
-        });
-    } else {
-        console.error("Google SDK not loaded");
-    }
+// ================= AUTH CHECK =================
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem("user"));
+  } catch {
+    return null;
+  }
 }
 
+const user = getUser();
+const token = localStorage.getItem("token");
 
-document.addEventListener("DOMContentLoaded", () => {
-    initGoogle();
-});
-// ================= GOOGLE LOGIN (NEW) =================
-function initGoogle() {
-    if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.initialize({
-            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleLogin
-        });
-        console.log("✅ Google Initialized");
-    } else {
-        console.warn("⏳ Google not ready, retrying...");
-        setTimeout(initGoogle, 500);
-    }
+// ✅ ONLY redirect if BOTH exist
+if (user && token && !window.location.pathname.includes("dashboard")) {
+  if (user.role === "teacher") {
+    window.location.href = "teacher-dashboard.html";
+  } else {
+    window.location.href = "student-dashboard.html";
+  }
 }
+
+// ================= GOOGLE INIT =================
+function initGoogle() {
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.initialize({
+      client_id:
+        "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
+      callback: handleGoogleLogin,
+    });
+    console.log("✅ Google Initialized");
+  } else {
+    setTimeout(initGoogle, 500);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", initGoogle);
+
 function triggerGoogleLogin() {
-    if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.prompt();   // ✅ just opens popup
-    } else {
-        alert("Google not loaded yet. Refresh page.");
-    }
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.prompt();
+  } else {
+    alert("Google not loaded yet. Refresh page.");
+  }
 }
 function handleGoogleLogin(response) {
-    if (!response.credential) {
-        alert("Google login failed");
+  if (!response.credential) {
+    alert("Google login failed");
+    return;
+  }
+
+  fetch(`${BASE_URL}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: response.credential }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data || data.error) {
+        alert(data.error || "Login failed");
         return;
-    }
+      }
 
-    const user = parseJwt(response.credential);
-    console.log("Google User:", user);
+      // ✅ VERY IMPORTANT
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("token", data.token); // 🔥 FIXED
 
-    fetch(`${BASE_URL}/auth/google-login`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            token: response.credential
-        })
+      if (data.user.role === "teacher") {
+        window.location.href = "teacher-dashboard.html";
+      } else {
+        window.location.href = "student-dashboard.html";
+      }
     })
-    .then(res => res.json())
-    .then(data => {
-
-        if (!data || data.error) {
-            alert(data.error || "Login failed");
-            return;
-        }
-
-        localStorage.setItem("user", JSON.stringify(data.user));
-
-        if (data.user.role === "teacher") {
-            window.location.href = "teacher-dashboard.html";
-        } else {
-            window.location.href = "student-dashboard.html";
-        }
-    })
-    .catch(err => {
-        console.error(err);
-        alert("Server error");
-    });
+    .catch(() => alert("Server error"));
 }
-
 function parseJwt(token) {
-    let base64Url = token.split('.')[1];
-    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    let jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    ).join(''));
-    return JSON.parse(jsonPayload);
+  let base64Url = token.split(".")[1];
+  let base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  let jsonPayload = decodeURIComponent(
+    atob(base64)
+      .split("")
+      .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+      .join(""),
+  );
+  return JSON.parse(jsonPayload);
 }
 
 // ================= GOOGLE LOGIN =================
-
-
-// ================= AUTO REDIRECT =================
-const user = localStorage.getItem("user");
-
-if (user && window.location.pathname.includes("index.html")) {
-  window.location.href = "dashboard.html";
-}
 
 const containerEl = document.querySelector(".container");
 const checkboxEl = document.querySelector(
@@ -117,6 +109,10 @@ const passwordEl = document.querySelector(
   '.form-container .form-row input[name="password"]',
 );
 const submitBtn = document.getElementById("submitBtn");
+if (!rollnoEl || !passwordEl || !submitBtn) {
+  console.error("❌ Missing DOM elements");
+  throw new Error("Critical DOM elements missing");
+}
 const sprayer = document.querySelector(".sprayer");
 const sprayHandContainer = document.querySelector(".spray-hand-container");
 const sprayLines = Array.from(document.querySelectorAll(".spray-line"));
@@ -956,10 +952,9 @@ submitBtn.addEventListener("click", async (e) => {
   e.preventDefault();
 
   const errorEl = document.getElementById("errorMsg");
-  errorEl.innerText = ""; // clear old errors
 
-  const rollno = document.getElementById("rollno").value.trim();
-  const password = document.getElementById("password").value.trim();
+  const rollno = rollnoEl.value.trim();
+  const password = passwordEl.value.trim();
 
   if (!rollno || !password) {
     errorEl.innerText = "⚠️ All fields required";
@@ -970,30 +965,26 @@ submitBtn.addEventListener("click", async (e) => {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rollno, password })
+      body: JSON.stringify({ rollno, password }),
     });
 
-    let data = {};
-    try { data = await res.json(); } catch {}
+    const data = await res.json();
 
-    // ❌ ERROR
-    if (!res.ok) {
-      errorEl.innerText = data.message || data.error || "Invalid credentials ❌";
+    if (!res.ok || data.status !== "success") {
+      errorEl.innerText = data.message || "Invalid credentials ❌";
       return;
     }
 
-    // ✅ SAVE FULL USER (IMPORTANT)
+    // ✅ FIX (MOST IMPORTANT)
     localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("token", data.token);
 
-    // ✅ ROLE-BASED REDIRECT
     if (data.user.role === "teacher") {
       window.location.href = "teacher-dashboard.html";
     } else {
       window.location.href = "student-dashboard.html";
     }
-
-  } catch (err) {
-    console.error(err);
+  } catch {
     errorEl.innerText = "⚠️ Backend not reachable!";
   }
 });

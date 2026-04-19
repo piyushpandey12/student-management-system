@@ -6,19 +6,43 @@ const BASE_URL =
     : "https://student-management-backend-if04.onrender.com/api";
 
 
-// ================= AUTH CHECK =================
-const user = JSON.parse(localStorage.getItem("user"));
+// ================= AUTH =================
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem("user"));
+  } catch {
+    return null;
+  }
+}
 
-if (!user && window.location.pathname.includes("dashboard.html")) {
+const user = getUser();
+const token = localStorage.getItem("token");
+
+// 🔐 PROTECT DASHBOARD
+if ((!user || !token) && window.location.pathname.includes("dashboard")) {
   window.location.href = "index.html";
 }
 
 
 // ================= COMMON =================
 async function handleResponse(res) {
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || data.message);
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    throw new Error(data.message || data.error || "Something went wrong");
+  }
+
   return data;
+}
+
+function getHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + token
+  };
 }
 
 
@@ -29,6 +53,10 @@ async function login(event) {
   const rollno = document.getElementById("rollno").value.trim();
   const password = document.getElementById("password").value.trim();
 
+  if (!rollno || !password) {
+    return alert("⚠️ Enter all fields");
+  }
+
   try {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
@@ -38,18 +66,28 @@ async function login(event) {
 
     const data = await handleResponse(res);
 
-    localStorage.setItem("user", JSON.stringify(data.user)); // ✅ FIXED
-    window.location.href = "dashboard.html";
+    // ✅ SAVE AUTH
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("token", data.token);
+
+    // ✅ ROLE BASED REDIRECT
+    if (data.user.role === "teacher") {
+      window.location.href = "teacher-dashboard.html";
+    } else {
+      window.location.href = "student-dashboard.html";
+    }
 
   } catch (err) {
-    alert(err.message);
+    alert("❌ " + err.message);
   }
 }
 
 
 // ================= GET STUDENTS =================
 async function getStudents() {
-  const res = await fetch(`${BASE_URL}/students/`);
+  const res = await fetch(`${BASE_URL}/students`, {
+    headers: getHeaders()
+  });
   return handleResponse(res);
 }
 
@@ -57,64 +95,86 @@ async function getStudents() {
 // ================= ADD STUDENT =================
 async function addStudent() {
   const name = document.getElementById("name").value.trim();
-  const rollno = document.getElementById("roll").value.trim();
+  const rollno = document.getElementById("roll").value.trim().toLowerCase();
 
-  if (!name || !rollno) return alert("Fill all fields");
+  if (!name || !rollno) {
+    return alert("⚠️ Fill all fields");
+  }
 
-  const res = await fetch(`${BASE_URL}/students/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, rollno })
-  });
+  try {
+    const res = await fetch(`${BASE_URL}/students`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ name, rollno })
+    });
 
-  await handleResponse(res);
+    await handleResponse(res);
 
-  clearInputs();
-  loadStudents();
+    alert("✅ Student added");
+    clearInputs();
+    loadStudents();
+
+  } catch (err) {
+    alert("❌ " + err.message);
+  }
 }
 
 
 // ================= LOAD STUDENTS =================
 async function loadStudents() {
-  const data = await getStudents();
-  const list = document.getElementById("list");
+  try {
+    const data = await getStudents();
+    const list = document.getElementById("list");
 
-  list.innerHTML = "";
+    list.innerHTML = "";
 
-  data.forEach((s) => {
-    const row = document.createElement("tr");
+    data.data?.forEach((s) => {
+      const row = document.createElement("tr");
 
-    row.innerHTML = `
-      <td>${s.name}</td>
-      <td>${s.rollno}</td>
+      row.innerHTML = `
+        <td>${s.name}</td>
+        <td>${s.rollno}</td>
 
-      <td>
-        <input type="checkbox"
-        onchange="markAttendance('${s.rollno}')">
-      </td>
+        <td>
+          <input type="checkbox"
+          onchange="markAttendance('${s.rollno}')">
+        </td>
 
-      <td>
-        <input type="number" value="0"
-        onchange="updateMarks('${s.rollno}', this.value)">
-      </td>
+        <td>
+          <input type="number" value="${s.avg_marks || 0}"
+          onchange="updateMarks('${s.rollno}', this.value)">
+        </td>
 
-      <td>
-        <button onclick="deleteStudent('${s.rollno}')">Delete</button>
-      </td>
-    `;
+        <td>
+          <button onclick="deleteStudent('${s.rollno}')">Delete</button>
+        </td>
+      `;
 
-    list.appendChild(row);
-  });
+      list.appendChild(row);
+    });
+
+  } catch (err) {
+    alert("❌ Failed to load students");
+  }
 }
 
 
 // ================= DELETE =================
 async function deleteStudent(rollno) {
-  await fetch(`${BASE_URL}/students/${rollno}`, {
-    method: "DELETE"
-  });
+  if (!confirm("Delete this student?")) return;
 
-  loadStudents();
+  try {
+    await fetch(`${BASE_URL}/students/${rollno}`, {
+      method: "DELETE",
+      headers: getHeaders()
+    });
+
+    alert("✅ Deleted");
+    loadStudents();
+
+  } catch {
+    alert("⚠️ Server error");
+  }
 }
 
 
@@ -122,58 +182,88 @@ async function deleteStudent(rollno) {
 async function markAttendance(rollno) {
   const today = new Date().toISOString().split("T")[0];
 
-  await fetch(`${BASE_URL}/attendance/mark`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      rollno,
-      date: today,
-      status: "present"
-    })
-  });
+  try {
+    await fetch(`${BASE_URL}/attendance/mark`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        rollno,
+        date: today,
+        status: "present",
+        teacher_id: user?.id
+      })
+    });
+
+    alert("✅ Attendance marked");
+
+  } catch {
+    alert("⚠️ Error marking attendance");
+  }
 }
 
 
 // ================= MARKS =================
 async function updateMarks(rollno, marks) {
-  await fetch(`${BASE_URL}/marks/update`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      rollno,
-      subject: "Math", // default subject
-      marks: Number(marks)
-    })
-  });
+  try {
+    await fetch(`${BASE_URL}/marks/update`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        rollno,
+        subject: "Math",
+        marks: Number(marks),
+        teacher_id: user?.id
+      })
+    });
+
+  } catch {
+    alert("⚠️ Error updating marks");
+  }
 }
 
 
 // ================= DASHBOARD =================
 async function loadDashboardStats() {
-  const students = await getStudents();
+  try {
+    const studentsRes = await fetch(`${BASE_URL}/students`, {
+      headers: getHeaders()
+    });
 
-  document.getElementById("total").innerText = students.length;
+    const studentsData = await handleResponse(studentsRes);
+    const students = studentsData.data || [];
 
-  if (students.length > 0) {
-    const rollno = students[0].rollno;
+    document.getElementById("total").innerText = students.length;
 
-    const att = await fetch(`${BASE_URL}/attendance/stats/${rollno}`)
-      .then(handleResponse);
+    if (students.length > 0) {
+      const rollno = students[0].rollno;
 
-    document.getElementById("att").innerText = att.percentage + "%";
+      const att = await fetch(`${BASE_URL}/attendance/stats/${rollno}`, {
+        headers: getHeaders()
+      }).then(handleResponse);
 
-    const marks = await fetch(`${BASE_URL}/marks/stats/${rollno}`)
-      .then(handleResponse);
+      document.getElementById("att").innerText =
+        (att.percentage || 0) + "%";
 
-    document.getElementById("marks").innerText = marks.average;
-    document.getElementById("top").innerText = marks.highest;
+      const marks = await fetch(`${BASE_URL}/marks/stats/${rollno}`, {
+        headers: getHeaders()
+      }).then(handleResponse);
+
+      document.getElementById("marks").innerText =
+        marks.average || 0;
+
+      document.getElementById("top").innerText =
+        marks.highest || 0;
+    }
+
+  } catch {
+    console.error("Dashboard load failed");
   }
 }
 
 
 // ================= LOGOUT =================
 function logout() {
-  localStorage.removeItem("user");
+  localStorage.clear();
   window.location.href = "index.html";
 }
 
@@ -187,7 +277,7 @@ function clearInputs() {
 
 // ================= AUTO LOAD =================
 window.onload = () => {
-  if (window.location.pathname.includes("dashboard.html")) {
+  if (window.location.pathname.includes("dashboard")) {
     loadStudents();
     loadDashboardStats();
   }

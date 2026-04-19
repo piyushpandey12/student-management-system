@@ -1,33 +1,47 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from backend.utils.db import get_connection, release_connection
+from datetime import datetime
+from auth_guard import login_required, role_required
 
 attendance_bp = Blueprint('attendance', __name__)
 
+
 # =========================================================
-# 📌 MARK ATTENDANCE
+# 📌 MARK ATTENDANCE (SECURE VERSION)
 # =========================================================
-@attendance_bp.route("/mark", methods=["POST", "OPTIONS"])
+@attendance_bp.route("/mark", methods=["POST"])
+@login_required
+@role_required("teacher")   # 🔐 only teacher allowed
 def mark_attendance():
 
-    if request.method == "OPTIONS":
-        return jsonify({"status": "ok"}), 200
-
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     rollno = data.get("rollno")
     date = data.get("date")
-    status = data.get("status")
-    teacher_id = data.get("teacher_id")  # optional
+    status = (data.get("status") or "").lower()
 
-    # ✅ Validation
+    teacher_id = g.user.get("identifier")  # 🔥 from token
+
+    # ✅ VALIDATION
     if not rollno or not date or not status:
         return jsonify({
-            "error": "rollno, date, status required"
+            "status": "error",
+            "message": "rollno, date, status required"
+        }), 400
+
+    # ✅ DATE FORMAT
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({
+            "status": "error",
+            "message": "Invalid date format (YYYY-MM-DD)"
         }), 400
 
     if status not in ["present", "absent"]:
         return jsonify({
-            "error": "status must be 'present' or 'absent'"
+            "status": "error",
+            "message": "Invalid status"
         }), 400
 
     db = None
@@ -37,20 +51,17 @@ def mark_attendance():
         db = get_connection()
         cursor = db.cursor()
 
-        cursor.execute("""
-            INSERT INTO attendance (rollno, date, status, teacher_id)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (rollno, date)
-            DO UPDATE SET 
-                status = EXCLUDED.status,
-                teacher_id = EXCLUDED.teacher_id
-        """, (rollno, date, status, teacher_id))
+        # ✅ CALL DB FUNCTION (BEST PRACTICE)
+        cursor.execute(
+            "SELECT mark_attendance(%s, %s, %s, %s)",
+            (rollno, date, status, teacher_id)
+        )
 
         db.commit()
 
         return jsonify({
             "status": "success",
-            "message": "Attendance saved"
+            "message": "Attendance marked successfully"
         })
 
     except Exception as e:
@@ -66,17 +77,19 @@ def mark_attendance():
         if cursor:
             cursor.close()
         if db:
-            release_connection(db)   # ✅ FIXED
+            release_connection(db)
 
 
 # =========================================================
-# 📌 GET ATTENDANCE
+# 📌 GET ATTENDANCE (SECURE)
 # =========================================================
-@attendance_bp.route("/<rollno>", methods=["GET", "OPTIONS"])
+@attendance_bp.route("/<rollno>", methods=["GET"])
+@login_required
 def get_attendance(rollno):
 
-    if request.method == "OPTIONS":
-        return jsonify({"status": "ok"}), 200
+    # 🔐 student can only see their own data
+    if g.user["role"] == "student" and g.user["identifier"] != rollno:
+        return jsonify({"error": "Unauthorized"}), 403
 
     db = None
     cursor = None
@@ -94,13 +107,16 @@ def get_attendance(rollno):
 
         rows = cursor.fetchall()
 
-        return jsonify([
-            {
-                "date": str(r[0]),
-                "status": r[1]
-            }
-            for r in rows
-        ])
+        return jsonify({
+            "status": "success",
+            "data": [
+                {
+                    "date": r[0].strftime("%Y-%m-%d"),
+                    "status": r[1]
+                }
+                for r in rows
+            ]
+        })
 
     except Exception as e:
         return jsonify({
@@ -112,17 +128,18 @@ def get_attendance(rollno):
         if cursor:
             cursor.close()
         if db:
-            release_connection(db)   # ✅ FIXED
+            release_connection(db)
 
 
 # =========================================================
-# 📌 ATTENDANCE STATS
+# 📌 ATTENDANCE STATS (WITH ANALYSIS)
 # =========================================================
-@attendance_bp.route("/stats/<rollno>", methods=["GET", "OPTIONS"])
+@attendance_bp.route("/stats/<rollno>", methods=["GET"])
+@login_required
 def attendance_stats(rollno):
 
-    if request.method == "OPTIONS":
-        return jsonify({"status": "ok"}), 200
+    if g.user["role"] == "student" and g.user["identifier"] != rollno:
+        return jsonify({"error": "Unauthorized"}), 403
 
     db = None
     cursor = None
@@ -141,16 +158,27 @@ def attendance_stats(rollno):
 
         result = cursor.fetchone()
 
-        present = result[0] if result else 0
-        total = result[1] if result else 0
+        present = result[0] or 0
+        total = result[1] or 0
 
         percentage = round((present / total) * 100, 2) if total else 0
 
+        # 🔥 ADD ANALYSIS MESSAGE
+        if percentage >= 75:
+            remark = "Good attendance"
+        elif percentage >= 50:
+            remark = "Average attendance"
+        else:
+            remark = "Low attendance"
+
         return jsonify({
             "status": "success",
-            "present": present,
-            "total": total,
-            "percentage": percentage
+            "data": {
+                "present": present,
+                "total": total,
+                "percentage": percentage,
+                "remark": remark
+            }
         })
 
     except Exception as e:
@@ -163,4 +191,4 @@ def attendance_stats(rollno):
         if cursor:
             cursor.close()
         if db:
-            release_connection(db)   # ✅ FIXED
+            release_connection(db)

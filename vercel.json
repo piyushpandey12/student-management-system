@@ -1,1 +1,11 @@
-{ "routes": [ { "handle": "filesystem" }, { "src": "/", "dest": "/index.html" } ] }
+{
+  "routes": [
+    { "src": "/", "dest": "/index.html" },
+    { "src": "/login", "dest": "/login.html" },
+    { "src": "/signup", "dest": "/signup.html" },
+    { "src": "/teacher-login", "dest": "/teacher-login.html" },
+    { "src": "/teacher-signup", "dest": "/teacher-signup.html" },
+    { "src": "/student-dashboard", "dest": "/student-dashboard.html" },
+    { "src": "/teacher-dashboard", "dest": "/teacher-dashboard.html" }
+  ]
+}

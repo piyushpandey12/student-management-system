@@ -104,15 +104,26 @@ button:hover{
 <script>
 // ================= BASE URL =================
 const BASE_URL =
-  window.location.hostname === "127.0.0.1" ||
-  window.location.hostname === "localhost"
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:5000/api"
-    : "https://student-management-backend-if04.onrender.com/api";
+    : `${window.location.origin}/api`;
 
 
-// ================= AUTO REDIRECT =================
-const user = localStorage.getItem("user");
-if(user && window.location.pathname.includes("teacher-signup.html")){
+// ================= SAFE USER =================
+function getUser(){
+    try{
+        return JSON.parse(localStorage.getItem("user"));
+    }catch{
+        return null;
+    }
+}
+
+// ================= AUTO REDIRECT (FIXED) =================
+const token = localStorage.getItem("token");
+const user = getUser();
+
+if(token && user){
     window.location.href = "teacher-dashboard.html";
 }
 
@@ -121,7 +132,7 @@ if(user && window.location.pathname.includes("teacher-signup.html")){
 document.getElementById("signupForm").addEventListener("submit", async (e)=>{
     e.preventDefault();
 
-    const teacherId = e.target.teacherId.value.trim();
+    const teacherId = e.target.teacherId.value.trim().toLowerCase();
     const password = e.target.password.value.trim();
     const messageEl = document.getElementById("message");
 
@@ -135,12 +146,12 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
         messageEl.innerText = "⏳ Registering...";
         messageEl.style.color = "white";
 
-        // ✅ REGISTER
+        // ✅ REGISTER (FIXED)
         const res = await fetch(`${BASE_URL}/auth/register`,{
             method:"POST",
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify({
-                teacherId,
+                teacherId: teacherId,   // ✅ FIXED
                 password,
                 role:"teacher"
             })
@@ -148,26 +159,28 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
 
         const data = await res.json();
 
-        if(!res.ok){
+        if(!res.ok || data.status === "error"){
             messageEl.innerText = "❌ " + (data.message || "Registration failed");
             messageEl.style.color = "red";
             return;
         }
 
-        // ✅ AUTO LOGIN
+        // ✅ LOGIN
         const loginRes = await fetch(`${BASE_URL}/auth/login`,{
             method:"POST",
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify({
-                teacherId,
-                password,
-                role:"teacher"
+                teacherId: teacherId,   // ✅ FIXED
+                password
             })
         });
 
         const loginData = await loginRes.json();
 
-        if(loginRes.ok){
+        if(loginRes.ok && loginData.status === "success"){
+
+            // 🔥 IMPORTANT FIX
+            localStorage.setItem("token", loginData.token);
             localStorage.setItem("user", JSON.stringify(loginData.user));
 
             messageEl.innerText = "✅ Registered & Logged in!";
@@ -175,7 +188,8 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
 
             setTimeout(()=>{
                 window.location.href = "teacher-dashboard.html";
-            },1200);
+            },1000);
+
         }else{
             messageEl.innerText = "⚠️ Registered but login failed";
             messageEl.style.color = "orange";

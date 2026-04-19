@@ -2,8 +2,20 @@ services:
   - type: web
     name: student-backend
     runtime: python
-    buildCommand: pip install -r backend/requirements.txt
+
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn backend.app:app
+
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+
+      # 🔐 REQUIRED
+      - key: SECRET_KEY
+        generateValue: true
+
+      # 🗄️ REQUIRED (Render PostgreSQL auto injects this)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: student-db
+          property: connectionString

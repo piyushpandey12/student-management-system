@@ -4,106 +4,118 @@ const BASE_URL =
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-backend-if04.onrender.com/api";
 
-
 const AUTH_URL =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:5000"
     : "https://student-management-backend-if04.onrender.com";
 
-    // ================= GOOGLE INIT =================
-function initGoogle() {
-    if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.initialize({
-            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleLogin
-        });
-    } else {
-        console.error("Google SDK not loaded");
-    }
-}
-
-
-document.addEventListener("DOMContentLoaded", () => {
-    initGoogle();
-});
 // ================= GOOGLE LOGIN (NEW) =================
 function initGoogle() {
-    if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.initialize({
-            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleLogin
-        });
-        console.log("✅ Google Initialized");
-    } else {
-        console.warn("⏳ Google not ready, retrying...");
-        setTimeout(initGoogle, 500);
-    }
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.initialize({
+      client_id:
+        "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
+      callback: handleGoogleLogin,
+    });
+    console.log("✅ Google Initialized");
+  } else {
+    console.warn("⏳ Google not ready, retrying...");
+    setTimeout(initGoogle, 500);
+  }
 }
+document.addEventListener("DOMContentLoaded", () => {
+  initGoogle();
+});
 function triggerGoogleLogin() {
-    if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.prompt();   // ✅ just opens popup
-    } else {
-        alert("Google not loaded yet. Refresh page.");
-    }
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.prompt();
+  } else {
+    initGoogle(); // retry
+  }
 }
 function handleGoogleLogin(response) {
-    if (!response.credential) {
-        alert("Google login failed");
+  if (!response.credential) {
+    alert("Google login failed");
+    return;
+  }
+
+  fetch(`${BASE_URL}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      token: response.credential,
+    }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data || data.error) {
+        alert(data.error || "Login failed");
         return;
-    }
+      }
 
-    const user = parseJwt(response.credential);
-    console.log("Google User:", user);
+      // ✅ SAVE TOKEN FIRST
+      if (data.token) {
+        localStorage.setItem("token", data.token);
 
-    fetch(`${BASE_URL}/auth/google-login`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            token: response.credential
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
+        // ✅ Decode fallback (safe)
+        const payload = JSON.parse(atob(data.token.split('.')[1]));
 
-        if (!data || data.error) {
-            alert(data.error || "Login failed");
-            return;
-        }
-
+        localStorage.setItem("user", JSON.stringify({
+          id: payload.identifier || payload.id,
+          role: payload.role
+        }));
+      } else {
+        // fallback if backend sends full user
         localStorage.setItem("user", JSON.stringify(data.user));
+      }
 
-        if (data.user.role === "teacher") {
-            window.location.href = "teacher-dashboard.html";
-        } else {
-            window.location.href = "student-dashboard.html";
-        }
+      // ✅ REDIRECT
+      if (data.user?.role === "teacher") {
+        window.location.href = "teacher-dashboard.html";
+      } else {
+        window.location.href = "student-dashboard.html";
+      }
     })
-    .catch(err => {
-        console.error(err);
-        alert("Server error");
+    .catch((err) => {
+      console.error(err);
+      alert("Server error");
     });
 }
 
 function parseJwt(token) {
-    let base64Url = token.split('.')[1];
-    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    let jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    ).join(''));
-    return JSON.parse(jsonPayload);
+  let base64Url = token.split(".")[1];
+  let base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  let jsonPayload = decodeURIComponent(
+    atob(base64)
+      .split("")
+      .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+      .join(""),
+  );
+  return JSON.parse(jsonPayload);
 }
 
 // ================= GOOGLE LOGIN =================
 
-
 // ================= AUTO REDIRECT =================
-const user = localStorage.getItem("user");
+function getUser(){
+  try {
+    return JSON.parse(localStorage.getItem("user"));
+  } catch {
+    return null;
+  }
+}
 
-if (user && window.location.pathname.includes("teacher-login.html")) {
-  window.location.href = "teacher-dashboard.html";
+const user = getUser();
+const token = localStorage.getItem("token");
+
+// ✅ SINGLE CLEAN REDIRECT LOGIC
+if (user && token) {
+  if (user.role === "teacher") {
+    window.location.href = "teacher-dashboard.html";
+  } else {
+    window.location.href = "student-dashboard.html";
+  }
 }
 
 const containerEl = document.querySelector(".container");
@@ -115,7 +127,13 @@ const teacherIdEl = document.getElementById("teacherId");
 const passwordEl = document.querySelector(
   '.form-container .form-row input[name="password"]',
 );
+
 const submitBtn = document.getElementById("submitBtn");
+
+// ✅ ADD THIS CHECK HERE
+if (!teacherIdEl || !passwordEl || !submitBtn) {
+  console.error("❌ Missing DOM elements");
+}
 const sprayer = document.querySelector(".sprayer");
 const sprayHandContainer = document.querySelector(".spray-hand-container");
 const sprayLines = Array.from(document.querySelectorAll(".spray-line"));
@@ -207,8 +225,7 @@ checkboxEl.addEventListener("change", () => {
 });
 
 teacherIdEl.addEventListener("input", () => {
-  rollnoValid = /^\d{5,}$/.test(teacherIdEl.value);
-
+  rollnoValid = /^[a-zA-Z0-9]{3,}$/.test(teacherIdEl.value);
   if (rollnoValid) {
     if (!state.handClosed) {
       emailTl.play();
@@ -957,8 +974,8 @@ submitBtn.addEventListener("click", async (e) => {
   const errorEl = document.getElementById("errorMsg");
   errorEl.innerText = "";
 
-  const teacherId = document.getElementById("teacherId").value.trim();
-  const password = document.getElementById("password").value.trim();
+  const teacherId = document.getElementById("teacherId")?.value.trim();
+  const password = document.getElementById("password")?.value.trim();
 
   if (!teacherId || !password) {
     errorEl.innerText = "⚠️ All fields required";
@@ -970,23 +987,29 @@ submitBtn.addEventListener("click", async (e) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        teacherId,
+        rollno: teacherId,
         password,
-        role: "teacher"
-      })
+      }),
     });
 
-    let data = {};
-    try { data = await res.json(); } catch {}
+    const data = await res.json();
 
     if (!res.ok) {
-      errorEl.innerText = data.message || data.error || "Invalid credentials ❌";
+      errorEl.innerText =
+        data.message || data.error || "Invalid credentials ❌";
       return;
     }
 
+    // ✅ SAVE BOTH
     localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("token", data.token);
 
-    window.location.href = "teacher-dashboard.html";
+    // ✅ REDIRECT
+    if (data.user.role === "teacher") {
+      window.location.href = "teacher-dashboard.html";
+    } else {
+      window.location.href = "student-dashboard.html";
+    }
 
   } catch (err) {
     console.error(err);

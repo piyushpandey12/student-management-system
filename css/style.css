@@ -8,8 +8,8 @@ html, body {
     background-size: 400% 400%;
     animation: gradientBG 10s ease infinite;
 
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    overflow-x: hidden; /* ✅ FIXED (no vertical block) */
 }
 
 @keyframes gradientBG {
@@ -20,19 +20,24 @@ html, body {
 
 /* ================= CONTAINER ================= */
 .container {
-    position: fixed;
-    top: 38%;
+    position: absolute; /* ✅ FIXED from fixed */
+    top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+
     backdrop-filter: blur(25px);
     background: rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     padding: 40px;
     box-shadow: 0 15px 40px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.2);
+
     animation: float 4s ease-in-out infinite;
+
+    max-width: 90vw; /* ✅ responsive */
 }
 
+/* ✅ FIXED transform conflict */
 @keyframes float {
     0%,100% { transform: translate(-50%, -50%) translateY(0); }
     50% { transform: translate(-50%, -50%) translateY(-10px); }
@@ -48,7 +53,9 @@ svg,
 }
 
 .form-container {
-    width: 270px;
+    width: 100%;
+    max-width: 270px; /* ✅ responsive */
+
     z-index: 10;
 
     display: flex;
@@ -59,7 +66,8 @@ svg,
 
 /* ================= SVG ================= */
 svg {
-    width: 1000px;
+    width: 100%;
+    max-width: 1000px; /* ✅ FIXED overflow */
     pointer-events: none;
     stroke-width: 1.2px;
     stroke: #ffffff;
@@ -80,12 +88,17 @@ svg {
     width: 100%;
     height: 30px;
     padding: 8px;
+
     border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.3);
+
     background: rgba(255,255,255,0.1);
     color: white;
+
     backdrop-filter: blur(10px);
     outline: none;
+
+    box-sizing: border-box; /* ✅ FIXED overflow */
 }
 
 .form-container input::placeholder {
@@ -115,9 +128,11 @@ svg {
     cursor: pointer;
     border-radius: 20px;
     border: none;
+
     background: linear-gradient(45deg, #00c6ff, #0072ff);
     color: white;
     font-weight: bold;
+
     transition: 0.3s;
 }
 
@@ -172,14 +187,17 @@ svg {
 
 /* prevent clipping */
 .g_id_signin {
-    width: 250px !important;
+    width: 100%;
+    max-width: 250px;
     display: flex;
     justify-content: center;
     transform: scale(0.95);
 }
+
 /* 🔥 Glass Google Button */
 .glass-google-btn {
-    width: 250px;
+    width: 100%;
+    max-width: 250px;
     height: 45px;
 
     display: flex;
@@ -205,12 +223,10 @@ svg {
     width: 18px;
 }
 
-/* ✨ Hover Glow Effect */
+/* ✨ Hover */
 .glass-google-btn:hover {
     transform: translateY(-2px) scale(1.03);
-
     background: linear-gradient(45deg, #00c6ff, #0072ff);
-
     box-shadow:
         0 0 10px rgba(0,198,255,0.6),
         0 0 20px rgba(0,198,255,0.4),

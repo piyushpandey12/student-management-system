@@ -1,57 +1,73 @@
-# =========================================================
-# 📌 DATABASE CONFIG (POSTGRESQL READY)
-# =========================================================
+# ================= IMPORTS =================
 import os
-from urllib.parse import urlparse
+import logging
+from urllib.parse import urlparse, unquote
 
+# =========================================================
+# 🔧 LOGGING
+# =========================================================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# =========================================================
+# 📌 DATABASE CONFIG
+# =========================================================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 DB_CONFIG = {}
 
-if DATABASE_URL:
-    try:
-        # ✅ Parse DATABASE_URL (Render / Railway / Neon)
+try:
+    if DATABASE_URL:
+        # 🔧 Fix deprecated scheme (Render / old Heroku)
+        if DATABASE_URL.startswith("postgres://"):
+            DATABASE_URL = DATABASE_URL.replace(
+                "postgres://", "postgresql://", 1
+            )
+
         url = urlparse(DATABASE_URL)
 
         DB_CONFIG = {
             "host": url.hostname,
-            "database": url.path.lstrip("/"),   # safer than [1:]
+            "database": url.path.lstrip("/"),
             "user": url.username,
-            "password": url.password,
+            "password": unquote(url.password) if url.password else "",
             "port": url.port or 5432,
-            "sslmode": "require"   # ✅ IMPORTANT for cloud DB
+            "sslmode": "require"
         }
 
-        print("✅ Using DATABASE_URL config")
+        logger.info("✅ Using DATABASE_URL config")
 
-    except Exception as e:
-        print("❌ Error parsing DATABASE_URL:", e)
+    else:
+        # =========================================================
+        # 📌 LOCAL FALLBACK
+        # =========================================================
+        DB_CONFIG = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "database": os.getenv("DB_NAME", "student_db"),
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "postgres"),
+            "port": int(os.getenv("DB_PORT", 5432)),
+            "sslmode": "prefer"
+        }
 
+        logger.warning("⚠️ Using LOCAL DB config")
 
-else:
     # =========================================================
-    # 📌 FALLBACK (LOCAL DEV)
+    # 📌 VALIDATION
     # =========================================================
-    DB_CONFIG = {
-        "host": os.getenv("DB_HOST", "localhost"),
-        "database": os.getenv("DB_NAME", "student_db"),
-        "user": os.getenv("DB_USER", "postgres"),
-        "password": os.getenv("DB_PASSWORD", "postgres"),
-        "port": int(os.getenv("DB_PORT", 5432)),
-        "sslmode": "prefer"   # local doesn't need require
-    }
+    required_keys = ["host", "database", "user", "port"]
 
-    print("⚠️ Using LOCAL DB config")
+    missing = [key for key in required_keys if not DB_CONFIG.get(key)]
 
+    if missing:
+        raise Exception(f"Missing DB config fields: {missing}")
 
-# =========================================================
-# 📌 VALIDATION
-# =========================================================
-required_keys = ["host", "database", "user", "password", "port"]
+    # ⚠️ Password can be empty (Google/managed DB edge cases)
+    if DB_CONFIG.get("password") is None:
+        DB_CONFIG["password"] = ""
 
-missing = [key for key in required_keys if not DB_CONFIG.get(key)]
+    logger.info("✅ PostgreSQL config loaded successfully")
 
-if missing:
-    raise Exception(f"🔥 Missing DB config: {missing}")
-else:
-    print("✅ PostgreSQL config loaded successfully")
+except Exception as e:
+    logger.error("❌ DB CONFIG ERROR: %s", str(e))
+    raise

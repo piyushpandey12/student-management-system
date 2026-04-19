@@ -2,28 +2,21 @@
 <html>
 <head>
 <title>Teacher Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
+
 /* ===== BODY ===== */
 body{
     margin:0;
     font-family:'Segoe UI',sans-serif;
-    background:linear-gradient(-45deg,#667eea,#764ba2,#6a11cb,#2575fc);
-    background-size:400% 400%;
-    animation:gradientBG 10s ease infinite;
+    background:linear-gradient(135deg,#5f2c82,#49a09d);
     color:white;
-}
-
-@keyframes gradientBG{
-    0%{background-position:0% 50%;}
-    50%{background-position:100% 50%;}
-    100%{background-position:0% 50%;}
 }
 
 /* ===== CONTAINER ===== */
 .container{
-    max-width:1100px;
+    max-width:1200px;
     margin:auto;
     padding:20px;
 }
@@ -31,34 +24,40 @@ body{
 /* ===== TITLE ===== */
 h2{
     text-align:center;
-    font-size:28px;
-    margin-bottom:30px;
+    margin-bottom:25px;
 }
 
-/* ===== GLASS CARD ===== */
+/* ===== GRID ===== */
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:20px;
+}
+
+/* ===== CARD ===== */
 .card{
     background:rgba(255,255,255,0.12);
-    backdrop-filter:blur(18px);
-    border-radius:18px;
+    backdrop-filter:blur(15px);
+    border-radius:15px;
     padding:20px;
-    margin-bottom:20px;
-    box-shadow:0 10px 40px rgba(0,0,0,0.3);
-    transition:0.3s;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
 }
 
-.card:hover{
-    transform:translateY(-5px);
+/* ===== INPUT GROUP ===== */
+.input-group{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
 }
 
-/* ===== INPUTS ===== */
-input,select{
-    padding:12px;
-    margin:8px 5px;
+.input-group input,
+.input-group select{
+    flex:1;
+    padding:10px;
+    border-radius:8px;
     border:none;
-    border-radius:12px;
-    background:rgba(255,255,255,0.18);
+    background:rgba(255,255,255,0.2);
     color:white;
-    outline:none;
 }
 
 input::placeholder{
@@ -67,27 +66,28 @@ input::placeholder{
 
 /* ===== BUTTON ===== */
 button{
-    padding:12px 18px;
+    padding:10px 14px;
     border:none;
-    border-radius:12px;
-    background:linear-gradient(135deg,#ff4b2b,#ff416c);
+    border-radius:8px;
+    background:#ff4b2b;
     color:white;
     cursor:pointer;
-    transition:0.3s;
+    transition:0.2s;
 }
 
 button:hover{
-    transform:scale(1.08);
+    transform:scale(1.05);
 }
 
 /* ===== TABLE ===== */
 table{
     width:100%;
     border-collapse:collapse;
+    margin-top:10px;
 }
 
 th,td{
-    padding:14px;
+    padding:12px;
 }
 
 thead{
@@ -102,10 +102,21 @@ tbody tr:hover{
     background:rgba(255,255,255,0.2);
 }
 
-/* ===== GRADE COLORS ===== */
+/* ===== GRADES ===== */
 .gradeA{color:#00ffcc;font-weight:bold;}
 .gradeB{color:#ffd700;font-weight:bold;}
 .gradeC{color:#ff6b6b;font-weight:bold;}
+
+/* SEARCH */
+#search{
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:none;
+    background:rgba(255,255,255,0.2);
+    color:white;
+}
+
 </style>
 </head>
 
@@ -113,25 +124,30 @@ tbody tr:hover{
 
 <div class="container">
 
-<h2> Teacher Dashboard</h2>
+<h2>👨‍🏫 Teacher Dashboard</h2>
+
+<div class="grid">
 
 <!-- ADD STUDENT -->
 <div class="card">
 <h3>➕ Add Student</h3>
+<div class="input-group">
 <input id="name" placeholder="Name">
 <input id="roll" placeholder="Roll No">
 <button onclick="addStudent()">Add</button>
 </div>
+</div>
 
 <!-- SEARCH -->
 <div class="card">
+<h3>🔍 Search</h3>
 <input id="search" placeholder="Search..." onkeyup="filterStudents()">
 </div>
 
 <!-- ATTENDANCE -->
 <div class="card">
-<h3> Attendance</h3>
-
+<h3>📅 Attendance</h3>
+<div class="input-group">
 <input type="date" id="date">
 <input id="rollAtt" placeholder="Roll No">
 
@@ -156,11 +172,12 @@ tbody tr:hover{
 
 <button onclick="markAttendance()">Mark</button>
 </div>
+</div>
 
 <!-- MARKS -->
 <div class="card">
-<h3> Marks</h3>
-
+<h3>📊 Marks</h3>
+<div class="input-group">
 <input id="rollMarks" placeholder="Roll No">
 
 <select id="subject">
@@ -180,9 +197,10 @@ tbody tr:hover{
 <input id="marks" placeholder="Marks (0-100)">
 <button onclick="addMarks()">Save</button>
 </div>
+</div>
 
-<!-- STUDENTS TABLE -->
-<div class="card">
+<!-- TABLE -->
+<div class="card" style="grid-column:1/-1">
 <h3>📋 Students</h3>
 
 <table id="table">
@@ -201,113 +219,225 @@ tbody tr:hover{
 </div>
 
 </div>
+</div>
 
 <script>
+// ================= BASE URL =================
 const BASE_URL = "https://student-management-backend-if04.onrender.com/api";
 
-// ADD STUDENT
-async function addStudent(){
-    const name = document.getElementById("name").value;
-    const roll = document.getElementById("roll").value;
+// ================= SAFE USER =================
+function getUser(){
+    try {
+        return JSON.parse(localStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
 
-    if(!name || !roll){
+const token = localStorage.getItem("token");
+const user = getUser();
+
+// 🔐 PROTECT PAGE (FIXED)
+if (!token || !user) {
+    window.location.href = "teacher-login.html";
+}
+
+// ================= COMMON HEADERS =================
+function getHeaders() {
+    return {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+    };
+}
+
+// ================= ADD STUDENT =================
+async function addStudent() {
+    const name = document.getElementById("name").value.trim();
+    const roll = document.getElementById("roll").value.trim().toLowerCase();
+
+    if (!name || !roll) {
         alert("Enter name & roll");
         return;
     }
 
-    await fetch(`${BASE_URL}/students`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({name, rollno: roll})
-    });
+    try {
+        const res = await fetch(`${BASE_URL}/students`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({ name, rollno: roll })
+        });
 
-    loadStudents();
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert("❌ " + (data.message || "Failed"));
+            return;
+        }
+
+        alert("✅ Student added");
+        loadStudents();
+
+    } catch {
+        alert("⚠️ Server error");
+    }
 }
 
-// DELETE
-async function deleteStudent(roll){
-    if(!confirm("Delete this student?")) return;
+// ================= DELETE =================
+async function deleteStudent(roll) {
+    if (!confirm("Delete this student?")) return;
 
-    await fetch(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
-    loadStudents();
+    try {
+        const res = await fetch(`${BASE_URL}/students/${roll}`, {
+            method: "DELETE",
+            headers: getHeaders()
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert("❌ " + (data.message || "Delete failed"));
+            return;
+        }
+
+        alert("✅ Deleted");
+        loadStudents();
+
+    } catch {
+        alert("⚠️ Server error");
+    }
 }
 
-// MARK ATTENDANCE
-async function markAttendance(){
-    const roll = document.getElementById("rollAtt").value;
+// ================= ATTENDANCE =================
+async function markAttendance() {
+    const roll = document.getElementById("rollAtt").value.trim();
     const date = document.getElementById("date").value;
     const status = document.getElementById("status").value;
-    const subject = document.getElementById("subjectAtt").value;
 
-    if(!roll || !date){
+    if (!roll || !date) {
         alert("Enter roll & date");
         return;
     }
 
-    await fetch(`${BASE_URL}/attendance/mark`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({rollno: roll, subject, date, status})
-    });
+    try {
+        const res = await fetch(`${BASE_URL}/attendance/mark`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+                rollno: roll,
+                date,
+                status,
+                teacher_id: user?.id || user?.identifier   // 🔥 SAFE FIX
+            })
+        });
 
-    alert("Attendance marked ✅");
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert("❌ " + (data.message || "Failed"));
+            return;
+        }
+
+        alert("✅ Attendance marked");
+
+    } catch {
+        alert("⚠️ Server error");
+    }
 }
 
-// ADD MARKS
-async function addMarks(){
-    const roll = document.getElementById("rollMarks").value;
+// ================= MARKS =================
+async function addMarks() {
+    const roll = document.getElementById("rollMarks").value.trim();
     const subject = document.getElementById("subject").value;
     const marks = document.getElementById("marks").value;
 
-    if(!roll || !marks){
+    if (!roll || !marks) {
         alert("Enter roll & marks");
         return;
     }
 
-    await fetch(`${BASE_URL}/marks/update`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({rollno: roll, subject, marks})
-    });
+    try {
+        const res = await fetch(`${BASE_URL}/marks/update`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+                rollno: roll,
+                subject,
+                marks,
+                teacher_id: user?.id || user?.identifier   // 🔥 SAFE FIX
+            })
+        });
 
-    alert("Marks updated ✅");
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert("❌ " + (data.message || "Failed"));
+            return;
+        }
+
+        alert("✅ Marks updated");
+
+    } catch {
+        alert("⚠️ Server error");
+    }
 }
 
-// LOAD STUDENTS
-async function loadStudents(){
-    const res = await fetch(`${BASE_URL}/students`);
-    const data = await res.json();
+// ================= LOAD STUDENTS =================
+async function loadStudents() {
+    try {
+        const res = await fetch(`${BASE_URL}/students`, {
+            headers: getHeaders()
+        });
 
-    let html="";
+        const data = await res.json();
 
-    data.forEach(s=>{
-        let grade="C";
-        if(s.avg_marks > 90) grade="A";
-        else if(s.avg_marks > 70) grade="B";
+        if (!res.ok) {
+            alert("❌ Failed to load students");
+            return;
+        }
 
-        html += `
-        <tr>
-        <td>${s.rollno}</td>
-        <td>${s.name}</td>
-        <td>${s.avg_marks || 0}</td>
-        <td class="${grade === 'A' ? 'gradeA' : grade === 'B' ? 'gradeB' : 'gradeC'}">${grade}</td>
-        <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
-        </tr>`;
-    });
+        const students = data.data || [];
 
-    document.querySelector("#table tbody").innerHTML = html;
+        let html = "";
+
+        students.forEach(s => {
+            let grade = "C";
+            if (s.avg_marks > 90) grade = "A";
+            else if (s.avg_marks > 70) grade = "B";
+
+            html += `
+            <tr>
+                <td>${s.rollno}</td>
+                <td>${s.name}</td>
+                <td>${s.avg_marks || 0}</td>
+                <td class="${grade === 'A' ? 'gradeA' : grade === 'B' ? 'gradeB' : 'gradeC'}">${grade}</td>
+                <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
+            </tr>`;
+        });
+
+        document.querySelector("#table tbody").innerHTML = html;
+
+    } catch {
+        alert("⚠️ Server error");
+    }
 }
 
-// SEARCH
-function filterStudents(){
+// ================= SEARCH =================
+function filterStudents() {
     const input = document.getElementById("search").value.toLowerCase();
 
-    document.querySelectorAll("#table tbody tr").forEach(row=>{
+    document.querySelectorAll("#table tbody tr").forEach(row => {
         row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
     });
 }
 
-// INIT
+// ================= LOGOUT =================
+function logout() {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    window.location.href = "index.html";
+}
+
+// ================= INIT =================
 loadStudents();
 </script>
 
