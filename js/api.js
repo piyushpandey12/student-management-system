@@ -5,7 +5,7 @@ const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
     ? "http://127.0.0.1:5000/api"
-    : "https://student-management-backend-if04.onrender.com/api";
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
 
 // =========================================================
