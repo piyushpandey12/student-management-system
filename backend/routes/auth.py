@@ -16,37 +16,37 @@ auth_bp = Blueprint("auth", __name__)
 # =========================================================
 @auth_bp.route("/register", methods=["POST"])
 def register():
+    try:
+        data = request.get_json() or {}
 
-    data = request.get_json() or {}
+        identifier = (
+            data.get("rollno") or
+            data.get("teacherId") or
+            data.get("identifier") or ""
+        ).lower().strip()
 
-    identifier = (
-        data.get("rollno") or
-        data.get("teacherId") or
-        data.get("identifier") or ""
-    ).lower().strip()
+        password = data.get("password")
+        role = data.get("role", "student")
+        name = data.get("name", "User")
 
-    password = data.get("password")
-    role = data.get("role", "student")
-    name = data.get("name", "User")
+        if not identifier or not password:
+            return jsonify({
+                "status": "error",
+                "message": "Identifier & password required"
+            }), 400
 
-    if not identifier or not password:
+        result, status = register_user(identifier, password, role, name)
+
         return jsonify({
-            "status": "error",
-            "message": "Identifier & password required"
-        }), 400
-
-    result, status = register_user(identifier, password, role, name)
-
-    if status >= 400:
-        return jsonify({
-            "status": "error",
-            "message": result.get("error", "Registration failed")
+            "status": "success" if status < 400 else "error",
+            "message": result.get("message") or result.get("error")
         }), status
 
-    return jsonify({
-        "status": "success",
-        "message": result.get("message", "Registered successfully")
-    }), status
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 
 # =========================================================
@@ -54,36 +54,42 @@ def register():
 # =========================================================
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    try:
+        data = request.get_json() or {}
 
-    data = request.get_json() or {}
+        identifier = (
+            data.get("rollno") or
+            data.get("teacherId") or
+            data.get("identifier") or ""
+        ).lower().strip()
 
-    identifier = (
-        data.get("rollno") or
-        data.get("teacherId") or
-        data.get("identifier") or ""
-    ).lower().strip()
+        password = data.get("password")
 
-    password = data.get("password")
+        if not identifier or not password:
+            return jsonify({
+                "status": "error",
+                "message": "Missing credentials"
+            }), 400
 
-    if not identifier or not password:
+        result, status = login_user(identifier, password)
+
+        if status >= 400:
+            return jsonify({
+                "status": "error",
+                "message": result.get("error", "Login failed")
+            }), status
+
+        return jsonify({
+            "status": "success",
+            "token": result["token"],
+            "user": result["user"]
+        }), 200
+
+    except Exception as e:
         return jsonify({
             "status": "error",
-            "message": "Missing credentials"
-        }), 400
-
-    result, status = login_user(identifier, password)
-
-    if status >= 400:
-        return jsonify({
-            "status": "error",
-            "message": result.get("error", "Login failed")
-        }), status
-
-    return jsonify({
-        "status": "success",
-        "token": result["token"],
-        "user": result["user"]
-    }), 200
+            "message": str(e)
+        }), 500
 
 
 # =========================================================
@@ -91,26 +97,32 @@ def login():
 # =========================================================
 @auth_bp.route("/google", methods=["POST"])
 def google_login():
+    try:
+        data = request.get_json() or {}
+        token = data.get("token")
 
-    data = request.get_json() or {}
-    token = data.get("token")
+        if not token:
+            return jsonify({
+                "status": "error",
+                "message": "Token missing"
+            }), 400
 
-    if not token:
+        result, status = google_login_service(token)
+
+        if status >= 400:
+            return jsonify({
+                "status": "error",
+                "message": result.get("error", "Google login failed")
+            }), status
+
+        return jsonify({
+            "status": "success",
+            "token": result["token"],
+            "user": result["user"]
+        }), 200
+
+    except Exception as e:
         return jsonify({
             "status": "error",
-            "message": "Token missing"
-        }), 400
-
-    result, status = google_login_service(token)
-
-    if status >= 400:
-        return jsonify({
-            "status": "error",
-            "message": result.get("error", "Google login failed")
-        }), status
-
-    return jsonify({
-        "status": "success",
-        "token": result["token"],
-        "user": result["user"]
-    }), 200
+            "message": str(e)
+        }), 500

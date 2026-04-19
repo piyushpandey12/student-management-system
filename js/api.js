@@ -38,19 +38,20 @@ function fetchWithTimeout(url, options = {}, timeout = 8000) {
 
 
 // =========================================================
-// 📌 RESPONSE HANDLER
+// 📌 RESPONSE HANDLER (FIXED)
 // =========================================================
 async function handleResponse(res) {
-  let data;
+  const text = await res.text();
 
+  let data;
   try {
-    data = await res.json();
+    data = JSON.parse(text);
   } catch {
-    throw new Error("Invalid server response");
+    throw new Error("Server not returning JSON → " + text);
   }
 
   if (!res.ok) {
-    throw new Error(data.error || data.message || "Request failed");
+    throw new Error(data.message || data.error || "Request failed");
   }
 
   return data;
@@ -74,7 +75,7 @@ export async function loginUser(data) {
 
     if (result.status === "success") {
       localStorage.setItem("user", JSON.stringify(result.user));
-      localStorage.setItem("token", result.token); // ✅ FIXED
+      localStorage.setItem("token", result.token);
     }
 
     return result;
@@ -214,6 +215,6 @@ export async function getMarksStats(rollno) {
 // 🚪 LOGOUT
 // =========================================================
 export function logout() {
-  localStorage.clear(); // ✅ FIXED
+  localStorage.clear();
   window.location.href = "index.html";
 }

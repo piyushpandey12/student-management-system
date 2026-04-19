@@ -16,7 +16,6 @@ logger.info("🔥 App is starting...")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
-
 # ================= CORS =================
 CORS(
     app,
@@ -24,14 +23,10 @@ CORS(
     supports_credentials=False
 )
 
-# ❌ REMOVE manual preflight (Flask-CORS handles it)
-
-
 # ================= REQUEST LOGGING =================
 @app.before_request
 def log_request():
     logger.info(f"{request.method} {request.path}")
-
 
 # ================= IMPORT BLUEPRINTS =================
 try:
@@ -46,14 +41,12 @@ except Exception as e:
     logger.error("❌ Import Error: %s", str(e))
     raise
 
-
 # ================= INIT DB POOL =================
 try:
     init_db_pool()
     logger.info("✅ DB Pool initialized")
 except Exception as e:
     logger.error("❌ DB Pool Init Failed: %s", str(e))
-
 
 # ================= REGISTER BLUEPRINTS =================
 try:
@@ -68,7 +61,6 @@ except Exception as e:
     logger.error("❌ Blueprint Register Error: %s", str(e))
     raise
 
-
 # ================= ROUTES =================
 @app.route("/")
 def home():
@@ -77,17 +69,13 @@ def home():
         "message": "Backend running 🚀"
     })
 
-
 @app.route("/api/test")
 def test():
     return jsonify({"status": "API working ✅"})
 
-
-# 🔥 HEALTH CHECK (Render / deployment)
 @app.route("/health")
 def health():
     return jsonify({"status": "healthy"}), 200
-
 
 # ================= DB TEST =================
 @app.route("/test-db")
@@ -124,14 +112,12 @@ def test_db():
         if conn:
             release_connection(conn)
 
-
 # ================= ROUTE LIST =================
 @app.route("/routes")
 def routes():
     return jsonify({
         "routes": [str(rule) for rule in app.url_map.iter_rules()]
     })
-
 
 # ================= GLOBAL ERROR HANDLER =================
 @app.errorhandler(Exception)
@@ -143,7 +129,6 @@ def handle_exception(e):
         "message": "Something went wrong"
     }), 500
 
-
 # ================= 404 =================
 @app.errorhandler(404)
 def not_found(e):
@@ -151,7 +136,6 @@ def not_found(e):
         "status": "error",
         "message": "Route not found"
     }), 404
-
 
 # ================= RUN =================
 if __name__ == "__main__":

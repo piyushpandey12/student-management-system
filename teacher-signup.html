@@ -32,10 +32,6 @@ body{
     text-align:center;
 }
 
-h2{
-    margin-bottom:20px;
-}
-
 .input-group{
     margin:15px 0;
     text-align:left;
@@ -44,7 +40,6 @@ h2{
 .input-group input{
     width:100%;
     padding:10px;
-    margin-top:5px;
     border:none;
     border-radius:8px;
 }
@@ -56,7 +51,6 @@ button{
     border-radius:8px;
     background:#ff4b2b;
     color:white;
-    font-size:16px;
     cursor:pointer;
 }
 
@@ -64,13 +58,12 @@ button:hover{
     background:#ff416c;
 }
 
-.link{
-    margin-top:15px;
-    font-size:14px;
-}
-
 .message{
     margin-top:10px;
+}
+
+.link{
+    margin-top:15px;
 }
 </style>
 </head>
@@ -83,47 +76,33 @@ button:hover{
     <form id="signupForm">
         <div class="input-group">
             <label>Teacher ID</label>
-            <input type="text" name="teacherId" required>
+            <input type="text" id="teacherId" required>
         </div>
 
         <div class="input-group">
             <label>Password</label>
-            <input type="password" name="password" required>
+            <input type="password" id="password" required>
         </div>
 
+        <!-- ❌ NO onclick -->
         <button type="submit">Register</button>
     </form>
 
-    <div class="message" id="message"></div>
+    <div id="message" class="message"></div>
 
     <div class="link">
         Already have an account? <a href="teacher-login.html">Login</a>
     </div>
 </div>
 
-<script>
-// ================= BASE URL =================
-const BASE_URL =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? "http://127.0.0.1:5000/api"
-    : `${window.location.origin}/api`;
 
+<!-- ✅ MODULE SCRIPT -->
+<script type="module">
 
-// ================= SAFE USER =================
-function getUser(){
-    try{
-        return JSON.parse(localStorage.getItem("user"));
-    }catch{
-        return null;
-    }
-}
+import { registerUser, loginUser } from "./js/api.js";
 
-// ================= AUTO REDIRECT (FIXED) =================
-const token = localStorage.getItem("token");
-const user = getUser();
-
-if(token && user){
+// 🔐 Auto redirect
+if (localStorage.getItem("token")) {
     window.location.href = "teacher-dashboard.html";
 }
 
@@ -132,75 +111,56 @@ if(token && user){
 document.getElementById("signupForm").addEventListener("submit", async (e)=>{
     e.preventDefault();
 
-    const teacherId = e.target.teacherId.value.trim().toLowerCase();
-    const password = e.target.password.value.trim();
-    const messageEl = document.getElementById("message");
+    const teacherId = document.getElementById("teacherId").value.trim().toLowerCase();
+    const password = document.getElementById("password").value.trim();
+    const msg = document.getElementById("message");
 
     if(!teacherId || !password){
-        messageEl.innerText = "⚠️ All fields are required!";
-        messageEl.style.color = "yellow";
+        msg.innerText = "⚠️ All fields required";
+        msg.style.color = "yellow";
         return;
     }
 
     try{
-        messageEl.innerText = "⏳ Registering...";
-        messageEl.style.color = "white";
+        msg.innerText = "⏳ Registering...";
+        msg.style.color = "white";
 
-        // ✅ REGISTER (FIXED)
-        const res = await fetch(`${BASE_URL}/auth/register`,{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
-                teacherId: teacherId,   // ✅ FIXED
-                password,
-                role:"teacher"
-            })
+        // ✅ REGISTER (use identifier)
+        const res = await registerUser({
+            identifier: teacherId,
+            password,
+            role: "teacher"
         });
 
-        const data = await res.json();
-
-        if(!res.ok || data.status === "error"){
-            messageEl.innerText = "❌ " + (data.message || "Registration failed");
-            messageEl.style.color = "red";
-            return;
+        if(res.status !== "success"){
+            throw new Error(res.message || "Registration failed");
         }
 
         // ✅ LOGIN
-        const loginRes = await fetch(`${BASE_URL}/auth/login`,{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
-                teacherId: teacherId,   // ✅ FIXED
-                password
-            })
+        const loginRes = await loginUser({
+            identifier: teacherId,
+            password
         });
 
-        const loginData = await loginRes.json();
+        if(loginRes.status === "success"){
 
-        if(loginRes.ok && loginData.status === "success"){
-
-            // 🔥 IMPORTANT FIX
-            localStorage.setItem("token", loginData.token);
-            localStorage.setItem("user", JSON.stringify(loginData.user));
-
-            messageEl.innerText = "✅ Registered & Logged in!";
-            messageEl.style.color = "lightgreen";
+            msg.innerText = "✅ Registered & Logged in!";
+            msg.style.color = "lightgreen";
 
             setTimeout(()=>{
                 window.location.href = "teacher-dashboard.html";
             },1000);
 
         }else{
-            messageEl.innerText = "⚠️ Registered but login failed";
-            messageEl.style.color = "orange";
+            throw new Error("Login failed");
         }
 
     }catch(err){
-        console.error(err);
-        messageEl.innerText = "⚠️ Backend not reachable!";
-        messageEl.style.color = "orange";
+        msg.innerText = "❌ " + err.message;
+        msg.style.color = "red";
     }
 });
+
 </script>
 
 </body>
