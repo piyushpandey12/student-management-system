@@ -10,106 +10,23 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Poppins}
-
-body{
-    background: linear-gradient(135deg,#667eea,#764ba2,#00c6ff);
-    color:#fff;
-}
-
+body{background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);color:#fff}
 .container{display:flex}
-
-/* SIDEBAR */
-.sidebar{
-    width:240px;
-    height:100vh;
-    background:rgba(255,255,255,0.08);
-    backdrop-filter:blur(15px);
-    padding:25px;
-}
-
+.sidebar{width:240px;height:100vh;background:rgba(255,255,255,0.08);backdrop-filter:blur(15px);padding:25px}
 .sidebar h2{margin-bottom:30px}
-
-.sidebar button{
-    width:100%;
-    padding:12px;
-    margin:8px 0;
-    border:none;
-    border-radius:12px;
-    background:rgba(255,255,255,0.12);
-    color:#fff;
-    cursor:pointer;
-}
-
-/* MAIN */
+.sidebar button{width:100%;padding:12px;margin:8px 0;border:none;border-radius:12px;background:rgba(255,255,255,0.12);color:#fff;cursor:pointer}
 .main{flex:1;padding:25px}
-
-.nav{
-    display:flex;
-    justify-content:space-between;
-    margin-bottom:20px;
-}
-
-/* CARDS */
-.cards{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:15px;
-}
-
-.card{
-    padding:20px;
-    border-radius:15px;
-    background:rgba(255,255,255,0.1);
-}
-
-/* CHARTS */
-.charts{
-    display:flex;
-    gap:30px;
-    margin-top:20px;
-}
-
-canvas{
-    background:rgba(255,255,255,0.1);
-    padding:15px;
-    border-radius:15px;
-}
-
-/* TABLE */
+.nav{display:flex;justify-content:space-between;margin-bottom:20px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+.card{padding:20px;border-radius:15px;background:rgba(255,255,255,0.1)}
+.charts{display:flex;gap:30px;margin-top:20px}
+canvas{background:rgba(255,255,255,0.1);padding:15px;border-radius:15px}
 table{width:100%;margin-top:20px}
 td,th{padding:10px;text-align:left}
-
-/* CALENDAR */
-#calendar {
-    margin-top: 15px;
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
-}
-
-.day {
-    padding: 10px;
-    text-align: center;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.1);
-    cursor: pointer;
-    position: relative;
-}
-
-.present { background: #00ff88; color:black }
-.absent { background: #ff4d4d }
-
-.day:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 110%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: black;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 12px;
-}
+#calendar{margin-top:15px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.day{padding:10px;text-align:center;border-radius:10px;background:rgba(255,255,255,0.1);cursor:pointer}
+.present{background:#00ff88;color:black}
+.absent{background:#ff4d4d}
 </style>
 </head>
 
@@ -117,7 +34,6 @@ td,th{padding:10px;text-align:left}
 
 <div class="container">
 
-<!-- SIDEBAR -->
 <div class="sidebar">
     <h2>Student</h2>
     <button onclick="show('dashboard')">Dashboard</button>
@@ -125,14 +41,12 @@ td,th{padding:10px;text-align:left}
     <button onclick="logout()">Logout</button>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 
 <div class="nav">
     <h2 id="welcome">Welcome</h2>
 </div>
 
-<!-- CARDS -->
 <div class="cards">
     <div class="card">Attendance %<br><b id="att">0%</b></div>
     <div class="card">Present Days<br><b id="present">0</b></div>
@@ -140,32 +54,23 @@ td,th{padding:10px;text-align:left}
     <div class="card">🔥 Streak<br><b id="streak">0</b></div>
 </div>
 
-<!-- DASHBOARD -->
-<div id="dashboard" class="section">
+<div id="dashboard">
 
 <div class="charts">
     <canvas id="attendanceChart"></canvas>
     <canvas id="marksChart"></canvas>
 </div>
 
-<!-- WEEKLY -->
 <canvas id="weeklyChart" style="margin-top:20px;"></canvas>
 
-<!-- CALENDAR -->
-<div class="section">
-    <h3>
-        Attendance Calendar 
-        <button onclick="prevMonth()">⬅</button>
-        <span id="monthLabel"></span>
-        <button onclick="nextMonth()">➡</button>
-    </h3>
-    <div id="calendar"></div>
+<div>
+<h3>Attendance Calendar</h3>
+<div id="calendar"></div>
 </div>
 
 </div>
 
-<!-- MARKS -->
-<div id="marks" class="section" style="display:none">
+<div id="marks" style="display:none">
 <h3>Marks</h3>
 <table>
 <tr><th>Subject</th><th>Marks</th></tr>
@@ -176,262 +81,139 @@ td,th{padding:10px;text-align:left}
 </div>
 </div>
 
-<!-- MODAL -->
-<div id="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
-background:rgba(0,0,0,0.6); justify-content:center; align-items:center;">
-<div style="background:white; color:black; padding:20px; border-radius:10px;">
-    <h3>Attendance Details</h3>
-    <p id="modalText"></p>
-    <button onclick="closeModal()">Close</button>
-</div>
-</div>
-
 <script>
-// ================= BASE URL =================
+
+// ================= BASE URL (FIXED) =================
 const BASE_URL =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? "http://127.0.0.1:5000/api"
-    : `${window.location.origin}/api`;
-
-
-// ================= SAFE USER =================
-function getUser(){
-    try {
-        return JSON.parse(localStorage.getItem("user"));
-    } catch {
-        return null;
-    }
-}
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000"
+    : "https://student-management-system-api-cznx.onrender.com";
 
 // ================= AUTH =================
+function getUser(){
+    try { return JSON.parse(localStorage.getItem("user")); }
+    catch { return null; }
+}
+
 const token = localStorage.getItem("token");
 const user = getUser();
 
-// 🔐 PROTECT PAGE (MERGED + FIXED)
-if (!token || !user || !(user.id || user.identifier)) {
+if (!token || !user) {
     window.location.href = "login.html";
 }
 
-// backend identifier fix
-const rollno = user.id || user.identifier;
-
+const rollno = user.identifier || user.id || user.rollno;
 document.getElementById("welcome").innerText = "Welcome " + rollno;
 
-
-// ================= COMMON HEADERS =================
-function getHeaders() {
+// ================= HEADERS =================
+function getHeaders(){
     return {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
+        "Content-Type":"application/json",
+        "Authorization":"Bearer " + token
     };
 }
 
+// ================= SAFE RESPONSE =================
+async function handleResponse(res){
+    const text = await res.text();
+    let data;
 
-// ================= CHART INSTANCES =================
-let attendanceChartInstance = null;
-let marksChartInstance = null;
-let weeklyChartInstance = null;
+    try { data = JSON.parse(text); }
+    catch { throw new Error("Invalid JSON → " + text); }
 
+    if(!res.ok) throw new Error(data.message || data.error || "Server error");
+
+    return data;
+}
 
 // ================= DASHBOARD =================
 async function loadDashboard(){
-    try {
-        const res = await fetch(`${BASE_URL}/students/dashboard/${rollno}`, {
-            headers: getHeaders()
+    try{
+        const res = await fetch(`${BASE_URL}/api/students/dashboard/${rollno}`,{
+            headers:getHeaders()
         });
 
-        const data = await res.json();
-
-        if (!res.ok || data.status === "error") {
-            throw new Error(data.message);
-        }
-
+        const data = await handleResponse(res);
         const d = data.data;
 
-        document.getElementById("att").innerText = d.attendance_percent + "%";
-        document.getElementById("present").innerText = d.present_days;
-        document.getElementById("total").innerText = d.total_days;
+        att.innerText = d.attendance_percent + "%";
+        present.innerText = d.present_days;
+        total.innerText = d.total_days;
 
-        document.getElementById("marksList").innerHTML =
+        marksList.innerHTML =
             d.marks.map(m => `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
 
         drawCharts(d);
 
-    } catch (err) {
-        console.error(err);
-        alert("Failed to load dashboard");
+    }catch(err){
+        alert(err.message);
     }
 }
-
 
 // ================= CHARTS =================
-function drawCharts(data){
+let aChart,mChart,wChart;
 
-    if(attendanceChartInstance) attendanceChartInstance.destroy();
-    if(marksChartInstance) marksChartInstance.destroy();
+function drawCharts(d){
 
-    attendanceChartInstance = new Chart(document.getElementById("attendanceChart"), {
-        type: 'pie',
-        data: {
-            labels: ['Present','Absent'],
-            datasets: [{
-                data:[data.present_days, data.total_days - data.present_days]
-            }]
-        }
+    if(aChart) aChart.destroy();
+    if(mChart) mChart.destroy();
+
+    aChart = new Chart(attendanceChart,{
+        type:'pie',
+        data:{labels:['Present','Absent'],
+        datasets:[{data:[d.present_days,d.total_days-d.present_days]}]}
     });
 
-    marksChartInstance = new Chart(document.getElementById("marksChart"), {
+    mChart = new Chart(marksChart,{
         type:'bar',
         data:{
-            labels:data.marks.map(m=>m.subject),
-            datasets:[{
-                label:'Marks',
-                data:data.marks.map(m=>m.marks)
-            }]
+            labels:d.marks.map(m=>m.subject),
+            datasets:[{data:d.marks.map(m=>m.marks)}]
         }
     });
 }
-
 
 // ================= CALENDAR =================
-let currentDate = new Date();
-
 async function loadCalendar(){
-    try {
-        const res = await fetch(`${BASE_URL}/attendance/${rollno}`, {
-            headers: getHeaders()
+    try{
+        const res = await fetch(`${BASE_URL}/api/attendance/${rollno}`,{
+            headers:getHeaders()
         });
 
-        const data = await res.json();
-
-        if (!res.ok || data.status === "error") throw new Error();
-
+        const data = await handleResponse(res);
         const records = data.data || [];
 
-        const map = {};
-        records.forEach(d => map[d.date] = d.status);
+        const cal = document.getElementById("calendar");
+        cal.innerHTML="";
 
-        const calendar = document.getElementById("calendar");
-        calendar.innerHTML = "";
-
-        const y = currentDate.getFullYear();
-        const m = currentDate.getMonth();
-
-        document.getElementById("monthLabel").innerText =
-            currentDate.toLocaleString('default',{month:'long',year:'numeric'});
-
-        const days = new Date(y, m + 1, 0).getDate();
-
-        for(let i=1;i<=days;i++){
-            const dStr=`${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        records.forEach(r=>{
             const div=document.createElement("div");
+            div.className="day "+r.status;
+            div.innerText=r.date.split("-")[2];
+            cal.appendChild(div);
+        });
 
-            div.className="day";
-            div.innerText=i;
-
-            let status=map[dStr]||"no data";
-
-            if(status==="present") div.classList.add("present");
-            if(status==="absent") div.classList.add("absent");
-
-            div.setAttribute("data-tooltip",`${dStr} → ${status}`);
-
-            div.onclick=()=>{
-                document.getElementById("modalText").innerText =
-                    `Date: ${dStr}\nStatus: ${status}`;
-                document.getElementById("modal").style.display="flex";
-            };
-
-            calendar.appendChild(div);
-        }
-
-        drawWeeklyChart(records);
-        calculateStreak(records);
-
-    } catch {
-        console.error("Calendar load failed");
+    }catch(err){
+        console.error(err);
     }
 }
-
-
-// ================= WEEKLY =================
-function drawWeeklyChart(data){
-
-    const week={Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0,Sun:0};
-
-    data.forEach(d=>{
-        const day=new Date(d.date).toLocaleString('en-US',{weekday:'short'});
-        if(d.status==="present") week[day]++;
-    });
-
-    if(weeklyChartInstance) weeklyChartInstance.destroy();
-
-    weeklyChartInstance=new Chart(document.getElementById("weeklyChart"),{
-        type:'bar',
-        data:{
-            labels:Object.keys(week),
-            datasets:[{label:'Weekly',data:Object.values(week)}]
-        }
-    });
-}
-
-
-// ================= STREAK =================
-function calculateStreak(data){
-
-    let streak=0;
-
-    const sorted=data
-        .filter(d=>d.status==="present")
-        .map(d=>d.date)
-        .sort()
-        .reverse();
-
-    let prev=new Date();
-
-    for(let d of sorted){
-        let diff=(prev-new Date(d))/(1000*60*60*24);
-        if(diff<=1){
-            streak++;
-            prev=new Date(d);
-        } else break;
-    }
-
-    document.getElementById("streak").innerText=streak;
-}
-
 
 // ================= NAV =================
 function show(id){
-    document.getElementById("dashboard").style.display=id==="dashboard"?"block":"none";
-    document.getElementById("marks").style.display=id==="marks"?"block":"none";
+    dashboard.style.display = id==="dashboard"?"block":"none";
+    marks.style.display = id==="marks"?"block":"none";
 }
-
 
 // ================= LOGOUT =================
 function logout(){
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
+    localStorage.clear();
     window.location.href="index.html";
 }
-
-
-// ================= MONTH NAV =================
-function nextMonth(){
-    currentDate.setMonth(currentDate.getMonth()+1);
-    loadCalendar();
-}
-
-function prevMonth(){
-    currentDate.setMonth(currentDate.getMonth()-1);
-    loadCalendar();
-}
-
 
 // ================= INIT =================
 loadDashboard();
 loadCalendar();
+
 </script>
 
 </body>
