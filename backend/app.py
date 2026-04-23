@@ -16,7 +16,7 @@ logger.info("🔥 App is starting...")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
-# ================= CORS =================
+# ================= CORS (ONLY ONCE) =================
 CORS(
     app,
     resources={r"/api/*": {"origins": "*"}},
@@ -41,7 +41,7 @@ except Exception as e:
     logger.error("❌ Import Error: %s", str(e))
     raise
 
-# ================= INIT DB POOL =================
+# ================= INIT DB =================
 try:
     init_db_pool()
     logger.info("✅ DB Pool initialized")

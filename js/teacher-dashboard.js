@@ -1,23 +1,79 @@
-import {
-  getStudents,
-  addStudentAPI,
-  deleteStudentAPI,
-  markAttendanceAPI,
-  addMarksAPI
-} from "./api.js";
+// =========================================================
+// 🔐 AUTH GUARD (FULL)
+// =========================================================
+const token = localStorage.getItem("token");
 
-// AUTH
-const user = JSON.parse(localStorage.getItem("user"));
+if (!token) logoutUser("Session expired");
 
-if (!localStorage.getItem("token") || !user) {
-  window.location.href = "teacher-login.html";
+function isValidJWT(token) {
+  return token.split(".").length === 3;
 }
 
-// LOAD STUDENTS
+if (!isValidJWT(token)) logoutUser("Invalid token");
+
+function parseJwt(token) {
+  try {
+    const base64 = token.split('.')[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}
+
+const payload = parseJwt(token);
+if (!payload) logoutUser("Corrupted token");
+
+const currentTime = Date.now() / 1000;
+if (!payload.exp || payload.exp < currentTime) {
+  logoutUser("Session expired");
+}
+
+// ✅ SAFE USER OBJECT
+const user = {
+  id: payload.identifier,
+  role: payload.role
+};
+
+localStorage.setItem("user", JSON.stringify(user));
+
+
+// =========================================================
+// 🌐 BASE URL
+// =========================================================
+const BASE_URL =
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000"
+    : "https://student-management-system-api-cznx.onrender.com";
+
+
+// =========================================================
+// 🔐 AUTH HEADER
+// =========================================================
+function getAuthHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`
+  };
+}
+
+
+// =========================================================
+// 📌 LOAD STUDENTS
+// =========================================================
 async function loadStudents() {
   try {
-    const data = await getStudents();
-    const students = data.data || [];
+    const res = await fetch(`${BASE_URL}/api/students`, {
+      headers: getAuthHeaders()
+    });
+
+    if (res.status === 401) logoutUser("Session expired");
+
+    const data = await res.json();
+    const students = data.data || data || [];
 
     let html = "";
 
@@ -39,49 +95,111 @@ async function loadStudents() {
     document.querySelector("#table tbody").innerHTML = html;
 
   } catch (err) {
-    alert("Session expired");
-    localStorage.clear();
-    window.location.href = "teacher-login.html";
+    console.error(err);
+    logoutUser("Session expired");
   }
 }
 
-// ADD STUDENT
+
+// =========================================================
+// ➕ ADD STUDENT (FIXED BUG)
+// =========================================================
 window.addStudent = async () => {
-  const name = name.value.trim();
-  const roll = document.getElementById("roll").value.trim();
+  const nameInput = document.getElementById("name");
+  const rollInput = document.getElementById("roll");
+
+  const name = nameInput.value.trim();
+  const roll = rollInput.value.trim();
 
   if (!name || !roll) return alert("Fill all fields");
 
-  await addStudentAPI({ name, rollno: roll });
-  loadStudents();
+  try {
+    await fetch(`${BASE_URL}/api/students`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name, rollno: roll })
+    });
+
+    loadStudents();
+  } catch {
+    alert("Error adding student");
+  }
 };
 
-// DELETE
+
+// =========================================================
+// ❌ DELETE STUDENT
+// =========================================================
 window.deleteStudent = async (roll) => {
-  await deleteStudentAPI(roll);
-  loadStudents();
+  try {
+    await fetch(`${BASE_URL}/api/students/${roll}`, {
+      method: "DELETE",
+      headers: getAuthHeaders()
+    });
+
+    loadStudents();
+  } catch {
+    alert("Delete failed");
+  }
 };
 
-// ATTENDANCE
+
+// =========================================================
+// 📅 ATTENDANCE
+// =========================================================
 window.markAttendance = async () => {
-  const roll = rollAtt.value;
-  const date = date.value;
-  const status = status.value;
+  const roll = document.getElementById("rollAtt").value;
+  const date = document.getElementById("date").value;
+  const status = document.getElementById("status").value;
 
-  await markAttendanceAPI(roll, date, status);
-  alert("Attendance marked");
+  try {
+    await fetch(`${BASE_URL}/api/attendance/mark`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        rollno: roll,
+        date,
+        status,
+        teacher_id: user.id   // ✅ FIXED
+      })
+    });
+
+    alert("Attendance marked");
+  } catch {
+    alert("Error marking attendance");
+  }
 };
 
-// MARKS
+
+// =========================================================
+// 📊 MARKS
+// =========================================================
 window.addMarks = async () => {
-  const roll = rollMarks.value;
+  const roll = document.getElementById("rollMarks").value;
   const marks = document.getElementById("marks").value;
 
-  await addMarksAPI(roll, "default", marks);
-  alert("Marks updated");
+  try {
+    await fetch(`${BASE_URL}/api/marks/update`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        rollno: roll,
+        subject: "default",
+        marks,
+        teacher_id: user.id   // ✅ FIXED
+      })
+    });
+
+    alert("Marks updated");
+  } catch {
+    alert("Error updating marks");
+  }
 };
 
-// SEARCH
+
+// =========================================================
+// 🔍 SEARCH
+// =========================================================
 window.filterStudents = () => {
   const input = document.getElementById("search").value.toLowerCase();
 
@@ -91,5 +209,18 @@ window.filterStudents = () => {
   });
 };
 
-// INIT
-loadStudents();
+
+// =========================================================
+// 🚪 LOGOUT
+// =========================================================
+function logoutUser(msg) {
+  alert(msg);
+  localStorage.clear();
+  window.location.href = "teacher-login.html";
+}
+
+
+// =========================================================
+// 🚀 INIT
+// =========================================================
+document.addEventListener("DOMContentLoaded", loadStudents);

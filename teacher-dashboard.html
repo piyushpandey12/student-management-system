@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-/* KEEP YOUR SAME CSS (unchanged) */
 body{
     margin:0;
     font-family:'Segoe UI',sans-serif;
@@ -17,10 +16,25 @@ h2{text-align:center;margin-bottom:25px;}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;}
 .card{background:rgba(255,255,255,0.12);backdrop-filter:blur(15px);border-radius:15px;padding:20px;}
 .input-group{display:flex;gap:10px;flex-wrap:wrap;}
-input,select{flex:1;padding:10px;border-radius:8px;border:none;background:rgba(255,255,255,0.2);color:white;}
-button{padding:10px;border:none;border-radius:8px;background:#ff4b2b;color:white;cursor:pointer;}
+input,select{
+    flex:1;
+    padding:10px;
+    border-radius:8px;
+    border:none;
+    background:rgba(255,255,255,0.2);
+    color:white;
+}
+button{
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    background:#ff4b2b;
+    color:white;
+    cursor:pointer;
+}
+button:hover{background:#ff416c;}
 table{width:100%;margin-top:10px;}
-th,td{padding:10px;}
+th,td{padding:10px;text-align:left;}
 .gradeA{color:#00ffcc;font-weight:bold;}
 .gradeB{color:#ffd700;font-weight:bold;}
 .gradeC{color:#ff6b6b;font-weight:bold;}
@@ -34,6 +48,7 @@ th,td{padding:10px;}
 
 <div class="grid">
 
+<!-- ADD STUDENT -->
 <div class="card">
 <h3>➕ Add Student</h3>
 <div class="input-group">
@@ -43,11 +58,13 @@ th,td{padding:10px;}
 </div>
 </div>
 
+<!-- SEARCH -->
 <div class="card">
 <h3>🔍 Search</h3>
 <input id="search" placeholder="Search..." onkeyup="filterStudents()">
 </div>
 
+<!-- ATTENDANCE -->
 <div class="card">
 <h3>📅 Attendance</h3>
 <div class="input-group">
@@ -61,6 +78,7 @@ th,td{padding:10px;}
 </div>
 </div>
 
+<!-- MARKS -->
 <div class="card">
 <h3>📊 Marks</h3>
 <div class="input-group">
@@ -70,6 +88,7 @@ th,td{padding:10px;}
 </div>
 </div>
 
+<!-- STUDENTS TABLE -->
 <div class="card" style="grid-column:1/-1">
 <h3>📋 Students</h3>
 <table id="table">
@@ -89,7 +108,7 @@ th,td{padding:10px;}
 </div>
 </div>
 
-<!-- ✅ ONLY THIS SCRIPT -->
+<!-- ✅ SCRIPT -->
 <script type="module" src="./js/teacher-dashboard.js"></script>
 
 </body>

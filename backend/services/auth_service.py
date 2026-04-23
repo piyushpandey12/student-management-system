@@ -1,33 +1,34 @@
-# auth_service.py
-
+# ================= IMPORTS =================
 import os
 import jwt
-import requests
 from datetime import datetime, timedelta
+
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 from backend.utils.db import get_connection, release_connection
 from backend.utils.auth_utils import hash_password, verify_password
 
-# 🔐 SECRET KEY
+# ================= SECRET =================
 SECRET_KEY = os.getenv("SECRET_KEY", "student-management-secret")
 
 
 # =========================================================
-# 🔑 GENERATE JWT TOKEN
+# 🔑 GENERATE JWT TOKEN (FIXED)
 # =========================================================
 def generate_token(identifier, role):
-    return jwt.encode({
+    payload = {
         "identifier": identifier,
         "role": role,
-        "exp": datetime.utcnow() + timedelta(hours=2)
-    }, SECRET_KEY, algorithm="HS256")
+        "exp": datetime.utcnow() + timedelta(hours=6)  # increased expiry
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
 
 # =========================================================
 # 📌 REGISTER USER
 # =========================================================
 def register_user(identifier, password, role, name="User"):
-
     identifier = identifier.lower().strip()
 
     db = None
@@ -37,20 +38,17 @@ def register_user(identifier, password, role, name="User"):
         db = get_connection()
         cursor = db.cursor()
 
-        # 🔎 CHECK EXIST
         cursor.execute("SELECT 1 FROM users WHERE identifier=%s", (identifier,))
         if cursor.fetchone():
             return {"error": "User already exists"}, 409
 
         hashed_password = hash_password(password)
 
-        # ✅ INSERT USER
         cursor.execute("""
             INSERT INTO users (identifier, password, role)
             VALUES (%s, %s, %s)
         """, (identifier, hashed_password, role))
 
-        # ✅ PROFILE TABLE
         if role == "student":
             cursor.execute("""
                 INSERT INTO students (rollno, name)
@@ -82,7 +80,6 @@ def register_user(identifier, password, role, name="User"):
 # 📌 LOGIN USER
 # =========================================================
 def login_user(identifier, password):
-
     identifier = identifier.lower().strip()
 
     db = None
@@ -129,22 +126,21 @@ def login_user(identifier, password):
 
 
 # =========================================================
-# 🔐 GOOGLE LOGIN
+# 🔐 GOOGLE SIGNUP (FIXED)
 # =========================================================
-def google_login_service(token):
-
+def google_signup_service(token, role="student"):
     db = None
     cursor = None
 
     try:
-        # ✅ VERIFY GOOGLE TOKEN
-        google_res = requests.get(
-            f"https://oauth2.googleapis.com/tokeninfo?id_token={token}"
+        # ✅ VERIFY GOOGLE TOKEN (CORRECT METHOD)
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request()
         )
-        user_info = google_res.json()
 
-        email = (user_info.get("email") or "").lower()
-        name = user_info.get("name", "User")
+        email = idinfo.get("email", "").lower()
+        name = idinfo.get("name", "User")
 
         if not email:
             return {"error": "Invalid Google token"}, 401
@@ -157,17 +153,22 @@ def google_login_service(token):
         user = cursor.fetchone()
 
         if not user:
-            role = "student"
-
+            # ✅ CREATE USER
             cursor.execute("""
                 INSERT INTO users (identifier, password, role)
                 VALUES (%s, %s, %s)
             """, (email, "", role))
 
-            cursor.execute("""
-                INSERT INTO students (rollno, name)
-                VALUES (%s, %s)
-            """, (email, name))
+            if role == "student":
+                cursor.execute("""
+                    INSERT INTO students (rollno, name)
+                    VALUES (%s, %s)
+                """, (email, name))
+            else:
+                cursor.execute("""
+                    INSERT INTO teachers (teacher_id, name)
+                    VALUES (%s, %s)
+                """, (email, name))
 
             db.commit()
         else:
@@ -186,10 +187,18 @@ def google_login_service(token):
     except Exception as e:
         if db:
             db.rollback()
-        return {"error": str(e)}, 500
+        return {"error": str(e)}, 401
 
     finally:
         if cursor:
             cursor.close()
         if db:
             release_connection(db)
+
+
+# =========================================================
+# 🔐 GOOGLE LOGIN (OPTIONAL CLEAN)
+# =========================================================
+def google_login_service(token):
+    # Just reuse signup logic
+    return google_signup_service(token)

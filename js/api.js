@@ -1,5 +1,5 @@
 // =========================================================
-// 🌐 BASE URL (FINAL FIX)
+// 🌐 BASE URL
 // =========================================================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
@@ -23,12 +23,17 @@ function getUser() {
   }
 }
 
+// ✅ FIXED (strict)
 function getAuthHeaders() {
   const token = getToken();
 
+  if (!token) {
+    throw new Error("Session expired");
+  }
+
   return {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
+    Authorization: `Bearer ${token}`
   };
 }
 
@@ -48,7 +53,7 @@ function fetchWithTimeout(url, options = {}, timeout = 10000) {
 
 
 // =========================================================
-// 📌 RESPONSE HANDLER
+// 📌 RESPONSE HANDLER (AUTO LOGOUT FIX)
 // =========================================================
 async function handleResponse(res) {
   const text = await res.text();
@@ -58,7 +63,14 @@ async function handleResponse(res) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("Server not returning JSON → " + text);
+    throw new Error("Invalid JSON → " + text);
+  }
+
+  // 🔥 AUTO LOGOUT ON TOKEN ERROR
+  if (res.status === 401) {
+    alert(data.message || "Session expired");
+    logout();
+    throw new Error("Unauthorized");
   }
 
   if (!res.ok) {
@@ -75,15 +87,16 @@ async function handleResponse(res) {
 export async function loginUser(data) {
   const res = await fetchWithTimeout(`${BASE_URL}/api/auth/login`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   });
 
   const result = await handleResponse(res);
 
-  // 🔥 SAVE TOKEN
+  if (!result.token) {
+    throw new Error("Token not received");
+  }
+
   localStorage.setItem("token", result.token);
   localStorage.setItem("user", JSON.stringify(result.user));
 
@@ -93,9 +106,7 @@ export async function loginUser(data) {
 export async function registerUser(data) {
   const res = await fetchWithTimeout(`${BASE_URL}/api/auth/register`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   });
 
@@ -135,11 +146,12 @@ export async function deleteStudentAPI(rollno) {
 
 
 // =========================================================
-// 📅 ATTENDANCE APIs
+// 📅 ATTENDANCE APIs (FIXED USER FIELD)
 // =========================================================
 export async function markAttendanceAPI(rollno, date, status) {
   const user = getUser();
-  if (!user) throw new Error("User not logged in");
+
+  if (!user) throw new Error("Session expired");
 
   const res = await fetchWithTimeout(`${BASE_URL}/api/attendance/mark`, {
     method: "POST",
@@ -148,7 +160,7 @@ export async function markAttendanceAPI(rollno, date, status) {
       rollno,
       date,
       status,
-      teacher_id: user.identifier
+      teacher_id: user.id   // ✅ FIXED HERE
     })
   });
 
@@ -165,11 +177,12 @@ export async function getAttendanceStats(rollno) {
 
 
 // =========================================================
-// 📊 MARKS APIs
+// 📊 MARKS APIs (FIXED USER FIELD)
 // =========================================================
 export async function addMarksAPI(rollno, subject, marks) {
   const user = getUser();
-  if (!user) throw new Error("User not logged in");
+
+  if (!user) throw new Error("Session expired");
 
   const res = await fetchWithTimeout(`${BASE_URL}/api/marks/update`, {
     method: "POST",
@@ -178,7 +191,7 @@ export async function addMarksAPI(rollno, subject, marks) {
       rollno,
       subject,
       marks,
-      teacher_id: user.identifier
+      teacher_id: user.id   // ✅ FIXED HERE
     })
   });
 

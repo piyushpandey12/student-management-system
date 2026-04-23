@@ -1,10 +1,10 @@
 # ================= IMPORTS =================
 from flask import Blueprint, request, jsonify
-
 from backend.services.auth_service import (
     register_user,
     login_user,
-    google_login_service
+    google_login_service,
+    google_signup_service   # ✅ ADD THIS
 )
 
 # ================= BLUEPRINT =================
@@ -93,7 +93,7 @@ def login():
 
 
 # =========================================================
-# 🔐 GOOGLE LOGIN
+# 🔐 GOOGLE LOGIN (EXISTING)
 # =========================================================
 @auth_bp.route("/google", methods=["POST"])
 def google_login():
@@ -113,6 +113,43 @@ def google_login():
             return jsonify({
                 "status": "error",
                 "message": result.get("error", "Google login failed")
+            }), status
+
+        return jsonify({
+            "status": "success",
+            "token": result["token"],
+            "user": result["user"]
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+# =========================================================
+# 🆕 GOOGLE SIGNUP (FIXED)
+# =========================================================
+@auth_bp.route("/google-signup", methods=["POST"])
+def google_signup():
+    try:
+        data = request.get_json() or {}
+        token = data.get("token")
+        role = data.get("role", "student")
+
+        if not token:
+            return jsonify({
+                "status": "error",
+                "message": "Token missing"
+            }), 400
+
+        result, status = google_signup_service(token, role)
+
+        if status >= 400:
+            return jsonify({
+                "status": "error",
+                "message": result.get("error", "Google signup failed")
             }), status
 
         return jsonify({
