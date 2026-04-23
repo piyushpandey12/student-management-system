@@ -10,78 +10,6 @@ const AUTH_URL =
     ? "http://127.0.0.1:5000"
     : "https://student-management-system-api-cznx.onrender.com";
 
-// ================= GOOGLE LOGIN (NEW) =================
-function initGoogle() {
-  if (window.google && google.accounts && google.accounts.id) {
-    google.accounts.id.initialize({
-      client_id:
-        "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-      callback: handleGoogleLogin,
-    });
-    console.log("✅ Google Initialized");
-  } else {
-    console.warn("⏳ Google not ready, retrying...");
-    setTimeout(initGoogle, 500);
-  }
-}
-document.addEventListener("DOMContentLoaded", () => {
-  initGoogle();
-});
-function triggerGoogleLogin() {
-  if (window.google && google.accounts && google.accounts.id) {
-    google.accounts.id.prompt();
-  } else {
-    initGoogle(); // retry
-  }
-}
-function handleGoogleLogin(response) {
-  if (!response.credential) {
-    alert("Google login failed");
-    return;
-  }
-
-  fetch(`${BASE_URL}/auth/google`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      token: response.credential,
-    }),
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      if (!data || data.error) {
-        alert(data.error || "Login failed");
-        return;
-      }
-
-      // ✅ SAVE TOKEN FIRST
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-
-        // ✅ Decode fallback (safe)
-        const payload = JSON.parse(atob(data.token.split('.')[1]));
-
-        localStorage.setItem("user", JSON.stringify({
-          id: payload.identifier || payload.id,
-          role: payload.role
-        }));
-      } else {
-        // fallback if backend sends full user
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
-
-      // ✅ REDIRECT
-      if (data.user?.role === "teacher") {
-        window.location.href = "teacher-dashboard.html";
-      } else {
-        window.location.href = "student-dashboard.html";
-      }
-    })
-    .catch((err) => {
-      console.error(err);
-      alert("Server error");
-    });
-}
 
 function parseJwt(token) {
   let base64Url = token.split(".")[1];
@@ -1016,4 +944,4 @@ submitBtn.addEventListener("click", async (e) => {
     errorEl.innerText = "⚠️ Backend not reachable!";
   }
 });
-window.handleGoogleLogin = handleGoogleLogin;
+

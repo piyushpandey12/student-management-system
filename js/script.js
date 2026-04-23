@@ -31,59 +31,6 @@ if (user && token && !window.location.pathname.includes("dashboard")) {
   }
 }
 
-// ================= GOOGLE INIT =================
-function initGoogle() {
-  if (window.google && google.accounts && google.accounts.id) {
-    google.accounts.id.initialize({
-      client_id:
-        "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-      callback: handleGoogleLogin,
-    });
-    console.log("✅ Google Initialized");
-  } else {
-    setTimeout(initGoogle, 500);
-  }
-}
-
-document.addEventListener("DOMContentLoaded", initGoogle);
-
-function triggerGoogleLogin() {
-  if (window.google && google.accounts && google.accounts.id) {
-    google.accounts.id.prompt();
-  } else {
-    alert("Google not loaded yet. Refresh page.");
-  }
-}
-function handleGoogleLogin(response) {
-  if (!response.credential) {
-    alert("Google login failed");
-    return;
-  }
-
-  fetch(`${BASE_URL}/auth/google`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: response.credential }),
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      if (!data || data.error) {
-        alert(data.error || "Login failed");
-        return;
-      }
-
-      // ✅ VERY IMPORTANT
-      localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("token", data.token); // 🔥 FIXED
-
-      if (data.user.role === "teacher") {
-        window.location.href = "teacher-dashboard.html";
-      } else {
-        window.location.href = "student-dashboard.html";
-      }
-    })
-    .catch(() => alert("Server error"));
-}
 function parseJwt(token) {
   let base64Url = token.split(".")[1];
   let base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -988,4 +935,4 @@ submitBtn.addEventListener("click", async (e) => {
     errorEl.innerText = "⚠️ Backend not reachable!";
   }
 });
-window.handleGoogleLogin = handleGoogleLogin;
+

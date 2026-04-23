@@ -1,5 +1,5 @@
 -- =========================================
--- 🔁 RESET (SAFE FOR DEVELOPMENT)
+-- 🔁 RESET
 -- =========================================
 DROP TABLE IF EXISTS attendance CASCADE;
 DROP TABLE IF EXISTS marks CASCADE;
@@ -8,30 +8,41 @@ DROP TABLE IF EXISTS teachers CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- =========================================
--- 📌 USERS TABLE
+-- 📌 USERS TABLE (AUTH CORE)
 -- =========================================
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     identifier VARCHAR(100) UNIQUE NOT NULL,
-    password TEXT NOT NULL,
+    password TEXT, -- nullable for Google login
+    google_id TEXT UNIQUE,
     role VARCHAR(10) CHECK (role IN ('student','teacher')) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =========================================
--- 📌 STUDENTS TABLE
+-- 📌 STUDENTS TABLE (LINKED TO USERS)
 -- =========================================
 CREATE TABLE students (
     rollno VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL CHECK (name <> '')
+    user_id INT UNIQUE,
+    name VARCHAR(100) NOT NULL CHECK (name <> ''),
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
 );
 
 -- =========================================
--- 📌 TEACHERS TABLE
+-- 📌 TEACHERS TABLE (LINKED TO USERS)
 -- =========================================
 CREATE TABLE teachers (
     teacher_id VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL CHECK (name <> '')
+    user_id INT UNIQUE,
+    name VARCHAR(100) NOT NULL CHECK (name <> ''),
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
 );
 
 -- =========================================
@@ -62,7 +73,7 @@ CREATE TABLE attendance (
     id SERIAL PRIMARY KEY,
     rollno VARCHAR(20) NOT NULL,
     date DATE NOT NULL,
-    status VARCHAR(10) CHECK (LOWER(status) IN ('present','absent')),
+    status VARCHAR(10) NOT NULL CHECK (status IN ('present','absent')),
     teacher_id VARCHAR(20),
 
     UNIQUE(rollno, date),
@@ -77,69 +88,70 @@ CREATE TABLE attendance (
 );
 
 -- =========================================
--- 📌 INDEXES (PERFORMANCE)
+-- 📌 INDEXES
 -- =========================================
 CREATE INDEX idx_users_identifier ON users(identifier);
-CREATE INDEX idx_students_rollno ON students(rollno);
 
 -- =========================================
--- 📌 FUNCTIONS (SAFE + TRANSACTIONAL)
+-- 📌 FUNCTIONS (FIXED)
 -- =========================================
 
--- ✅ ADD STUDENT (SAFE)
+-- ✅ ADD STUDENT (SAFE + LINKED)
 CREATE OR REPLACE FUNCTION add_student(
     p_roll VARCHAR,
     p_name VARCHAR,
     p_password TEXT
 )
 RETURNS VOID AS $$
+DECLARE
+    new_user_id INT;
 BEGIN
-    -- prevent duplicate
-    IF EXISTS (SELECT 1 FROM students WHERE rollno = p_roll) THEN
-        RAISE EXCEPTION 'Student already exists';
-    END IF;
-
-    -- insert student
-    INSERT INTO students (rollno, name)
-    VALUES (p_roll, p_name);
-
-    -- insert user
+    -- create user
     INSERT INTO users (identifier, password, role)
-    VALUES (p_roll, p_password, 'student');
+    VALUES (p_roll, p_password, 'student')
+    RETURNING id INTO new_user_id;
 
+    -- create student
+    INSERT INTO students (rollno, name, user_id)
+    VALUES (p_roll, p_name, new_user_id);
+
+EXCEPTION
+    WHEN unique_violation THEN
+        RAISE EXCEPTION 'Student already exists';
 END;
 $$ LANGUAGE plpgsql;
 
 -- =========================================
 
--- ✅ ADD TEACHER (SAFE)
+-- ✅ ADD TEACHER
 CREATE OR REPLACE FUNCTION add_teacher(
     p_id VARCHAR,
     p_name VARCHAR,
     p_password TEXT
 )
 RETURNS VOID AS $$
+DECLARE
+    new_user_id INT;
 BEGIN
-    IF EXISTS (SELECT 1 FROM teachers WHERE teacher_id = p_id) THEN
-        RAISE EXCEPTION 'Teacher already exists';
-    END IF;
-
-    INSERT INTO teachers (teacher_id, name)
-    VALUES (p_id, p_name);
-
     INSERT INTO users (identifier, password, role)
-    VALUES (p_id, p_password, 'teacher');
+    VALUES (p_id, p_password, 'teacher')
+    RETURNING id INTO new_user_id;
 
+    INSERT INTO teachers (teacher_id, name, user_id)
+    VALUES (p_id, p_name, new_user_id);
+
+EXCEPTION
+    WHEN unique_violation THEN
+        RAISE EXCEPTION 'Teacher already exists';
 END;
 $$ LANGUAGE plpgsql;
 
 -- =========================================
 
--- ✅ DELETE STUDENT (CLEAN + CONSISTENT)
+-- ✅ DELETE STUDENT (CLEAN CASCADE)
 CREATE OR REPLACE FUNCTION delete_student(p_roll VARCHAR)
 RETURNS VOID AS $$
 BEGIN
-    DELETE FROM users WHERE identifier = p_roll;
     DELETE FROM students WHERE rollno = p_roll;
 END;
 $$ LANGUAGE plpgsql;
@@ -166,7 +178,7 @@ $$ LANGUAGE plpgsql;
 
 -- =========================================
 
--- ✅ UPSERT ATTENDANCE
+-- ✅ UPSERT ATTENDANCE (STRICT)
 CREATE OR REPLACE FUNCTION mark_attendance(
     p_roll VARCHAR,
     p_date DATE,
@@ -179,7 +191,7 @@ BEGIN
     VALUES (p_roll, p_date, LOWER(p_status), p_teacher)
     ON CONFLICT (rollno, date)
     DO UPDATE SET
-        status = EXCLUDED.status,
+        status = LOWER(EXCLUDED.status),
         teacher_id = EXCLUDED.teacher_id;
 END;
 $$ LANGUAGE plpgsql;
