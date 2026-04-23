@@ -24,7 +24,7 @@ canvas{background:rgba(255,255,255,0.1);padding:15px;border-radius:15px}
 table{width:100%;margin-top:20px}
 td,th{padding:10px;text-align:left}
 #calendar{margin-top:15px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
-.day{padding:10px;text-align:center;border-radius:10px;background:rgba(255,255,255,0.1);cursor:pointer}
+.day{padding:10px;text-align:center;border-radius:10px;background:rgba(255,255,255,0.1)}
 .present{background:#00ff88;color:black}
 .absent{background:#ff4d4d}
 </style>
@@ -61,8 +61,6 @@ td,th{padding:10px;text-align:left}
     <canvas id="marksChart"></canvas>
 </div>
 
-<canvas id="weeklyChart" style="margin-top:20px;"></canvas>
-
 <div>
 <h3>Attendance Calendar</h3>
 <div id="calendar"></div>
@@ -81,94 +79,77 @@ td,th{padding:10px;text-align:left}
 </div>
 </div>
 
-<script>
+<!-- ✅ USE MODULE -->
+<script type="module">
 
-// ================= BASE URL (FIXED) =================
-const BASE_URL =
-  window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "https://student-management-system-api-cznx.onrender.com";
+import {
+  getDashboard,
+  getAttendance,
+  logout as apiLogout
+} from "./js/api.js";
 
-// ================= AUTH =================
-function getUser(){
-    try { return JSON.parse(localStorage.getItem("user")); }
-    catch { return null; }
-}
-
+// ================= AUTH CHECK =================
 const token = localStorage.getItem("token");
-const user = getUser();
+const user = JSON.parse(localStorage.getItem("user"));
 
 if (!token || !user) {
-    window.location.href = "login.html";
+  window.location.href = "student-login.html";
 }
 
-const rollno = user.identifier || user.id || user.rollno;
+const rollno = user.identifier || user.rollno || user.id;
 document.getElementById("welcome").innerText = "Welcome " + rollno;
-
-// ================= HEADERS =================
-function getHeaders(){
-    return {
-        "Content-Type":"application/json",
-        "Authorization":"Bearer " + token
-    };
-}
-
-// ================= SAFE RESPONSE =================
-async function handleResponse(res){
-    const text = await res.text();
-    let data;
-
-    try { data = JSON.parse(text); }
-    catch { throw new Error("Invalid JSON → " + text); }
-
-    if(!res.ok) throw new Error(data.message || data.error || "Server error");
-
-    return data;
-}
 
 // ================= DASHBOARD =================
 async function loadDashboard(){
     try{
-        const res = await fetch(`${BASE_URL}/api/students/dashboard/${rollno}`,{
-            headers:getHeaders()
-        });
+        const res = await getDashboard(rollno);
 
-        const data = await handleResponse(res);
-        const d = data.data;
+        const d = res.data || res;
 
-        att.innerText = d.attendance_percent + "%";
-        present.innerText = d.present_days;
-        total.innerText = d.total_days;
+        document.getElementById("att").innerText = (d.attendance_percent || 0) + "%";
+        document.getElementById("present").innerText = d.present_days || 0;
+        document.getElementById("total").innerText = d.total_days || 0;
 
-        marksList.innerHTML =
-            d.marks.map(m => `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
+        document.getElementById("marksList").innerHTML =
+            (d.marks || []).map(m =>
+                `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`
+            ).join("");
 
         drawCharts(d);
 
     }catch(err){
-        alert(err.message);
+        console.error("Dashboard error:", err);
     }
 }
 
 // ================= CHARTS =================
-let aChart,mChart,wChart;
+let aChart, mChart;
 
 function drawCharts(d){
 
     if(aChart) aChart.destroy();
     if(mChart) mChart.destroy();
 
-    aChart = new Chart(attendanceChart,{
+    aChart = new Chart(document.getElementById("attendanceChart"),{
         type:'pie',
-        data:{labels:['Present','Absent'],
-        datasets:[{data:[d.present_days,d.total_days-d.present_days]}]}
+        data:{
+            labels:['Present','Absent'],
+            datasets:[{
+                data:[
+                    d.present_days || 0,
+                    (d.total_days || 0) - (d.present_days || 0)
+                ]
+            }]
+        }
     });
 
-    mChart = new Chart(marksChart,{
+    mChart = new Chart(document.getElementById("marksChart"),{
         type:'bar',
         data:{
-            labels:d.marks.map(m=>m.subject),
-            datasets:[{data:d.marks.map(m=>m.marks)}]
+            labels:(d.marks || []).map(m=>m.subject),
+            datasets:[{
+                data:(d.marks || []).map(m=>m.marks)
+            }]
         }
     });
 }
@@ -176,38 +157,33 @@ function drawCharts(d){
 // ================= CALENDAR =================
 async function loadCalendar(){
     try{
-        const res = await fetch(`${BASE_URL}/api/attendance/${rollno}`,{
-            headers:getHeaders()
-        });
-
-        const data = await handleResponse(res);
-        const records = data.data || [];
+        const res = await getAttendance(rollno);
+        const records = res.data || res;
 
         const cal = document.getElementById("calendar");
         cal.innerHTML="";
 
         records.forEach(r=>{
             const div=document.createElement("div");
-            div.className="day "+r.status;
-            div.innerText=r.date.split("-")[2];
+            div.className="day " + r.status;
+            div.innerText = r.date.split("-")[2];
             cal.appendChild(div);
         });
 
     }catch(err){
-        console.error(err);
+        console.error("Calendar error:", err);
     }
 }
 
 // ================= NAV =================
-function show(id){
-    dashboard.style.display = id==="dashboard"?"block":"none";
-    marks.style.display = id==="marks"?"block":"none";
+window.show = function(id){
+    document.getElementById("dashboard").style.display = id==="dashboard"?"block":"none";
+    document.getElementById("marks").style.display = id==="marks"?"block":"none";
 }
 
 // ================= LOGOUT =================
-function logout(){
-    localStorage.clear();
-    window.location.href="index.html";
+window.logout = function(){
+    apiLogout();
 }
 
 // ================= INIT =================

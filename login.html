@@ -241,4 +241,140 @@
     <script src="js/script.js"></script>
 </body>
 
+</html><!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <title>@integrate.system - Technical Login Form Animation</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+
+<div class="form-container">
+
+    <!-- Roll Number -->
+    <label class="form-row">
+        <input type="text" id="rollno" placeholder="Roll Number" required>
+    </label>
+
+    <!-- Password -->
+    <label class="form-row">
+        <input type="password" id="password" placeholder="Password" required>
+    </label>
+
+    <!-- Checkbox -->
+    <label class="form-row checkbox-row">
+        <input type="checkbox" id="subscribe">
+        <span>Agree to terms</span>
+    </label>
+
+    <!-- Error Message -->
+    <div id="errorMsg" style="color:yellow; margin-top:10px;"></div>
+
+    <!-- Submit Button -->
+    <div class="form-row">
+        <input type="button" id="submitBtn" value="Login">
+    </div>
+
+    <!-- Divider -->
+    <div class="divider">OR</div>
+
+    <!-- Google Login -->
+    <div class="form-row google-row">
+
+        <div id="g_id_onload"
+            data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
+            data-callback="handleGoogleLogin"
+            data-auto_prompt="false">
+        </div>
+
+        <button class="glass-google-btn" onclick="triggerGoogleLogin()">
+            <img src="https://developers.google.com/identity/images/g-logo.png" />
+            Continue with Google
+        </button>
+
+    </div>
+
+</div>
+
+<!-- (SVG + animation untouched) -->
+<!-- KEEP YOUR FULL SVG HERE (NO CHANGE) -->
+
+<script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
+<script src="js/script.js"></script>
+
+<!-- ================= 🔥 AUTH FIX START ================= -->
+<script>
+
+// ✅ BASE URL FIX (IMPORTANT)
+const BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
+
+// ✅ LOGIN FUNCTION
+async function login() {
+    const rollno = document.getElementById("rollno").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const errorBox = document.getElementById("errorMsg");
+
+    if (!rollno || !password) {
+        errorBox.innerText = "Please fill all fields";
+        return;
+    }
+
+    try {
+        const res = await fetch(`${BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ rollno, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.message || "Login failed");
+        }
+
+        // 🔥 CRITICAL FIX (TOKEN + USER)
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // optional (for compatibility)
+        localStorage.setItem("rollno", rollno);
+
+        window.location.href = "student-dashboard.html";
+
+    } catch (err) {
+        errorBox.innerText = err.message;
+        console.error("Login error:", err);
+    }
+}
+
+// ✅ BUTTON CLICK FIX
+document.getElementById("submitBtn").addEventListener("click", login);
+
+// ================= GOOGLE LOGIN (KEEP SAME FLOW) =================
+function triggerGoogleLogin() {
+    google.accounts.id.prompt();
+}
+
+function handleGoogleLogin(response) {
+    console.log("Google Token:", response.credential);
+
+    // 👉 send this token to backend if implemented
+    // fetch(BASE_URL + "/auth/google", ...)
+}
+
+</script>
+<!-- ================= 🔥 AUTH FIX END ================= -->
+
+</body>
 </html>
