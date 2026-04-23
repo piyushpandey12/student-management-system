@@ -7,3 +7,7 @@ gunicorn==21.2.0
 python-dotenv==1.0.1
 requests==2.32.3
 PyJWT==2.9.0
+
+# Google Auth (for Google Login / Signup)
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
