@@ -1,11 +1,11 @@
 // =========================================================
-// 🌐 BASE URL (FIXED — SINGLE SOURCE OF TRUTH)
+// 🌐 BASE URL (FINAL FIX)
 // =========================================================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000/api"
-    : "https://student-management-system-api-cznx.onrender.com/api";
+    ? "http://127.0.0.1:5000"
+    : "https://student-management-system-api-cznx.onrender.com";
 
 
 // =========================================================
@@ -48,7 +48,7 @@ function fetchWithTimeout(url, options = {}, timeout = 10000) {
 
 
 // =========================================================
-// 📌 RESPONSE HANDLER (401 FIX INCLUDED)
+// 📌 RESPONSE HANDLER
 // =========================================================
 async function handleResponse(res) {
   const text = await res.text();
@@ -59,14 +59,6 @@ async function handleResponse(res) {
     data = JSON.parse(text);
   } catch {
     throw new Error("Server not returning JSON → " + text);
-  }
-
-  // 🔥 HANDLE TOKEN EXPIRE / INVALID
-  if (res.status === 401) {
-    alert("Session expired or invalid token. Please login again.");
-    localStorage.clear();
-    window.location.href = "student-login.html";
-    throw new Error("Unauthorized");
   }
 
   if (!res.ok) {
@@ -81,15 +73,17 @@ async function handleResponse(res) {
 // 🔐 AUTH APIs
 // =========================================================
 export async function loginUser(data) {
-  const res = await fetchWithTimeout(`${BASE_URL}/auth/login`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify(data)
   });
 
   const result = await handleResponse(res);
 
-  // ✅ STORE TOKEN + USER
+  // 🔥 SAVE TOKEN
   localStorage.setItem("token", result.token);
   localStorage.setItem("user", JSON.stringify(result.user));
 
@@ -97,9 +91,11 @@ export async function loginUser(data) {
 }
 
 export async function registerUser(data) {
-  const res = await fetchWithTimeout(`${BASE_URL}/auth/register`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify(data)
   });
 
@@ -111,7 +107,7 @@ export async function registerUser(data) {
 // 👨‍🎓 STUDENT APIs
 // =========================================================
 export async function getStudents() {
-  const res = await fetchWithTimeout(`${BASE_URL}/students`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/students`, {
     headers: getAuthHeaders()
   });
 
@@ -119,7 +115,7 @@ export async function getStudents() {
 }
 
 export async function addStudentAPI(data) {
-  const res = await fetchWithTimeout(`${BASE_URL}/students`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/students`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(data)
@@ -129,28 +125,8 @@ export async function addStudentAPI(data) {
 }
 
 export async function deleteStudentAPI(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/students/${rollno}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/students/${rollno}`, {
     method: "DELETE",
-    headers: getAuthHeaders()
-  });
-
-  return handleResponse(res);
-}
-
-
-// =========================================================
-// 📊 DASHBOARD APIs (FIXED — YOUR ERROR SOURCE)
-// =========================================================
-export async function getDashboard(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/students/dashboard/${rollno}`, {
-    headers: getAuthHeaders()
-  });
-
-  return handleResponse(res);
-}
-
-export async function getAttendance(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/attendance/${rollno}`, {
     headers: getAuthHeaders()
   });
 
@@ -165,7 +141,7 @@ export async function markAttendanceAPI(rollno, date, status) {
   const user = getUser();
   if (!user) throw new Error("User not logged in");
 
-  const res = await fetchWithTimeout(`${BASE_URL}/attendance/mark`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/attendance/mark`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({
@@ -180,7 +156,7 @@ export async function markAttendanceAPI(rollno, date, status) {
 }
 
 export async function getAttendanceStats(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/attendance/stats/${rollno}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/attendance/stats/${rollno}`, {
     headers: getAuthHeaders()
   });
 
@@ -195,7 +171,7 @@ export async function addMarksAPI(rollno, subject, marks) {
   const user = getUser();
   if (!user) throw new Error("User not logged in");
 
-  const res = await fetchWithTimeout(`${BASE_URL}/marks/update`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/marks/update`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({
@@ -210,7 +186,7 @@ export async function addMarksAPI(rollno, subject, marks) {
 }
 
 export async function getMarksStats(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/marks/stats/${rollno}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/marks/stats/${rollno}`, {
     headers: getAuthHeaders()
   });
 

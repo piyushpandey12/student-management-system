@@ -61,6 +61,8 @@ td,th{padding:10px;text-align:left}
     <canvas id="marksChart"></canvas>
 </div>
 
+<canvas id="weeklyChart" style="margin-top:20px;"></canvas>
+
 <div>
 <h3>Attendance Calendar</h3>
 <div id="calendar"></div>
@@ -79,48 +81,86 @@ td,th{padding:10px;text-align:left}
 </div>
 </div>
 
-<!-- ✅ USE MODULE -->
-<script type="module">
+<script>
 
-import {
-  getDashboard,
-  getAttendance,
-  logout as apiLogout
-} from "./js/api.js";
+// ================= BASE URL =================
+const BASE_URL =
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000"
+    : "https://student-management-system-api-cznx.onrender.com";
 
-// ================= AUTH CHECK =================
-const token = localStorage.getItem("token");
-const user = JSON.parse(localStorage.getItem("user"));
 
-if (!token || !user) {
-  window.location.href = "student-login.html";
+// ================= AUTH =================
+function getUser(){
+    try { return JSON.parse(localStorage.getItem("user")); }
+    catch { return null; }
 }
 
-const rollno = user.identifier || user.rollno || user.id;
+const token = localStorage.getItem("token");
+const user = getUser();
+
+if (!token || !user) {
+    window.location.href = "login.html";
+}
+
+const rollno = user.identifier || user.id || user.rollno;
 document.getElementById("welcome").innerText = "Welcome " + rollno;
+
+
+// ================= HEADERS =================
+function getHeaders(){
+    return {
+        "Content-Type":"application/json",
+        "Authorization": "Bearer " + token
+    };
+}
+
+
+// ================= RESPONSE =================
+async function handleResponse(res){
+    const text = await res.text();
+
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        throw new Error("Invalid JSON → " + text);
+    }
+
+    if(!res.ok) {
+        throw new Error(data.message || data.error || "Server error");
+    }
+
+    return data;
+}
+
 
 // ================= DASHBOARD =================
 async function loadDashboard(){
     try{
-        const res = await getDashboard(rollno);
+        const res = await fetch(`${BASE_URL}/api/students/dashboard/${rollno}`, {
+            headers: getHeaders()
+        });
 
-        const d = res.data || res;
+        const data = await handleResponse(res);
+        const d = data.data;
 
-        document.getElementById("att").innerText = (d.attendance_percent || 0) + "%";
-        document.getElementById("present").innerText = d.present_days || 0;
-        document.getElementById("total").innerText = d.total_days || 0;
+        document.getElementById("att").innerText = d.attendance_percent + "%";
+        document.getElementById("present").innerText = d.present_days;
+        document.getElementById("total").innerText = d.total_days;
 
         document.getElementById("marksList").innerHTML =
-            (d.marks || []).map(m =>
+            d.marks.map(m =>
                 `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`
             ).join("");
 
         drawCharts(d);
 
-    }catch(err){
-        console.error("Dashboard error:", err);
+    } catch(err){
+        alert(err.message);
     }
 }
+
 
 // ================= CHARTS =================
 let aChart, mChart;
@@ -130,61 +170,70 @@ function drawCharts(d){
     if(aChart) aChart.destroy();
     if(mChart) mChart.destroy();
 
-    aChart = new Chart(document.getElementById("attendanceChart"),{
+    aChart = new Chart(document.getElementById("attendanceChart"), {
         type:'pie',
         data:{
             labels:['Present','Absent'],
             datasets:[{
-                data:[
-                    d.present_days || 0,
-                    (d.total_days || 0) - (d.present_days || 0)
-                ]
+                data:[d.present_days, d.total_days - d.present_days]
             }]
         }
     });
 
-    mChart = new Chart(document.getElementById("marksChart"),{
+    mChart = new Chart(document.getElementById("marksChart"), {
         type:'bar',
         data:{
-            labels:(d.marks || []).map(m=>m.subject),
+            labels: d.marks.map(m => m.subject),
             datasets:[{
-                data:(d.marks || []).map(m=>m.marks)
+                data: d.marks.map(m => m.marks)
             }]
         }
     });
 }
+
 
 // ================= CALENDAR =================
 async function loadCalendar(){
     try{
-        const res = await getAttendance(rollno);
-        const records = res.data || res;
+        const res = await fetch(`${BASE_URL}/api/attendance/${rollno}`, {
+            headers: getHeaders()
+        });
+
+        const data = await handleResponse(res);
+        const records = data.data || [];
 
         const cal = document.getElementById("calendar");
-        cal.innerHTML="";
+        cal.innerHTML = "";
 
-        records.forEach(r=>{
-            const div=document.createElement("div");
-            div.className="day " + r.status;
+        records.forEach(r => {
+            const div = document.createElement("div");
+            div.className = "day " + r.status;
             div.innerText = r.date.split("-")[2];
             cal.appendChild(div);
         });
 
-    }catch(err){
-        console.error("Calendar error:", err);
+    } catch(err){
+        console.error(err);
     }
 }
 
+
 // ================= NAV =================
-window.show = function(id){
-    document.getElementById("dashboard").style.display = id==="dashboard"?"block":"none";
-    document.getElementById("marks").style.display = id==="marks"?"block":"none";
+function show(id){
+    document.getElementById("dashboard").style.display =
+        id === "dashboard" ? "block" : "none";
+
+    document.getElementById("marks").style.display =
+        id === "marks" ? "block" : "none";
 }
 
+
 // ================= LOGOUT =================
-window.logout = function(){
-    apiLogout();
+function logout(){
+    localStorage.clear();
+    window.location.href = "index.html";
 }
+
 
 // ================= INIT =================
 loadDashboard();
