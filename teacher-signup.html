@@ -85,7 +85,6 @@ button:hover{background:#ff416c;}
 </div>
 
 <script type="module">
-
 import { registerUser, loginUser, googleAuth } from "./js/api.js";
 
 const msg = document.getElementById("message");
@@ -94,7 +93,6 @@ const msg = document.getElementById("message");
 if (localStorage.getItem("token")) {
     window.location.href = "teacher-dashboard.html";
 }
-
 
 // ================= NORMAL SIGNUP =================
 document.getElementById("signupForm").addEventListener("submit", async (e)=>{
@@ -137,20 +135,24 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
     }
 });
 
+// ================= GOOGLE INIT (FIXED) =================
+let googleInitialized = false;
 
-// ================= GOOGLE INIT =================
 function initGoogle(){
-    if(window.google && google.accounts && google.accounts.id){
+    if (googleInitialized) return;
+
+    if(window.google && google.accounts){
 
         google.accounts.id.initialize({
             client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
             callback: handleGoogleLogin
         });
 
-        // attach click safely
         document.getElementById("googleBtn").addEventListener("click", ()=>{
             google.accounts.id.prompt();
         });
+
+        googleInitialized = true;
 
     } else {
         setTimeout(initGoogle,500);
@@ -158,7 +160,6 @@ function initGoogle(){
 }
 
 document.addEventListener("DOMContentLoaded", initGoogle);
-
 
 // ================= GOOGLE HANDLER =================
 window.handleGoogleLogin = async function(response){
@@ -180,7 +181,6 @@ window.handleGoogleLogin = async function(response){
         msg.style.color = "red";
     }
 };
-
 </script>
 
 </body>

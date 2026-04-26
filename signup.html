@@ -68,12 +68,10 @@ button:hover { background:#ff416c; }
 
 <div class="divider">OR</div>
 
-<div class="form-row" style="margin-top:10px;">
-    <button class="glass-google-btn" id="googleBtn">
-        <img src="https://developers.google.com/identity/images/g-logo.png" />
-        Continue with Google
-    </button>
-</div>
+<button class="glass-google-btn" id="googleBtn">
+    <img src="https://developers.google.com/identity/images/g-logo.png" />
+    Continue with Google
+</button>
 
 <div id="message" class="message"></div>
 
@@ -83,7 +81,6 @@ Already have an account? <a href="login.html">Login</a>
 </div>
 
 <script type="module">
-
 import { registerUser, loginUser, googleAuth } from "./js/api.js";
 
 const msg = document.getElementById("message");
@@ -134,20 +131,24 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
     }
 });
 
-
 // ================= GOOGLE INIT =================
+let googleInitialized = false;
+
 function initGoogle() {
-    if (window.google && google.accounts && google.accounts.id) {
+    if (googleInitialized) return;
+
+    if (window.google && google.accounts) {
 
         google.accounts.id.initialize({
             client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
             callback: handleGoogleLogin
         });
 
-        // 🔥 Attach button click manually (best practice)
         document.getElementById("googleBtn").addEventListener("click", () => {
             google.accounts.id.prompt();
         });
+
+        googleInitialized = true;
 
     } else {
         setTimeout(initGoogle, 500);
@@ -156,8 +157,7 @@ function initGoogle() {
 
 document.addEventListener("DOMContentLoaded", initGoogle);
 
-
-// ================= GOOGLE HANDLER =================
+// ================= GOOGLE LOGIN =================
 window.handleGoogleLogin = async function (response) {
     try {
         msg.innerText = "⏳ Signing up with Google...";
@@ -177,7 +177,6 @@ window.handleGoogleLogin = async function (response) {
         msg.style.color = "red";
     }
 };
-
 </script>
 
 </body>
