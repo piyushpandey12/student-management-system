@@ -3,14 +3,33 @@ from functools import wraps
 from flask import request, jsonify
 import jwt
 import os
-
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
 # =========================================================
-# 🔐 SECRET KEY (JWT)
+# 🔐 SECRET KEY (JWT) — SINGLE SOURCE OF TRUTH
 # =========================================================
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
+
+
+# =========================================================
+# 🔐 TOKEN GENERATION (FIXED)
+# =========================================================
+def generate_token(user_id, role):
+    payload = {
+        "user_id": user_id,
+        "role": role,
+        "exp": datetime.utcnow() + timedelta(days=1)
+    }
+
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+    # PyJWT >=2 returns str, older returns bytes
+    if isinstance(token, bytes):
+        token = token.decode("utf-8")
+
+    return token
 
 
 # =========================================================
@@ -86,7 +105,6 @@ def hash_password(password: str) -> str:
 # 🔐 VERIFY PASSWORD
 # =========================================================
 def verify_password(stored_password: str, provided_password: str) -> bool:
-
     if not stored_password:
         return False
 
@@ -113,7 +131,6 @@ def is_google_user(stored_password: str) -> bool:
 # 🔐 VALIDATE PASSWORD
 # =========================================================
 def validate_password(password: str) -> tuple:
-
     if not password or not password.strip():
         return False, "Password cannot be empty"
 
