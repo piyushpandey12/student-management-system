@@ -56,6 +56,101 @@ const passwordEl = document.querySelector(
   '.form-container .form-row input[name="password"]',
 );
 const submitBtn = document.getElementById("submitBtn");
+
+document.getElementById("submitBtn").addEventListener("click", async () => {
+  const teacherId = document.getElementById("teacherId").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const errorMsg = document.getElementById("errorMsg");
+
+  errorMsg.innerText = "";
+
+  if (!teacherId || !password) {
+    errorMsg.innerText = "⚠️ Please fill all fields";
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        identifier: teacherId,
+        password
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorMsg.innerText = data.message || data.error;
+      return;
+    }
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    window.location.href = "teacher-dashboard.html";
+
+  } catch (err) {
+    errorMsg.innerText = "Server error";
+  }
+});
+
+// ================= GOOGLE LOGIN =================
+
+window.handleGoogleLogin = async function (response) {
+  const errorMsg = document.getElementById("errorMsg");
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/auth/google`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token: response.credential,
+        role: "teacher"
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorMsg.innerText = data.error || "Google login failed";
+      return;
+    }
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    window.location.href = "teacher-dashboard.html";
+
+  } catch (err) {
+    errorMsg.innerText = "Google login error";
+  }
+};
+
+
+// 👉 BUTTON CLICK HANDLER
+window.triggerGoogleLogin = function () {
+  google.accounts.id.prompt();
+};
+
+function initGoogle() {
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.initialize({
+      client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
+      callback: handleGoogleLogin
+    });
+  } else {
+    setTimeout(initGoogle, 500);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", initGoogle);
+
 if (!rollnoEl || !passwordEl || !submitBtn) {
   console.error("❌ Missing DOM elements");
   throw new Error("Critical DOM elements missing");

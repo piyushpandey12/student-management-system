@@ -16,7 +16,7 @@ logger.info("🔥 App is starting...")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
-# ================= CORS (ONLY ONCE) =================
+# ================= CORS =================
 CORS(
     app,
     resources={r"/api/*": {"origins": "*"}},
@@ -34,8 +34,9 @@ try:
     from backend.routes.students import students_bp
     from backend.routes.attendance import attendance_bp
     from backend.routes.marks import marks_bp
+    from backend.routes.google_auth import google_auth_bp
 
-    logger.info("✅ Blueprints imported successfully")
+    logger.info("✅ All Blueprints imported successfully")
 
 except Exception as e:
     logger.error("❌ Import Error: %s", str(e))
@@ -55,7 +56,10 @@ try:
     app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
     app.register_blueprint(marks_bp, url_prefix="/api/marks")
 
-    logger.info("✅ Blueprints registered successfully")
+    # ✅ GOOGLE AUTH (FIXED — ONLY HERE)
+    app.register_blueprint(google_auth_bp, url_prefix="/api/auth")
+
+    logger.info("✅ All Blueprints registered successfully")
 
 except Exception as e:
     logger.error("❌ Blueprint Register Error: %s", str(e))

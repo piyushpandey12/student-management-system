@@ -5,132 +5,93 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Signup</title>
 
-<!-- ✅ Google Script -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Segoe UI', sans-serif;
-}
-
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
 body {
-    height: 100vh;
-    background: linear-gradient(135deg, #1d2671, #c33764);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    height:100vh;
+    background:linear-gradient(135deg,#1d2671,#c33764);
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
-
 .container {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(15px);
-    border-radius: 15px;
-    padding: 40px;
-    width: 350px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    color: white;
-    text-align: center;
+    background:rgba(255,255,255,0.1);
+    backdrop-filter:blur(15px);
+    border-radius:15px;
+    padding:40px;
+    width:350px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
+    color:white;
+    text-align:center;
 }
-
-.input-group {
-    margin: 15px 0;
-    text-align: left;
-}
-
+.input-group { margin:15px 0; text-align:left; }
 .input-group input {
-    width: 100%;
-    padding: 10px;
-    border-radius: 8px;
-    border: none;
+    width:100%; padding:10px; border-radius:8px; border:none;
 }
-
 button {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: none;
-    background: #ff4b2b;
-    color: white;
-    cursor: pointer;
+    width:100%; padding:12px; border-radius:8px;
+    border:none; background:#ff4b2b; color:white; cursor:pointer;
 }
-
-button:hover {
-    background: #ff416c;
-}
-
-.message {
-    margin-top: 10px;
-}
-
-.link {
-    margin-top: 15px;
-}
-
-/* Divider */
-.divider {
-    margin: 15px 0;
-    text-align: center;
-}
-
-/* Google Button */
+button:hover { background:#ff416c; }
+.message { margin-top:10px; }
+.link { margin-top:15px; }
+.divider { margin:15px 0; text-align:center; }
 .glass-google-btn {
-    margin-top: 10px;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    backdrop-filter: blur(10px);
+    margin-top:10px;
+    background:rgba(255,255,255,0.15);
+    border:1px solid rgba(255,255,255,0.3);
+    backdrop-filter:blur(10px);
 }
-
-.glass-google-btn img {
-    width: 18px;
-    margin-right: 8px;
-}
+.glass-google-btn img { width:18px; margin-right:8px; }
 </style>
 </head>
 
 <body>
 
 <div class="container">
-    <h2>Student Registration</h2>
+<h2>Student Registration</h2>
 
-    <!-- ================= NORMAL SIGNUP ================= -->
-    <form id="signupForm">
-        <div class="input-group">
-            <label>Roll Number</label>
-            <input type="text" id="rollno" required>
-        </div>
+<form id="signupForm">
+<div class="input-group">
+<label>Roll Number</label>
+<input type="text" id="rollno" required>
+</div>
 
-        <div class="input-group">
-            <label>Password</label>
-            <input type="password" id="password" required>
-        </div>
+<div class="input-group">
+<label>Password</label>
+<input type="password" id="password" required>
+</div>
 
-        <button type="submit">Register</button>
-    </form>
+<button type="submit">Register</button>
+</form>
 
-    <!-- ================= GOOGLE SIGNUP ================= -->
-    <div class="divider">OR</div>
+<div class="divider">OR</div>
 
+<div class="form-row" style="margin-top:10px;">
+
+    <!-- Google Init -->
     <div id="g_id_onload"
-        data-client_id="YOUR_GOOGLE_CLIENT_ID"
-        data-callback="handleGoogleSignup"
+        data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
+        data-callback="handleGoogleLogin"
         data-auto_prompt="false">
     </div>
 
-    <button class="glass-google-btn" onclick="triggerGoogleSignup()">
+    <!-- Custom Glass Button -->
+    <button class="glass-google-btn" onclick="triggerGoogleLogin()">
         <img src="https://developers.google.com/identity/images/g-logo.png" />
-        Sign up with Google
+        Continue with Google
     </button>
 
-    <div id="message" class="message"></div>
-
-    <div class="link">
-        Already have an account? <a href="login.html">Login</a>
-    </div>
 </div>
 
+<div id="message" class="message"></div>
+
+<div class="link">
+Already have an account? <a href="login.html">Login</a>
+</div>
+</div>
 
 <script type="module">
 
@@ -176,6 +137,16 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
         });
 
         if (loginRes.status === "success") {
+
+            // ✅ FIX: STORE TOKEN (MAIN BUG FIX)
+            const token = loginRes.token || loginRes.data?.token;
+            const user = loginRes.user || loginRes.data?.user;
+
+            if (!token) throw new Error("Token not received from server");
+
+            localStorage.setItem("token", token);
+            localStorage.setItem("user", JSON.stringify(user));
+
             msg.innerText = "✅ Registered & Logged in!";
             msg.style.color = "lightgreen";
 
@@ -192,12 +163,17 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
 
 
 // ================= GOOGLE INIT =================
+let googleInitialized = false;
+
 function initGoogle() {
+    if (googleInitialized) return;
+
     if (window.google && google.accounts && google.accounts.id) {
         google.accounts.id.initialize({
             client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
             callback: handleGoogleSignup
         });
+        googleInitialized = true;
     } else {
         setTimeout(initGoogle, 500);
     }
@@ -222,9 +198,7 @@ window.handleGoogleSignup = async function (response) {
             "https://student-management-system-api-cznx.onrender.com/api/auth/google-signup",
             {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     token: response.credential,
                     role: "student"
@@ -238,9 +212,14 @@ window.handleGoogleSignup = async function (response) {
             throw new Error(data.error || "Google signup failed");
         }
 
-        // ✅ Save session
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        // ✅ SAFE TOKEN STORE
+        const token = data.token || data.data?.token;
+        const user = data.user || data.data?.user;
+
+        if (!token) throw new Error("Token not received");
+
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
 
         msg.innerText = "✅ Google Signup Successful!";
         msg.style.color = "lightgreen";

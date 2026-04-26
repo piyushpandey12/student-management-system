@@ -23,7 +23,6 @@ function getUser() {
   }
 }
 
-// ✅ FIXED (strict)
 function getAuthHeaders() {
   const token = getToken();
 
@@ -53,7 +52,7 @@ function fetchWithTimeout(url, options = {}, timeout = 10000) {
 
 
 // =========================================================
-// 📌 RESPONSE HANDLER (AUTO LOGOUT FIX)
+// 📌 RESPONSE HANDLER
 // =========================================================
 async function handleResponse(res) {
   const text = await res.text();
@@ -66,7 +65,7 @@ async function handleResponse(res) {
     throw new Error("Invalid JSON → " + text);
   }
 
-  // 🔥 AUTO LOGOUT ON TOKEN ERROR
+  // 🔥 Auto logout on token error
   if (res.status === 401) {
     alert(data.message || "Session expired");
     logout();
@@ -103,6 +102,7 @@ export async function loginUser(data) {
   return result;
 }
 
+
 export async function registerUser(data) {
   const res = await fetchWithTimeout(`${BASE_URL}/api/auth/register`, {
     method: "POST",
@@ -111,6 +111,33 @@ export async function registerUser(data) {
   });
 
   return handleResponse(res);
+}
+
+
+// =========================================================
+// 🔥 GOOGLE AUTH (LOGIN + SIGNUP)
+// =========================================================
+export async function googleAuth(credential, role) {
+  const res = await fetchWithTimeout(`${BASE_URL}/api/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      token: credential,
+      role
+    })
+  });
+
+  const result = await handleResponse(res);
+
+  if (!result.token) {
+    throw new Error("Google login failed");
+  }
+
+  // ✅ Save session
+  localStorage.setItem("token", result.token);
+  localStorage.setItem("user", JSON.stringify(result.user));
+
+  return result;
 }
 
 
@@ -125,6 +152,7 @@ export async function getStudents() {
   return handleResponse(res);
 }
 
+
 export async function addStudentAPI(data) {
   const res = await fetchWithTimeout(`${BASE_URL}/api/students`, {
     method: "POST",
@@ -134,6 +162,7 @@ export async function addStudentAPI(data) {
 
   return handleResponse(res);
 }
+
 
 export async function deleteStudentAPI(rollno) {
   const res = await fetchWithTimeout(`${BASE_URL}/api/students/${rollno}`, {
@@ -146,7 +175,7 @@ export async function deleteStudentAPI(rollno) {
 
 
 // =========================================================
-// 📅 ATTENDANCE APIs (FIXED USER FIELD)
+// 📅 ATTENDANCE APIs
 // =========================================================
 export async function markAttendanceAPI(rollno, date, status) {
   const user = getUser();
@@ -160,12 +189,13 @@ export async function markAttendanceAPI(rollno, date, status) {
       rollno,
       date,
       status,
-      teacher_id: user.id   // ✅ FIXED HERE
+      teacher_id: user.identifier   // ✅ FIXED (was user.id)
     })
   });
 
   return handleResponse(res);
 }
+
 
 export async function getAttendanceStats(rollno) {
   const res = await fetchWithTimeout(`${BASE_URL}/api/attendance/stats/${rollno}`, {
@@ -177,7 +207,7 @@ export async function getAttendanceStats(rollno) {
 
 
 // =========================================================
-// 📊 MARKS APIs (FIXED USER FIELD)
+// 📊 MARKS APIs
 // =========================================================
 export async function addMarksAPI(rollno, subject, marks) {
   const user = getUser();
@@ -191,12 +221,13 @@ export async function addMarksAPI(rollno, subject, marks) {
       rollno,
       subject,
       marks,
-      teacher_id: user.id   // ✅ FIXED HERE
+      teacher_id: user.identifier   // ✅ FIXED
     })
   });
 
   return handleResponse(res);
 }
+
 
 export async function getMarksStats(rollno) {
   const res = await fetchWithTimeout(`${BASE_URL}/api/marks/stats/${rollno}`, {

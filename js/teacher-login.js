@@ -1,27 +1,8 @@
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000/api"
-    : "https://student-management-system-api-cznx.onrender.com/api";
-
-const AUTH_URL =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:5000"
     : "https://student-management-system-api-cznx.onrender.com";
-
-
-function parseJwt(token) {
-  let base64Url = token.split(".")[1];
-  let base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-  let jsonPayload = decodeURIComponent(
-    atob(base64)
-      .split("")
-      .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-      .join(""),
-  );
-  return JSON.parse(jsonPayload);
-}
 
 // ================= GOOGLE LOGIN =================
 
@@ -57,6 +38,100 @@ const passwordEl = document.querySelector(
 );
 
 const submitBtn = document.getElementById("submitBtn");
+
+document.getElementById("submitBtn").addEventListener("click", async () => {
+  const teacherId = document.getElementById("teacherId").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const errorMsg = document.getElementById("errorMsg");
+
+  errorMsg.innerText = "";
+
+  if (!teacherId || !password) {
+    errorMsg.innerText = "⚠️ Please fill all fields";
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        identifier: teacherId,
+        password
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorMsg.innerText = data.message || data.error;
+      return;
+    }
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    window.location.href = "teacher-dashboard.html";
+
+  } catch (err) {
+    errorMsg.innerText = "Server error";
+  }
+});
+
+// ================= GOOGLE LOGIN =================
+
+window.handleGoogleLogin = async function (response) {
+  const errorMsg = document.getElementById("errorMsg");
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/auth/google`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token: response.credential,
+        role: "teacher"
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorMsg.innerText = data.error || "Google login failed";
+      return;
+    }
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    window.location.href = "teacher-dashboard.html";
+
+  } catch (err) {
+    errorMsg.innerText = "Google login error";
+  }
+};
+
+
+// 👉 BUTTON CLICK HANDLER
+window.triggerGoogleLogin = function () {
+  google.accounts.id.prompt();
+};
+
+function initGoogle() {
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.initialize({
+      client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
+      callback: handleGoogleLogin
+    });
+  } else {
+    setTimeout(initGoogle, 500);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", initGoogle);
 
 // ✅ ADD THIS CHECK HERE
 if (!teacherIdEl || !passwordEl || !submitBtn) {
@@ -896,52 +971,5 @@ function checkForm() {
     duration: 0.3,
   });
 }
-submitBtn.addEventListener("click", async (e) => {
-  e.preventDefault();
 
-  const errorEl = document.getElementById("errorMsg");
-  errorEl.innerText = "";
-
-  const teacherId = document.getElementById("teacherId")?.value.trim();
-  const password = document.getElementById("password")?.value.trim();
-
-  if (!teacherId || !password) {
-    errorEl.innerText = "⚠️ All fields required";
-    return;
-  }
-
-  try {
-    const res = await fetch(`${BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rollno: teacherId,
-        password,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      errorEl.innerText =
-        data.message || data.error || "Invalid credentials ❌";
-      return;
-    }
-
-    // ✅ SAVE BOTH
-    localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("token", data.token);
-
-    // ✅ REDIRECT
-    if (data.user.role === "teacher") {
-      window.location.href = "teacher-dashboard.html";
-    } else {
-      window.location.href = "student-dashboard.html";
-    }
-
-  } catch (err) {
-    console.error(err);
-    errorEl.innerText = "⚠️ Backend not reachable!";
-  }
-});
 

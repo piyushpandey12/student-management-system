@@ -109,16 +109,22 @@ button:hover{
     <!-- ================= GOOGLE SIGNUP ================= -->
     <div class="divider">OR</div>
 
+ <div class="form-row" style="margin-top:10px;">
+
+    <!-- Google Init -->
     <div id="g_id_onload"
         data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
-        data-callback="handleGoogleSignup"
+        data-callback="handleGoogleLogin"
         data-auto_prompt="false">
     </div>
 
-    <button class="glass-google-btn" onclick="triggerGoogleSignup()">
-        <img src="https://developers.google.com/identity/images/g-logo.png"/>
-        Sign up with Google
+    <!-- Custom Glass Button -->
+    <button class="glass-google-btn" onclick="triggerGoogleLogin()">
+        <img src="https://developers.google.com/identity/images/g-logo.png" />
+        Continue with Google
     </button>
+
+</div>
 
     <div id="message" class="message"></div>
 

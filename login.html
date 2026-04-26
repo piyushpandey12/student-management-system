@@ -6,17 +6,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
     <title>@integrate.system - Technical Login Form Animation</title>
-    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body> <!---------- integrate.system -------->
-    <div class="form-container"> <!-- Roll Number --> <label class="form-row"> <input type="text" id="rollno"
-                name="rollno" placeholder="Roll Number" required> </label> <!-- Password --> <label class="form-row">
-            <input type="password" id="password" name="password" placeholder="Password" required> </label>
-        <!-- Checkbox --> <label class="form-row checkbox-row"> <input type="checkbox" id="subscribe" name="subscribe">
-            <span>Agree to terms</span> </label> <!-- Error Message -->
-        <div id="errorMsg" style="color:yellow; margin-top:10px;"></div> <!-- Submit Button -->
-        <div class="form-row"> <input type="button" id="submitBtn" value="Login"> </div> <!-- Divider -->
+    <div class="form-container">
+
+        <!-- Roll Number -->
+        <label class="form-row">
+            <input type="text" id="rollno" name="rollno" placeholder="Roll Number" required>
+        </label>
+
+        <!-- Password -->
+        <label class="form-row">
+            <input type="password" id="password" name="password" placeholder="Password" required>
+        </label>
+
+        <!-- Checkbox -->
+        <label class="form-row checkbox-row">
+            <input type="checkbox" id="subscribe" name="subscribe">
+            <span>Agree to terms</span>
+        </label>
+
+        <!-- Error Message -->
+        <div id="errorMsg" style="color:yellow; margin-top:10px;"></div>
+
+        <!-- Submit Button -->
+        <div class="form-row">
+            <input type="button" id="submitBtn" value="Login">
+        </div>
+
+        <!-- ================= GOOGLE BUTTON ================= -->
+        <div class="form-row" style="margin-top:10px;">
+
+            <!-- Google Init -->
+            <div id="g_id_onload"
+                data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
+                data-callback="handleGoogleLogin" data-auto_prompt="false">
+            </div>
+
+            <!-- Custom Glass Button -->
+            <button class="glass-google-btn" onclick="triggerGoogleLogin()">
+                <img src="https://developers.google.com/identity/images/g-logo.png" />
+                Continue with Google
+            </button>
+
+        </div>
+
+    </div> <!-- Divider -->
 
     </div> <svg viewBox="0 0 1000 1000" stroke-linecap="round" stroke-linejoin="round">
         <rect x="710" y="527" width="16" height="47" rx="10" ry="10"></rect>
