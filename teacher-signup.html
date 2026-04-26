@@ -136,11 +136,11 @@ button:hover{
 
 <script type="module">
 
-import { registerUser, loginUser } from "./js/api.js";
+import { registerUser, loginUser, googleAuth } from "./js/api.js";
 
 const msg = document.getElementById("message");
 
-// 🔐 Redirect if logged in
+// ================= REDIRECT =================
 if (localStorage.getItem("token")) {
     window.location.href = "teacher-dashboard.html";
 }
@@ -163,29 +163,26 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
         msg.innerText = "⏳ Registering...";
         msg.style.color = "white";
 
-        const res = await registerUser({
+        await registerUser({
             identifier: teacherId,
             password,
             role: "teacher"
         });
-
-        if(res.status !== "success"){
-            throw new Error(res.message);
-        }
 
         const loginRes = await loginUser({
             identifier: teacherId,
             password
         });
 
-        if(loginRes.status === "success"){
-            msg.innerText = "✅ Registered & Logged in!";
-            msg.style.color = "lightgreen";
+        localStorage.setItem("token", loginRes.token);
+        localStorage.setItem("user", JSON.stringify(loginRes.user));
 
-            setTimeout(()=>{
-                window.location.href = "teacher-dashboard.html";
-            },1000);
-        }
+        msg.innerText = "✅ Registered & Logged in!";
+        msg.style.color = "lightgreen";
+
+        setTimeout(()=>{
+            window.location.href = "teacher-dashboard.html";
+        },1000);
 
     }catch(err){
         msg.innerText = "❌ " + err.message;
@@ -198,8 +195,8 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
 function initGoogle(){
     if(window.google && google.accounts && google.accounts.id){
         google.accounts.id.initialize({
-            client_id: "YOUR_GOOGLE_CLIENT_ID",
-            callback: handleGoogleSignup
+            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
+            callback: handleGoogleLogin
         });
     }else{
         setTimeout(initGoogle,500);
@@ -208,38 +205,19 @@ function initGoogle(){
 document.addEventListener("DOMContentLoaded", initGoogle);
 
 
-// ================= GOOGLE TRIGGER =================
-window.triggerGoogleSignup = function(){
+// ================= GOOGLE BUTTON =================
+window.triggerGoogleLogin = function(){
     google.accounts.id.prompt();
 };
 
 
 // ================= GOOGLE SIGNUP =================
-window.handleGoogleSignup = async function(response){
+window.handleGoogleLogin = async function(response){
     try{
         msg.innerText = "⏳ Signing up with Google...";
         msg.style.color = "white";
 
-        const res = await fetch(
-            "https://student-management-system-api-cznx.onrender.com/api/auth/google-signup",
-            {
-                method:"POST",
-                headers:{ "Content-Type":"application/json" },
-                body: JSON.stringify({
-                    token: response.credential,
-                    role: "teacher"
-                })
-            }
-        );
-
-        const data = await res.json();
-
-        if(!data || data.error){
-            throw new Error(data.error || "Google signup failed");
-        }
-
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        await googleAuth(response.credential, "teacher");
 
         msg.innerText = "✅ Google Signup Successful!";
         msg.style.color = "lightgreen";
@@ -253,7 +231,6 @@ window.handleGoogleSignup = async function(response){
         msg.style.color = "red";
     }
 };
-
 </script>
 
 </body>

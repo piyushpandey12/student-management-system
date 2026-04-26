@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Signup</title>
 
+<!-- ✅ Google Script -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style>
@@ -71,14 +72,14 @@ button:hover { background:#ff416c; }
 
 <div class="form-row" style="margin-top:10px;">
 
-    <!-- Google Init -->
+    <!-- ✅ Google Config -->
     <div id="g_id_onload"
         data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
         data-callback="handleGoogleLogin"
         data-auto_prompt="false">
     </div>
 
-    <!-- Custom Glass Button -->
+    <!-- ✅ Button -->
     <button class="glass-google-btn" onclick="triggerGoogleLogin()">
         <img src="https://developers.google.com/identity/images/g-logo.png" />
         Continue with Google
@@ -95,9 +96,9 @@ Already have an account? <a href="login.html">Login</a>
 
 <script type="module">
 
-import { registerUser, loginUser } from "./js/api.js";
+import { registerUser, loginUser, googleAuth } from "./js/api.js";
 
-// 🔐 Redirect if already logged in
+// ================= REDIRECT =================
 if (localStorage.getItem("token")) {
     window.location.href = "student-dashboard.html";
 }
@@ -121,39 +122,26 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
         msg.innerText = "⏳ Registering...";
         msg.style.color = "white";
 
-        const res = await registerUser({
+        await registerUser({
             identifier: rollno,
             password,
             role: "student"
         });
-
-        if (res.status !== "success") {
-            throw new Error(res.message);
-        }
 
         const loginRes = await loginUser({
             identifier: rollno,
             password
         });
 
-        if (loginRes.status === "success") {
+        localStorage.setItem("token", loginRes.token);
+        localStorage.setItem("user", JSON.stringify(loginRes.user));
 
-            // ✅ FIX: STORE TOKEN (MAIN BUG FIX)
-            const token = loginRes.token || loginRes.data?.token;
-            const user = loginRes.user || loginRes.data?.user;
+        msg.innerText = "✅ Registered & Logged in!";
+        msg.style.color = "lightgreen";
 
-            if (!token) throw new Error("Token not received from server");
-
-            localStorage.setItem("token", token);
-            localStorage.setItem("user", JSON.stringify(user));
-
-            msg.innerText = "✅ Registered & Logged in!";
-            msg.style.color = "lightgreen";
-
-            setTimeout(() => {
-                window.location.href = "student-dashboard.html";
-            }, 1000);
-        }
+        setTimeout(() => {
+            window.location.href = "student-dashboard.html";
+        }, 1000);
 
     } catch (err) {
         msg.innerText = "❌ " + err.message;
@@ -163,17 +151,12 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
 
 
 // ================= GOOGLE INIT =================
-let googleInitialized = false;
-
 function initGoogle() {
-    if (googleInitialized) return;
-
     if (window.google && google.accounts && google.accounts.id) {
         google.accounts.id.initialize({
             client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleSignup
+            callback: handleGoogleLogin
         });
-        googleInitialized = true;
     } else {
         setTimeout(initGoogle, 500);
     }
@@ -182,44 +165,19 @@ function initGoogle() {
 document.addEventListener("DOMContentLoaded", initGoogle);
 
 
-// ================= GOOGLE TRIGGER =================
-window.triggerGoogleSignup = function () {
+// ================= GOOGLE BUTTON =================
+window.triggerGoogleLogin = function () {
     google.accounts.id.prompt();
 };
 
 
 // ================= GOOGLE SIGNUP =================
-window.handleGoogleSignup = async function (response) {
+window.handleGoogleLogin = async function (response) {
     try {
         msg.innerText = "⏳ Signing up with Google...";
         msg.style.color = "white";
 
-        const res = await fetch(
-            "https://student-management-system-api-cznx.onrender.com/api/auth/google-signup",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    token: response.credential,
-                    role: "student"
-                })
-            }
-        );
-
-        const data = await res.json();
-
-        if (!data || data.error) {
-            throw new Error(data.error || "Google signup failed");
-        }
-
-        // ✅ SAFE TOKEN STORE
-        const token = data.token || data.data?.token;
-        const user = data.user || data.data?.user;
-
-        if (!token) throw new Error("Token not received");
-
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(user));
+        await googleAuth(response.credential, "student");
 
         msg.innerText = "✅ Google Signup Successful!";
         msg.style.color = "lightgreen";
