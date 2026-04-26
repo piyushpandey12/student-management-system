@@ -1,62 +1,72 @@
-# routes/google_auth.py
+# =========================================================
+# 📌 routes/google_auth.py (FINAL CLEAN VERSION)
+# =========================================================
 
 from flask import Blueprint, request, jsonify
 
 from backend.utils.google_auth import verify_google_token
-from backend.models.user_model import google_auth_user
 from backend.utils.auth_utils import generate_token
+from backend.models.user_model import google_auth_user
 
 google_auth_bp = Blueprint("google_auth", __name__)
 
 
+# =========================================================
+# 🔥 GOOGLE AUTH (LOGIN + SIGNUP)
+# =========================================================
 @google_auth_bp.route("/google", methods=["POST"])
 def google_auth():
     try:
-        # ✅ Safe JSON handling
+        # ================= INPUT =================
         data = request.get_json()
+
         if not data:
             return jsonify({"error": "Invalid request body"}), 400
 
         token = data.get("token")
-        role = data.get("role")
+        role = data.get("role", "student")
 
-        # 🔐 Validate input
-        if not token or not role:
-            return jsonify({"error": "Missing token or role"}), 400
+        if not token:
+            return jsonify({"error": "Missing Google token"}), 400
 
-        # 🔎 Verify Google token
-        payload = verify_google_token(token)
+        # ================= VERIFY =================
+        google_user = verify_google_token(token)
 
-        if not payload:
+        if not google_user:
             return jsonify({"error": "Invalid Google token"}), 401
 
-        # ✅ Extract fields
-        email = payload.get("email")
-        google_id = payload.get("sub")   # ✔ correct key
+        # ================= EXTRACT =================
+        identifier = google_user["identifier"]   # email
+        email = google_user["email"]
+        name = google_user["name"]
+        google_id = google_user["google_id"]
 
-        if not email or not google_id:
-            return jsonify({"error": "Invalid Google payload"}), 400
+        # ================= DB LOGIN / SIGNUP =================
+        user = google_auth_user(
+            identifier=identifier,
+            email=email,
+            name=name,
+            google_id=google_id,
+            role=role
+        )
 
-        # ✅ DB LOGIN / SIGNUP (UNIFIED)
-        result = google_auth_user(email, google_id, role)
+        if not user or "error" in user:
+            return jsonify(user or {"error": "Database error"}), 400
 
-        if "error" in result:
-            return jsonify(result), 400
-
-        # 🔐 Generate JWT
-        jwt_token = generate_token(result["id"], result["role"])
+        # ================= JWT =================
+        jwt_token = generate_token(user["id"], user["role"])
 
         return jsonify({
             "status": "success",
             "token": jwt_token,
             "user": {
-                "identifier": result["identifier"],
-                "role": result["role"]
+                "identifier": user["identifier"],
+                "role": user["role"]
             }
         }), 200
 
     except Exception as e:
-        print("🔥 Google Auth Error:", e)
+        print("🔥 Google Auth Error:", str(e))
 
         return jsonify({
             "error": "Google authentication failed",

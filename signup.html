@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Signup</title>
 
-<!-- ✅ Google Script -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style>
@@ -43,7 +42,6 @@ button:hover { background:#ff416c; }
     margin-top:10px;
     background:rgba(255,255,255,0.15);
     border:1px solid rgba(255,255,255,0.3);
-    backdrop-filter:blur(10px);
 }
 .glass-google-btn img { width:18px; margin-right:8px; }
 </style>
@@ -71,20 +69,10 @@ button:hover { background:#ff416c; }
 <div class="divider">OR</div>
 
 <div class="form-row" style="margin-top:10px;">
-
-    <!-- ✅ Google Config -->
-    <div id="g_id_onload"
-        data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
-        data-callback="handleGoogleLogin"
-        data-auto_prompt="false">
-    </div>
-
-    <!-- ✅ Button -->
-    <button class="glass-google-btn" onclick="triggerGoogleLogin()">
+    <button class="glass-google-btn" id="googleBtn">
         <img src="https://developers.google.com/identity/images/g-logo.png" />
         Continue with Google
     </button>
-
 </div>
 
 <div id="message" class="message"></div>
@@ -98,12 +86,12 @@ Already have an account? <a href="login.html">Login</a>
 
 import { registerUser, loginUser, googleAuth } from "./js/api.js";
 
+const msg = document.getElementById("message");
+
 // ================= REDIRECT =================
 if (localStorage.getItem("token")) {
     window.location.href = "student-dashboard.html";
 }
-
-const msg = document.getElementById("message");
 
 // ================= NORMAL SIGNUP =================
 document.getElementById("signupForm").addEventListener("submit", async (e) => {
@@ -128,13 +116,10 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
             role: "student"
         });
 
-        const loginRes = await loginUser({
+        await loginUser({
             identifier: rollno,
             password
         });
-
-        localStorage.setItem("token", loginRes.token);
-        localStorage.setItem("user", JSON.stringify(loginRes.user));
 
         msg.innerText = "✅ Registered & Logged in!";
         msg.style.color = "lightgreen";
@@ -153,10 +138,17 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
 // ================= GOOGLE INIT =================
 function initGoogle() {
     if (window.google && google.accounts && google.accounts.id) {
+
         google.accounts.id.initialize({
             client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
             callback: handleGoogleLogin
         });
+
+        // 🔥 Attach button click manually (best practice)
+        document.getElementById("googleBtn").addEventListener("click", () => {
+            google.accounts.id.prompt();
+        });
+
     } else {
         setTimeout(initGoogle, 500);
     }
@@ -165,13 +157,7 @@ function initGoogle() {
 document.addEventListener("DOMContentLoaded", initGoogle);
 
 
-// ================= GOOGLE BUTTON =================
-window.triggerGoogleLogin = function () {
-    google.accounts.id.prompt();
-};
-
-
-// ================= GOOGLE SIGNUP =================
+// ================= GOOGLE HANDLER =================
 window.handleGoogleLogin = async function (response) {
     try {
         msg.innerText = "⏳ Signing up with Google...";

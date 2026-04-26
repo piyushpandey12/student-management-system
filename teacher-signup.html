@@ -5,17 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Teacher Signup</title>
 
-<!-- ✅ Google Script -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style>
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:'Segoe UI',sans-serif;
-}
-
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
 body{
     height:100vh;
     background:linear-gradient(135deg,#1d2671,#c33764);
@@ -23,7 +16,6 @@ body{
     justify-content:center;
     align-items:center;
 }
-
 .container{
     background:rgba(255,255,255,0.1);
     backdrop-filter:blur(15px);
@@ -34,54 +26,25 @@ body{
     color:white;
     text-align:center;
 }
-
-.input-group{
-    margin:15px 0;
-    text-align:left;
-}
-
+.input-group{margin:15px 0;text-align:left;}
 .input-group input{
-    width:100%;
-    padding:10px;
-    border:none;
-    border-radius:8px;
+    width:100%;padding:10px;border:none;border-radius:8px;
 }
-
 button{
-    width:100%;
-    padding:12px;
-    border:none;
-    border-radius:8px;
-    background:#ff4b2b;
-    color:white;
-    cursor:pointer;
+    width:100%;padding:12px;border:none;border-radius:8px;
+    background:#ff4b2b;color:white;cursor:pointer;
 }
+button:hover{background:#ff416c;}
+.message{margin-top:10px;}
+.link{margin-top:15px;}
+.divider{margin:15px 0;}
 
-button:hover{
-    background:#ff416c;
-}
-
-.message{
-    margin-top:10px;
-}
-
-.link{
-    margin-top:15px;
-}
-
-/* Divider */
-.divider{
-    margin:15px 0;
-}
-
-/* Google Button */
 .glass-google-btn{
     background:rgba(255,255,255,0.15);
     border:1px solid rgba(255,255,255,0.3);
 }
 .glass-google-btn img{
-    width:18px;
-    margin-right:8px;
+    width:18px;margin-right:8px;
 }
 </style>
 </head>
@@ -91,7 +54,7 @@ button:hover{
 <div class="container">
     <h2>Teacher Registration</h2>
 
-    <!-- ================= NORMAL SIGNUP ================= -->
+    <!-- NORMAL SIGNUP -->
     <form id="signupForm">
         <div class="input-group">
             <label>Teacher ID</label>
@@ -106,25 +69,13 @@ button:hover{
         <button type="submit">Register</button>
     </form>
 
-    <!-- ================= GOOGLE SIGNUP ================= -->
     <div class="divider">OR</div>
 
- <div class="form-row" style="margin-top:10px;">
-
-    <!-- Google Init -->
-    <div id="g_id_onload"
-        data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
-        data-callback="handleGoogleLogin"
-        data-auto_prompt="false">
-    </div>
-
-    <!-- Custom Glass Button -->
-    <button class="glass-google-btn" onclick="triggerGoogleLogin()">
+    <!-- GOOGLE BUTTON -->
+    <button class="glass-google-btn" id="googleBtn">
         <img src="https://developers.google.com/identity/images/g-logo.png" />
         Continue with Google
     </button>
-
-</div>
 
     <div id="message" class="message"></div>
 
@@ -132,7 +83,6 @@ button:hover{
         Already have an account? <a href="teacher-login.html">Login</a>
     </div>
 </div>
-
 
 <script type="module">
 
@@ -169,13 +119,10 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
             role: "teacher"
         });
 
-        const loginRes = await loginUser({
+        await loginUser({
             identifier: teacherId,
             password
         });
-
-        localStorage.setItem("token", loginRes.token);
-        localStorage.setItem("user", JSON.stringify(loginRes.user));
 
         msg.innerText = "✅ Registered & Logged in!";
         msg.style.color = "lightgreen";
@@ -194,24 +141,26 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
 // ================= GOOGLE INIT =================
 function initGoogle(){
     if(window.google && google.accounts && google.accounts.id){
+
         google.accounts.id.initialize({
             client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
             callback: handleGoogleLogin
         });
-    }else{
+
+        // attach click safely
+        document.getElementById("googleBtn").addEventListener("click", ()=>{
+            google.accounts.id.prompt();
+        });
+
+    } else {
         setTimeout(initGoogle,500);
     }
 }
+
 document.addEventListener("DOMContentLoaded", initGoogle);
 
 
-// ================= GOOGLE BUTTON =================
-window.triggerGoogleLogin = function(){
-    google.accounts.id.prompt();
-};
-
-
-// ================= GOOGLE SIGNUP =================
+// ================= GOOGLE HANDLER =================
 window.handleGoogleLogin = async function(response){
     try{
         msg.innerText = "⏳ Signing up with Google...";
@@ -231,6 +180,7 @@ window.handleGoogleLogin = async function(response){
         msg.style.color = "red";
     }
 };
+
 </script>
 
 </body>

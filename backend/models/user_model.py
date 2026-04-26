@@ -43,46 +43,48 @@ def register_user(identifier, name, password, role):
 
 
 # =========================================
-# ✅ GOOGLE AUTH (LOGIN + SIGNUP)
+# 🔥 GOOGLE AUTH (LOGIN + SIGNUP) FINAL
 # =========================================
-def google_auth_user(identifier, google_id, role):
+def google_auth_user(identifier, email, name, google_id, role):
     conn = get_connection()
     cur = conn.cursor()
 
     try:
-        # 🔎 Check existing user
-        cur.execute(
-            "SELECT id, provider, role FROM users WHERE identifier=%s",
-            (identifier,)
-        )
+        # 🔎 Check existing user by email OR google_id
+        cur.execute("""
+            SELECT id, provider, role
+            FROM users
+            WHERE identifier=%s OR google_id=%s
+        """, (identifier, google_id))
+
         user = cur.fetchone()
 
+        # ================= CREATE =================
         if not user:
-            # ✅ CREATE USER
             cur.execute("""
-                INSERT INTO users (identifier, role, google_id, provider)
-                VALUES (%s, %s, %s, 'google')
+                INSERT INTO users (identifier, email, name, role, google_id, provider)
+                VALUES (%s, %s, %s, %s, %s, 'google')
                 RETURNING id
-            """, (identifier, role, google_id))
+            """, (identifier, email, name, role, google_id))
 
             user_id = cur.fetchone()[0]
             conn.commit()
 
             return {
-                "success": True,
                 "id": user_id,
                 "identifier": identifier,
                 "role": role
             }
 
+        # ================= LOGIN =================
         else:
             user_id, provider, existing_role = user
 
-            # ❗ Prevent wrong login type
+            # ❗ Prevent conflict (local vs google)
             if provider != "google":
                 return {"error": "Use password login for this account"}
 
-            # 🔁 Optional: update role if changed
+            # 🔁 Update role if changed
             if existing_role != role:
                 cur.execute(
                     "UPDATE users SET role=%s WHERE id=%s",
@@ -91,7 +93,6 @@ def google_auth_user(identifier, google_id, role):
                 conn.commit()
 
             return {
-                "success": True,
                 "id": user_id,
                 "identifier": identifier,
                 "role": role
@@ -144,7 +145,7 @@ def login_user(identifier, password):
     if not user:
         return {"error": "User not found"}
 
-    # ❗ Prevent Google users using password login
+    # ❗ Prevent Google users from password login
     if user["provider"] == "google":
         return {"error": "Use Google login"}
 

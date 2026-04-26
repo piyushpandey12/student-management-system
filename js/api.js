@@ -26,9 +26,7 @@ function getUser() {
 function getAuthHeaders() {
   const token = getToken();
 
-  if (!token) {
-    throw new Error("Session expired");
-  }
+  if (!token) throw new Error("Session expired");
 
   return {
     "Content-Type": "application/json",
@@ -65,7 +63,6 @@ async function handleResponse(res) {
     throw new Error("Invalid JSON → " + text);
   }
 
-  // 🔥 Auto logout on token error
   if (res.status === 401) {
     alert(data.message || "Session expired");
     logout();
@@ -92,9 +89,7 @@ export async function loginUser(data) {
 
   const result = await handleResponse(res);
 
-  if (!result.token) {
-    throw new Error("Token not received");
-  }
+  if (!result.token) throw new Error("Token not received");
 
   localStorage.setItem("token", result.token);
   localStorage.setItem("user", JSON.stringify(result.user));
@@ -115,9 +110,11 @@ export async function registerUser(data) {
 
 
 // =========================================================
-// 🔥 GOOGLE AUTH (LOGIN + SIGNUP)
+// 🔥 GOOGLE AUTH (ONLY ONE FUNCTION - FINAL)
 // =========================================================
 export async function googleAuth(credential, role) {
+  if (!credential) throw new Error("Google credential missing");
+
   const res = await fetchWithTimeout(`${BASE_URL}/api/auth/google`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -129,11 +126,8 @@ export async function googleAuth(credential, role) {
 
   const result = await handleResponse(res);
 
-  if (!result.token) {
-    throw new Error("Google login failed");
-  }
+  if (!result.token) throw new Error("Google login failed");
 
-  // ✅ Save session
   localStorage.setItem("token", result.token);
   localStorage.setItem("user", JSON.stringify(result.user));
 
@@ -179,7 +173,6 @@ export async function deleteStudentAPI(rollno) {
 // =========================================================
 export async function markAttendanceAPI(rollno, date, status) {
   const user = getUser();
-
   if (!user) throw new Error("Session expired");
 
   const res = await fetchWithTimeout(`${BASE_URL}/api/attendance/mark`, {
@@ -189,7 +182,7 @@ export async function markAttendanceAPI(rollno, date, status) {
       rollno,
       date,
       status,
-      teacher_id: user.identifier   // ✅ FIXED (was user.id)
+      teacher_id: user.identifier
     })
   });
 
@@ -211,7 +204,6 @@ export async function getAttendanceStats(rollno) {
 // =========================================================
 export async function addMarksAPI(rollno, subject, marks) {
   const user = getUser();
-
   if (!user) throw new Error("Session expired");
 
   const res = await fetchWithTimeout(`${BASE_URL}/api/marks/update`, {
@@ -221,7 +213,7 @@ export async function addMarksAPI(rollno, subject, marks) {
       rollno,
       subject,
       marks,
-      teacher_id: user.identifier   // ✅ FIXED
+      teacher_id: user.identifier
     })
   });
 
