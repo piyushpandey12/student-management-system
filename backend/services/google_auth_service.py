@@ -1,5 +1,5 @@
 from models.user_model import User
-from utils.google_auth import verify_google_token
+from backend.utils.google_auth import verify_google_token
 from utils.auth_utils import generate_token
 from database.db import db
 

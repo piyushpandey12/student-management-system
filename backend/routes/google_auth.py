@@ -2,9 +2,9 @@
 
 from flask import Blueprint, request, jsonify
 
-from utils.google_auth import verify_google_token
-from models.user_model import google_auth_user
-from utils.auth_utils import generate_token
+from backend.utils.google_auth import verify_google_token
+from backend.models.user_model import google_auth_user
+from backend.utils.auth_utils import generate_token
 
 google_auth_bp = Blueprint("google_auth", __name__)
 
