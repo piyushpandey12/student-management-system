@@ -16,11 +16,19 @@ logger.info("🔥 App is starting...")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
-# ================= CORS =================
+# ================= CORS (FIXED - SINGLE SOURCE) =================
 CORS(
     app,
-    resources={r"/api/*": {"origins": "*"}},
-    supports_credentials=False
+    resources={
+        r"/api/*": {
+            "origins": [
+                "https://student-management-system-8jil.vercel.app",
+                "http://localhost:5500",
+                "http://127.0.0.1:5500"
+            ]
+        }
+    },
+    supports_credentials=True
 )
 
 # ================= REQUEST LOGGING =================
@@ -56,7 +64,7 @@ try:
     app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
     app.register_blueprint(marks_bp, url_prefix="/api/marks")
 
-    # ✅ GOOGLE AUTH (FIXED — ONLY HERE)
+    # ✅ GOOGLE AUTH
     app.register_blueprint(google_auth_bp, url_prefix="/api/auth")
 
     logger.info("✅ All Blueprints registered successfully")

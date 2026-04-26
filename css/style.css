@@ -232,3 +232,21 @@ svg {
         0 0 20px rgba(0,198,255,0.4),
         0 0 30px rgba(0,198,255,0.2);
 }
+
+#googleBtn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 12px;
+    border-radius: 12px;
+
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+
+    border: 1px solid rgba(255, 255, 255, 0.3);
+
+    width: 100%;
+    max-width: 320px;
+    margin: 10px auto;
+}

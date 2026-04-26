@@ -117,7 +117,10 @@ window.handleGoogleLogin = async function (response) {
 
 // 👉 BUTTON CLICK HANDLER
 window.triggerGoogleLogin = function () {
-  google.accounts.id.prompt();
+google.accounts.id.renderButton(
+  document.getElementById("googleBtn"),
+  { theme: "outline", size: "large" }
+);
 };
 
 function initGoogle() {
