@@ -8,24 +8,32 @@ DROP TABLE IF EXISTS teachers CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- =========================================
--- 📌 USERS TABLE (AUTH CORE)
+-- 📌 USERS TABLE (FINAL FIXED)
 -- =========================================
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    identifier VARCHAR(100) UNIQUE NOT NULL,
-    password TEXT, -- nullable for Google login
-    google_id TEXT UNIQUE,
+
+    identifier VARCHAR(255) UNIQUE NOT NULL,   -- 🔥 FIXED
+    email VARCHAR(255),
+    name VARCHAR(255),
+
+    password TEXT,                             -- nullable for Google
+    google_id VARCHAR(255) UNIQUE,
+
+    provider VARCHAR(50) DEFAULT 'local',      -- 🔥 IMPORTANT
+
     role VARCHAR(10) CHECK (role IN ('student','teacher')) NOT NULL,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =========================================
--- 📌 STUDENTS TABLE (LINKED TO USERS)
+-- 📌 STUDENTS TABLE
 -- =========================================
 CREATE TABLE students (
-    rollno VARCHAR(20) PRIMARY KEY,
+    rollno VARCHAR(50) PRIMARY KEY,   -- 🔥 increased size
     user_id INT UNIQUE,
-    name VARCHAR(100) NOT NULL CHECK (name <> ''),
+    name VARCHAR(255) NOT NULL CHECK (name <> ''),
 
     FOREIGN KEY (user_id)
         REFERENCES users(id)
@@ -33,12 +41,12 @@ CREATE TABLE students (
 );
 
 -- =========================================
--- 📌 TEACHERS TABLE (LINKED TO USERS)
+-- 📌 TEACHERS TABLE
 -- =========================================
 CREATE TABLE teachers (
-    teacher_id VARCHAR(20) PRIMARY KEY,
+    teacher_id VARCHAR(50) PRIMARY KEY,
     user_id INT UNIQUE,
-    name VARCHAR(100) NOT NULL CHECK (name <> ''),
+    name VARCHAR(255) NOT NULL CHECK (name <> ''),
 
     FOREIGN KEY (user_id)
         REFERENCES users(id)
@@ -50,10 +58,10 @@ CREATE TABLE teachers (
 -- =========================================
 CREATE TABLE marks (
     id SERIAL PRIMARY KEY,
-    rollno VARCHAR(20) NOT NULL,
-    subject VARCHAR(50) NOT NULL CHECK (subject <> ''),
+    rollno VARCHAR(50) NOT NULL,
+    subject VARCHAR(100) NOT NULL CHECK (subject <> ''),
     marks INT CHECK (marks BETWEEN 0 AND 100),
-    teacher_id VARCHAR(20),
+    teacher_id VARCHAR(50),
 
     UNIQUE(rollno, subject),
 
@@ -71,10 +79,10 @@ CREATE TABLE marks (
 -- =========================================
 CREATE TABLE attendance (
     id SERIAL PRIMARY KEY,
-    rollno VARCHAR(20) NOT NULL,
+    rollno VARCHAR(50) NOT NULL,
     date DATE NOT NULL,
     status VARCHAR(10) NOT NULL CHECK (status IN ('present','absent')),
-    teacher_id VARCHAR(20),
+    teacher_id VARCHAR(50),
 
     UNIQUE(rollno, date),
 
@@ -91,12 +99,13 @@ CREATE TABLE attendance (
 -- 📌 INDEXES
 -- =========================================
 CREATE INDEX idx_users_identifier ON users(identifier);
+CREATE INDEX idx_users_email ON users(email);
 
 -- =========================================
--- 📌 FUNCTIONS (FIXED)
+-- 📌 FUNCTIONS
 -- =========================================
 
--- ✅ ADD STUDENT (SAFE + LINKED)
+-- ✅ ADD STUDENT
 CREATE OR REPLACE FUNCTION add_student(
     p_roll VARCHAR,
     p_name VARCHAR,
@@ -106,12 +115,10 @@ RETURNS VOID AS $$
 DECLARE
     new_user_id INT;
 BEGIN
-    -- create user
-    INSERT INTO users (identifier, password, role)
-    VALUES (p_roll, p_password, 'student')
+    INSERT INTO users (identifier, name, password, role, provider)
+    VALUES (p_roll, p_name, p_password, 'student', 'local')
     RETURNING id INTO new_user_id;
 
-    -- create student
     INSERT INTO students (rollno, name, user_id)
     VALUES (p_roll, p_name, new_user_id);
 
@@ -133,8 +140,8 @@ RETURNS VOID AS $$
 DECLARE
     new_user_id INT;
 BEGIN
-    INSERT INTO users (identifier, password, role)
-    VALUES (p_id, p_password, 'teacher')
+    INSERT INTO users (identifier, name, password, role, provider)
+    VALUES (p_id, p_name, p_password, 'teacher', 'local')
     RETURNING id INTO new_user_id;
 
     INSERT INTO teachers (teacher_id, name, user_id)
@@ -148,7 +155,7 @@ $$ LANGUAGE plpgsql;
 
 -- =========================================
 
--- ✅ DELETE STUDENT (CLEAN CASCADE)
+-- ✅ DELETE STUDENT
 CREATE OR REPLACE FUNCTION delete_student(p_roll VARCHAR)
 RETURNS VOID AS $$
 BEGIN
@@ -178,7 +185,7 @@ $$ LANGUAGE plpgsql;
 
 -- =========================================
 
--- ✅ UPSERT ATTENDANCE (STRICT)
+-- ✅ UPSERT ATTENDANCE
 CREATE OR REPLACE FUNCTION mark_attendance(
     p_roll VARCHAR,
     p_date DATE,
