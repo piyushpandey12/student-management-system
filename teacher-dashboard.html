@@ -12,7 +12,12 @@ body{
     color:white;
 }
 .container{max-width:1200px;margin:auto;padding:20px;}
-h2{text-align:center;margin-bottom:25px;}
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;}
 .card{background:rgba(255,255,255,0.12);backdrop-filter:blur(15px);border-radius:15px;padding:20px;}
 .input-group{display:flex;gap:10px;flex-wrap:wrap;}
@@ -33,6 +38,9 @@ button{
     cursor:pointer;
 }
 button:hover{background:#ff416c;}
+.logout-btn{
+    background:#ff3b3b;
+}
 table{width:100%;margin-top:10px;}
 th,td{padding:10px;text-align:left;}
 .gradeA{color:#00ffcc;font-weight:bold;}
@@ -44,7 +52,14 @@ th,td{padding:10px;text-align:left;}
 <body>
 
 <div class="container">
-<h2>👨‍🏫 Teacher Dashboard</h2>
+
+<!-- HEADER WITH LOGOUT -->
+<div class="header">
+    <h2>👨‍🏫 Teacher Dashboard</h2>
+    <button class="logout-btn" onclick="logout('Logged out successfully')">
+        Logout
+    </button>
+</div>
 
 <div class="grid">
 
@@ -110,21 +125,32 @@ th,td{padding:10px;text-align:left;}
 </div>
 
 <script>
-// ================= AUTH =================
+
+// ================= LOGOUT =================
 function logout(msg){
-    alert(msg);
-    localStorage.clear();
-    window.location.href="teacher-login.html";
+    if(!confirm("Are you sure you want to logout?")) return;
+
+    if(msg) alert(msg);
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    window.location.href = "index.html";
 }
 
+
+// ================= AUTH =================
 const token = localStorage.getItem("token");
-if(!token) logout("Session expired");
+
+if(!token){
+    window.location.href = "index.html";
+}
 
 let payload;
 try{
     payload = JSON.parse(atob(token.split('.')[1]));
 }catch{
-    logout("Invalid token");
+    logout("Invalid session");
 }
 
 if(payload.exp && payload.exp < Date.now()/1000){
