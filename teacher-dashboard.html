@@ -54,14 +54,9 @@ th,td{padding:10px;text-align:left;}
 <div class="input-group">
 <input id="name" placeholder="Name">
 <input id="roll" placeholder="Roll No">
+<input id="password" placeholder="Password">
 <button onclick="addStudent()">Add</button>
 </div>
-</div>
-
-<!-- SEARCH -->
-<div class="card">
-<h3>🔍 Search</h3>
-<input id="search" placeholder="Search..." onkeyup="filterStudents()">
 </div>
 
 <!-- ATTENDANCE -->
@@ -83,6 +78,21 @@ th,td{padding:10px;text-align:left;}
 <h3>📊 Marks</h3>
 <div class="input-group">
 <input id="rollMarks" placeholder="Roll No">
+
+<select id="subject">
+<option>Big Data Analytics</option>
+<option>Big Data Analytics Lab</option>
+<option>Cloud Computing</option>
+<option>Cloud Computing Lab</option>
+<option>Engineering Aptitude - III</option>
+<option>Functional English - III</option>
+<option>Information Security</option>
+<option>Machine Learning</option>
+<option>Machine Learning Lab</option>
+<option>Mobile Application Development</option>
+<option>Mobile Application Development Lab</option>
+</select>
+
 <input id="marks" placeholder="Marks">
 <button onclick="addMarks()">Save</button>
 </div>
@@ -96,7 +106,7 @@ th,td{padding:10px;text-align:left;}
 <tr>
 <th>Roll</th>
 <th>Name</th>
-<th>Marks</th>
+<th>Marks Avg</th>
 <th>Grade</th>
 <th>Action</th>
 </tr>
@@ -108,8 +118,183 @@ th,td{padding:10px;text-align:left;}
 </div>
 </div>
 
-<!-- ✅ SCRIPT -->
-<script type="module" src="./js/teacher-dashboard.js"></script>
+<script>
+// ================= AUTH =================
+function logout(msg){
+    alert(msg);
+    localStorage.clear();
+    window.location.href="teacher-login.html";
+}
+
+const token = localStorage.getItem("token");
+if(!token) logout("Session expired");
+
+const payload = JSON.parse(atob(token.split('.')[1]));
+const user = { identifier: payload.identifier };
+
+// ================= BASE URL =================
+const BASE_URL =
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
+
+// ================= FETCH =================
+function getHeaders(){
+    return {
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+token
+    };
+}
+
+async function api(url, options={}){
+    const res = await fetch(url,{
+        ...options,
+        headers:{...getHeaders(), ...(options.headers||{})}
+    });
+
+    const data = await res.json().catch(()=>({}));
+
+    if(res.status===401) logout("Session expired");
+
+    if(!res.ok) throw new Error(data.message || data.error);
+
+    return data;
+}
+
+// ================= LOAD STUDENTS =================
+async function loadStudents(){
+    try{
+        const res = await api(`${BASE_URL}/students`);
+        const students = res.data || [];
+
+        let html="";
+        students.forEach(s=>{
+            let grade="C";
+            if(s.avg_marks>90) grade="A";
+            else if(s.avg_marks>70) grade="B";
+
+            html+=`
+            <tr>
+            <td>${s.rollno}</td>
+            <td>${s.name}</td>
+            <td>${s.avg_marks||0}</td>
+            <td class="grade${grade}">${grade}</td>
+            <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
+            </tr>`;
+        });
+
+        document.querySelector("#table tbody").innerHTML=html;
+
+    }catch(e){
+        console.error(e);
+    }
+}
+
+// ================= ADD STUDENT =================
+async function addStudent(){
+    const name=document.getElementById("name").value.trim();
+    const roll=document.getElementById("roll").value.trim();
+    const password=document.getElementById("password").value.trim();
+
+    if(!name || !roll || !password){
+        return alert("Fill all fields");
+    }
+
+    try{
+        await api(`${BASE_URL}/students`,{
+            method:"POST",
+            body:JSON.stringify({
+                name,
+                rollno: roll,
+                password,
+                role:"student"
+            })
+        });
+
+        alert("Student added successfully");
+
+        // clear fields
+        document.getElementById("name").value="";
+        document.getElementById("roll").value="";
+        document.getElementById("password").value="";
+
+        loadStudents();
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+// ================= DELETE =================
+async function deleteStudent(roll){
+    try{
+        await api(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
+        loadStudents();
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+// ================= ATTENDANCE =================
+async function markAttendance(){
+    const roll=document.getElementById("rollAtt").value;
+    const date=document.getElementById("date").value;
+    const status=document.getElementById("status").value;
+
+    if(!roll || !date){
+        return alert("Fill all fields");
+    }
+
+    try{
+        await api(`${BASE_URL}/attendance/mark`,{
+            method:"POST",
+            body:JSON.stringify({
+                rollno:roll,
+                date,
+                status,
+                teacher_id:user.identifier
+            })
+        });
+
+        alert("Attendance marked");
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+// ================= MARKS =================
+async function addMarks(){
+    const roll=document.getElementById("rollMarks").value;
+    const subject=document.getElementById("subject").value;
+    const marks=document.getElementById("marks").value;
+
+    if(!roll || !marks){
+        return alert("Fill all fields");
+    }
+
+    try{
+        await api(`${BASE_URL}/marks/update`,{
+            method:"POST",
+            body:JSON.stringify({
+                rollno:roll,
+                subject,
+                marks:Number(marks),
+                teacher_id:user.identifier
+            })
+        });
+
+        alert("Marks updated");
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+// ================= INIT =================
+loadStudents();
+
+</script>
 
 </body>
 </html>
