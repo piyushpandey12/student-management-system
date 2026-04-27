@@ -102,38 +102,54 @@ const BASE_URL =
 
 // ================= FETCH =================
 async function api(url){
-  const res = await fetch(url,{
-    headers:{
-      "Authorization":"Bearer "+token
-    }
-  });
+  try{
+    const res = await fetch(url,{
+      headers:{ "Authorization":"Bearer "+token }
+    });
 
-  if(res.status===401) logout("Session expired");
+    if(res.status===401) logout("Session expired");
 
-  const data = await res.json().catch(()=>({}));
+    const data = await res.json();
 
-  if(!res.ok) throw new Error(data.message || "Error");
+    if(!res.ok) throw new Error(data.message || "API Error");
 
-  return data;
+    return data;
+  }catch(err){
+    console.error("API ERROR:", err);
+    alert("Server error. Check backend.");
+    throw err;
+  }
 }
 
 
 // ================= DASHBOARD =================
 async function loadDashboard(){
+  try{
+    const data = await api(`${BASE_URL}/students/dashboard/${user.identifier}`);
 
-  const data = await api(`${BASE_URL}/students/dashboard/${user.identifier}`);
-  const d = data.data;
+    // 🔥 FIX: support both formats
+    const d = data.data || data;
 
-  document.getElementById("att").innerText = d.attendance_percent + "%";
-  document.getElementById("present").innerText = d.attendance.present;
-  document.getElementById("total").innerText = d.attendance.total;
-  document.getElementById("avg").innerText = d.average_marks;
+    if(!d){
+      throw new Error("Invalid response");
+    }
 
-  // marks table
-  document.getElementById("marksList").innerHTML =
-    d.marks.map(m=>`<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
+    document.getElementById("att").innerText = (d.attendance_percent || 0) + "%";
+    document.getElementById("present").innerText = d.attendance?.present || 0;
+    document.getElementById("total").innerText = d.attendance?.total || 0;
+    document.getElementById("avg").innerText = d.average_marks || 0;
 
-  drawCharts(d);
+    // Marks table
+    document.getElementById("marksList").innerHTML =
+      (d.marks || []).map(m =>
+        `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`
+      ).join("");
+
+    drawCharts(d);
+
+  }catch(e){
+    console.error(e);
+  }
 }
 
 
@@ -142,28 +158,31 @@ let aChart, mChart;
 
 function drawCharts(d){
 
+  const attCanvas = document.getElementById("attendanceChart");
+  const marksCanvas = document.getElementById("marksChart");
+
   if(aChart) aChart.destroy();
   if(mChart) mChart.destroy();
 
-  aChart = new Chart(attendanceChart,{
+  aChart = new Chart(attCanvas,{
     type:'pie',
     data:{
       labels:['Present','Absent'],
       datasets:[{
         data:[
-          d.attendance.present,
-          d.attendance.total - d.attendance.present
+          d.attendance?.present || 0,
+          (d.attendance?.total || 0) - (d.attendance?.present || 0)
         ]
       }]
     }
   });
 
-  mChart = new Chart(marksChart,{
+  mChart = new Chart(marksCanvas,{
     type:'bar',
     data:{
-      labels:d.marks.map(m=>m.subject),
+      labels:(d.marks || []).map(m=>m.subject),
       datasets:[{
-        data:d.marks.map(m=>m.marks)
+        data:(d.marks || []).map(m=>m.marks)
       }]
     }
   });
@@ -172,29 +191,35 @@ function drawCharts(d){
 
 // ================= CALENDAR =================
 async function loadCalendar(){
+  try{
+    const res = await api(`${BASE_URL}/attendance/${user.identifier}`);
+    const data = res.data || res;
 
-  const res = await api(`${BASE_URL}/attendance/${user.identifier}`);
-  const data = res.data;
+    const cal = document.getElementById("calendar");
+    cal.innerHTML = "";
 
-  const cal = document.getElementById("calendar");
-  cal.innerHTML = "";
+    (data || []).forEach(r=>{
+      const div=document.createElement("div");
+      div.className="day "+(r.status || "absent");
+      div.innerText = r.date ? r.date.split("-")[2] : "";
+      cal.appendChild(div);
+    });
 
-  data.forEach(r=>{
-    const div=document.createElement("div");
-    div.className="day "+r.status;
-    div.innerText=r.date.split("-")[2];
-    cal.appendChild(div);
-  });
+  }catch(e){
+    console.error(e);
+  }
 }
 
 
 // ================= NAV =================
 function show(id){
+
   document.getElementById("dashboard").style.display =
-    id==="dashboard"?"block":"none";
+    id==="dashboard" ? "block" : "none";
 
   document.getElementById("marksSection").style.display =
-    id==="marks"?"block":"none";
+    id==="marks" ? "block" : "none";
+
 }
 
 
@@ -203,6 +228,5 @@ loadDashboard();
 loadCalendar();
 
 </script>
-
 </body>
 </html>
