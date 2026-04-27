@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Signup</title>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-
 <style>
 * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+
 body {
     height:100vh;
     background:linear-gradient(135deg,#1d2671,#c33764);
@@ -16,6 +15,7 @@ body {
     justify-content:center;
     align-items:center;
 }
+
 .container {
     background:rgba(255,255,255,0.1);
     backdrop-filter:blur(15px);
@@ -26,24 +26,31 @@ body {
     color:white;
     text-align:center;
 }
+
 .input-group { margin:15px 0; text-align:left; }
+
 .input-group input {
-    width:100%; padding:10px; border-radius:8px; border:none;
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:none;
 }
+
 button {
-    width:100%; padding:12px; border-radius:8px;
-    border:none; background:#ff4b2b; color:white; cursor:pointer;
+    width:100%;
+    padding:12px;
+    border-radius:8px;
+    border:none;
+    background:#ff4b2b;
+    color:white;
+    cursor:pointer;
 }
+
 button:hover { background:#ff416c; }
+
 .message { margin-top:10px; }
+
 .link { margin-top:15px; }
-.divider { margin:15px 0; text-align:center; }
-.glass-google-btn {
-    margin-top:10px;
-    background:rgba(255,255,255,0.15);
-    border:1px solid rgba(255,255,255,0.3);
-}
-.glass-google-btn img { width:18px; margin-right:8px; }
 </style>
 </head>
 
@@ -53,6 +60,7 @@ button:hover { background:#ff416c; }
 <h2>Student Registration</h2>
 
 <form id="signupForm">
+
 <div class="input-group">
 <label>Roll Number</label>
 <input type="text" id="rollno" required>
@@ -64,38 +72,56 @@ button:hover { background:#ff416c; }
 </div>
 
 <button type="submit">Register</button>
+
 </form>
-
-<div class="divider">OR</div>
-
-<button class="glass-google-btn" id="googleBtn">
-    <img src="https://developers.google.com/identity/images/g-logo.png" />
-    Continue with Google
-</button>
 
 <div id="message" class="message"></div>
 
 <div class="link">
 Already have an account? <a href="login.html">Login</a>
 </div>
+
 </div>
 
-<script type="module">
-import { registerUser, loginUser, googleAuth } from "./js/api.js";
+<script>
 
-const msg = document.getElementById("message");
+// ================= BASE URL =================
+const BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
-// ================= REDIRECT =================
-if (localStorage.getItem("token")) {
+// ================= SAFE REDIRECT =================
+function getUser() {
+    try {
+        return JSON.parse(localStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
+
+const token = localStorage.getItem("token");
+const user = getUser();
+
+if (
+    token &&
+    token.length > 10 &&
+    user &&
+    user.role === "student"
+) {
     window.location.href = "student-dashboard.html";
 }
 
-// ================= NORMAL SIGNUP =================
+// ================= SIGNUP =================
 document.getElementById("signupForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const rollno = document.getElementById("rollno").value.trim().toLowerCase();
     const password = document.getElementById("password").value.trim();
+    const msg = document.getElementById("message");
+
+    msg.innerText = "";
 
     if (!rollno || !password) {
         msg.innerText = "⚠️ All fields required";
@@ -107,76 +133,57 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
         msg.innerText = "⏳ Registering...";
         msg.style.color = "white";
 
-        await registerUser({
-            identifier: rollno,
-            password,
-            role: "student"
+        // ===== REGISTER =====
+        const registerRes = await fetch(`${BASE_URL}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                identifier: rollno,
+                password,
+                role: "student"
+            })
         });
 
-        await loginUser({
-            identifier: rollno,
-            password
+        const registerData = await registerRes.json();
+
+        if (!registerRes.ok) {
+            throw new Error(registerData.message || "Registration failed");
+        }
+
+        // ===== LOGIN =====
+        const loginRes = await fetch(`${BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                identifier: rollno,
+                password
+            })
         });
+
+        const loginData = await loginRes.json();
+
+        if (!loginRes.ok) {
+            throw new Error(loginData.message || "Login failed");
+        }
+
+        // ===== SAVE SESSION =====
+        localStorage.setItem("token", loginData.token);
+        localStorage.setItem("user", JSON.stringify(loginData.user));
 
         msg.innerText = "✅ Registered & Logged in!";
         msg.style.color = "lightgreen";
 
         setTimeout(() => {
             window.location.href = "student-dashboard.html";
-        }, 1000);
+        }, 800);
 
     } catch (err) {
+        console.error(err);
         msg.innerText = "❌ " + err.message;
         msg.style.color = "red";
     }
 });
 
-// ================= GOOGLE INIT =================
-let googleInitialized = false;
-
-function initGoogle() {
-    if (googleInitialized) return;
-
-    if (window.google && google.accounts) {
-
-        google.accounts.id.initialize({
-            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleLogin
-        });
-
-        document.getElementById("googleBtn").addEventListener("click", () => {
-            google.accounts.id.prompt();
-        });
-
-        googleInitialized = true;
-
-    } else {
-        setTimeout(initGoogle, 500);
-    }
-}
-
-document.addEventListener("DOMContentLoaded", initGoogle);
-
-// ================= GOOGLE LOGIN =================
-window.handleGoogleLogin = async function (response) {
-    try {
-        msg.innerText = "⏳ Signing up with Google...";
-        msg.style.color = "white";
-
-        await googleAuth(response.credential, "student");
-
-        msg.innerText = "✅ Google Signup Successful!";
-        msg.style.color = "lightgreen";
-
-        setTimeout(() => {
-            window.location.href = "student-dashboard.html";
-        }, 1000);
-
-    } catch (err) {
-        msg.innerText = "❌ " + err.message;
-        msg.style.color = "red";
-    }
-};
 </script>
 
 </body>

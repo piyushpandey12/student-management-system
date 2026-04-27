@@ -1,46 +1,37 @@
-# ================= IMPORTS =================
 from flask import Blueprint, jsonify, request, g
 from backend.utils.db import get_connection, release_connection
 from backend.utils.auth_utils import login_required, role_required
+from psycopg2.extras import RealDictCursor
 
 marks_bp = Blueprint('marks', __name__)
 
 
 # =========================================================
-# 📌 ADD / UPDATE MARKS (SECURE)
+# 📌 ADD / UPDATE MARKS
 # =========================================================
 @marks_bp.route("/update", methods=["POST"])
 @login_required
-@role_required("teacher")   # 🔐 only teacher can update
+@role_required("teacher")
 def update_marks():
 
     data = request.get_json(silent=True) or {}
 
     rollno = (data.get("rollno") or "").strip()
     subject = (data.get("subject") or "").strip().lower()
-    teacher_id = g.user.get("identifier")  # 🔥 from token
+    teacher_id = g.user.get("identifier")
 
-    # 🔁 convert marks safely
+    # 🔁 Safe conversion
     try:
         marks = float(data.get("marks"))
     except (TypeError, ValueError):
-        return jsonify({
-            "status": "error",
-            "message": "marks must be a number"
-        }), 400
+        return jsonify({"error": "marks must be a number"}), 400
 
     # ✅ VALIDATION
     if not rollno or not subject:
-        return jsonify({
-            "status": "error",
-            "message": "rollno and subject required"
-        }), 400
+        return jsonify({"error": "rollno and subject required"}), 400
 
-    if marks < 0 or marks > 100:
-        return jsonify({
-            "status": "error",
-            "message": "marks must be between 0 and 100"
-        }), 400
+    if not (0 <= marks <= 100):
+        return jsonify({"error": "marks must be between 0 and 100"}), 400
 
     db = None
     cursor = None
@@ -49,7 +40,12 @@ def update_marks():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ CALL DB FUNCTION (BEST PRACTICE)
+        # 🔒 CHECK STUDENT EXISTS
+        cursor.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
+        if not cursor.fetchone():
+            return jsonify({"error": "Student not found"}), 404
+
+        # ✅ UPSERT via DB function
         cursor.execute(
             "SELECT update_marks(%s, %s, %s, %s)",
             (rollno, subject, marks, teacher_id)
@@ -62,13 +58,13 @@ def update_marks():
             "message": "Marks saved successfully"
         })
 
-    except Exception as e:
+    except Exception:
         if db:
             db.rollback()
 
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "Failed to update marks"
         }), 500
 
     finally:
@@ -79,13 +75,12 @@ def update_marks():
 
 
 # =========================================================
-# 📌 GET MARKS (SECURE)
+# 📌 GET MARKS
 # =========================================================
 @marks_bp.route("/<rollno>", methods=["GET"])
 @login_required
 def get_marks(rollno):
 
-    # 🔐 student can only view own data
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -94,7 +89,7 @@ def get_marks(rollno):
 
     try:
         db = get_connection()
-        cursor = db.cursor()
+        cursor = db.cursor(cursor_factory=RealDictCursor)
 
         cursor.execute("""
             SELECT subject, marks, teacher_id
@@ -107,21 +102,11 @@ def get_marks(rollno):
 
         return jsonify({
             "status": "success",
-            "data": [
-                {
-                    "subject": r[0],
-                    "marks": float(r[1]),
-                    "teacher_id": r[2]
-                }
-                for r in rows
-            ]
+            "data": rows
         })
 
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+    except Exception:
+        return jsonify({"error": "Failed to fetch marks"}), 500
 
     finally:
         if cursor:
@@ -131,7 +116,7 @@ def get_marks(rollno):
 
 
 # =========================================================
-# 📌 MARKS STATS (WITH ANALYSIS)
+# 📌 MARKS STATS
 # =========================================================
 @marks_bp.route("/stats/<rollno>", methods=["GET"])
 @login_required
@@ -157,17 +142,17 @@ def marks_stats(rollno):
             WHERE rollno = %s
         """, (rollno,))
 
-        result = cursor.fetchone()
+        avg, max_m, min_m, total = cursor.fetchone()
 
-        avg_marks = float(result[0])
-        max_marks = int(result[1])
-        min_marks = int(result[2])
-        total_subjects = int(result[3])
+        avg = float(avg)
+        max_m = int(max_m)
+        min_m = int(min_m)
+        total = int(total)
 
-        # 🔥 ADD ANALYSIS
-        if avg_marks >= 75:
+        # 📊 ANALYSIS
+        if avg >= 75:
             remark = "Excellent performance"
-        elif avg_marks >= 50:
+        elif avg >= 50:
             remark = "Average performance"
         else:
             remark = "Needs improvement"
@@ -175,19 +160,16 @@ def marks_stats(rollno):
         return jsonify({
             "status": "success",
             "data": {
-                "average": round(avg_marks, 2),
-                "highest": max_marks,
-                "lowest": min_marks,
-                "subjects": total_subjects,
+                "average": round(avg, 2),
+                "highest": max_m,
+                "lowest": min_m,
+                "subjects": total,
                 "remark": remark
             }
         })
 
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+    except Exception:
+        return jsonify({"error": "Failed to fetch stats"}), 500
 
     finally:
         if cursor:

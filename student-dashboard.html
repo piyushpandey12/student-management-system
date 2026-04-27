@@ -103,39 +103,31 @@ td,th{padding:10px;text-align:left}
 
 <script>
 
-// ================= AUTH GUARD =================
-const token = localStorage.getItem("token");
-
-if (!token) logout("Session expired");
-
-function parseJwt(token){
-    try { return JSON.parse(atob(token.split('.')[1])); }
-    catch { return null; }
+// ================= SAFE AUTH =================
+function getUser(){
+    try {
+        return JSON.parse(localStorage.getItem("user"));
+    } catch {
+        return null;
+    }
 }
 
-const payload = parseJwt(token);
+const token = localStorage.getItem("token");
+const user = getUser();
 
-if (!payload || payload.exp < Date.now()/1000) {
+if (!token || !user || !user.identifier) {
     logout("Session expired");
 }
 
-const user = {
-    id: payload.identifier,
-    role: payload.role
-};
-
-localStorage.setItem("user", JSON.stringify(user));
-
-const rollno = user.id;
+const rollno = user.identifier;
+document.getElementById("welcome").innerText = "Welcome " + rollno;
 
 
 // ================= BASE URL =================
 const BASE_URL =
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "https://student-management-system-api-cznx.onrender.com";
-
-document.getElementById("welcome").innerText = "Welcome " + rollno;
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
 
 // ================= HEADERS =================
@@ -147,16 +139,22 @@ function getHeaders(){
 }
 
 
-// ================= RESPONSE =================
+// ================= RESPONSE HANDLER =================
 async function handleResponse(res){
-    const data = await res.json();
+    let data;
+
+    try {
+        data = await res.json();
+    } catch {
+        throw new Error("Invalid server response");
+    }
 
     if(res.status === 401){
         logout("Session expired");
     }
 
     if(!res.ok){
-        throw new Error(data.message || data.error);
+        throw new Error(data.message || "Something went wrong");
     }
 
     return data;
@@ -166,28 +164,33 @@ async function handleResponse(res){
 // ================= DASHBOARD =================
 async function loadDashboard(){
     try{
-        const res = await fetch(`${BASE_URL}/api/students/dashboard/${rollno}`, {
+        const res = await fetch(`${BASE_URL}/students/dashboard/${rollno}`, {
             headers:getHeaders()
         });
 
         const data = await handleResponse(res);
-        const d = data.data;
+        const d = data.data || {};
 
-        document.getElementById("att").innerText = d.attendance_percent+"%";
-        document.getElementById("present").innerText = d.present_days;
-        document.getElementById("total").innerText = d.total_days;
+        document.getElementById("att").innerText = (d.attendance_percent || 0) + "%";
+        document.getElementById("present").innerText = d.present_days || 0;
+        document.getElementById("total").innerText = d.total_days || 0;
 
+        // marks table
         document.getElementById("marksList").innerHTML =
-            d.marks.map(m=>`<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
+            (d.marks || []).map(m =>
+                `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`
+            ).join("");
 
-        // ✅ fill extra divs
+        // extra blocks
         document.getElementById("studentsList").innerText = rollno;
-        document.getElementById("attendance").innerText = d.attendance_percent+"%";
-        document.getElementById("marks").innerText = d.marks.reduce((a,b)=>a+b.marks,0);
+        document.getElementById("attendance").innerText = (d.attendance_percent || 0) + "%";
+        document.getElementById("marks").innerText =
+            (d.marks || []).reduce((a,b)=>a + b.marks, 0);
 
         drawCharts(d);
 
     }catch(err){
+        console.error(err);
         alert(err.message);
     }
 }
@@ -197,22 +200,30 @@ async function loadDashboard(){
 let aChart, mChart;
 
 function drawCharts(d){
+
+    const present = d.present_days || 0;
+    const total = d.total_days || 0;
+
     if(aChart) aChart.destroy();
     if(mChart) mChart.destroy();
 
-    aChart=new Chart(attendanceChart,{
+    aChart = new Chart(document.getElementById("attendanceChart"), {
         type:'pie',
         data:{
             labels:['Present','Absent'],
-            datasets:[{data:[d.present_days,d.total_days-d.present_days]}]
+            datasets:[{
+                data:[present, Math.max(total - present, 0)]
+            }]
         }
     });
 
-    mChart=new Chart(marksChart,{
+    mChart = new Chart(document.getElementById("marksChart"), {
         type:'bar',
         data:{
-            labels:d.marks.map(m=>m.subject),
-            datasets:[{data:d.marks.map(m=>m.marks)}]
+            labels:(d.marks || []).map(m=>m.subject),
+            datasets:[{
+                data:(d.marks || []).map(m=>m.marks)
+            }]
         }
     });
 }
@@ -220,34 +231,42 @@ function drawCharts(d){
 
 // ================= CALENDAR =================
 async function loadCalendar(){
-    const res = await fetch(`${BASE_URL}/api/attendance/${rollno}`, {
-        headers:getHeaders()
-    });
+    try{
+        const res = await fetch(`${BASE_URL}/attendance/${rollno}`, {
+            headers:getHeaders()
+        });
 
-    const data = await handleResponse(res);
+        const data = await handleResponse(res);
 
-    const cal=document.getElementById("calendar");
-    cal.innerHTML="";
+        const cal = document.getElementById("calendar");
+        cal.innerHTML = "";
 
-    data.data.forEach(r=>{
-        const div=document.createElement("div");
-        div.className="day "+r.status;
-        div.innerText=r.date.split("-")[2];
-        cal.appendChild(div);
-    });
+        (data.data || []).forEach(r=>{
+            const div = document.createElement("div");
+            div.className = "day " + (r.status || "");
+            div.innerText = r.date ? r.date.split("-")[2] : "";
+            cal.appendChild(div);
+        });
+
+    }catch(err){
+        console.error(err);
+    }
 }
 
 
 // ================= NAV =================
 function show(id){
-    dashboard.style.display=id==="dashboard"?"block":"none";
-    marksSection.style.display=id==="marks"?"block":"none";
+    document.getElementById("dashboard").style.display =
+        id === "dashboard" ? "block" : "none";
+
+    document.getElementById("marksSection").style.display =
+        id === "marks" ? "block" : "none";
 }
 
 
 // ================= LOGOUT =================
 function logout(msg){
-    alert(msg);
+    if(msg) alert(msg);
     localStorage.clear();
     window.location.href="login.html";
 }
@@ -258,6 +277,5 @@ loadDashboard();
 loadCalendar();
 
 </script>
-
 </body>
 </html>

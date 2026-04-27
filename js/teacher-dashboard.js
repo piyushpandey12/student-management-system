@@ -1,39 +1,43 @@
 // =========================================================
-// 🔐 AUTH GUARD (FULL)
+// 🔐 AUTH GUARD (SAFE)
 // =========================================================
-const token = localStorage.getItem("token");
-
-if (!token) logoutUser("Session expired");
-
-function isValidJWT(token) {
-  return token.split(".").length === 3;
+function logoutUser(msg) {
+  alert(msg);
+  localStorage.clear();
+  window.location.href = "teacher-login.html";
 }
 
-if (!isValidJWT(token)) logoutUser("Invalid token");
+function getToken() {
+  return localStorage.getItem("token");
+}
+
+function isValidJWT(token) {
+  return token && token.split(".").length === 3;
+}
 
 function parseJwt(token) {
   try {
-    const base64 = token.split('.')[1]
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
-    return JSON.parse(atob(base64));
+    return JSON.parse(atob(token.split('.')[1]));
   } catch {
     return null;
   }
 }
 
+const token = getToken();
+if (!token) logoutUser("Session expired");
+
+if (!isValidJWT(token)) logoutUser("Invalid token");
+
 const payload = parseJwt(token);
 if (!payload) logoutUser("Corrupted token");
 
-const currentTime = Date.now() / 1000;
-if (!payload.exp || payload.exp < currentTime) {
+if (payload.exp && payload.exp < Date.now() / 1000) {
   logoutUser("Session expired");
 }
 
-// ✅ SAFE USER OBJECT
+// ✅ FIXED USER STRUCTURE
 const user = {
-  id: payload.identifier,
+  identifier: payload.identifier,
   role: payload.role
 };
 
@@ -41,23 +45,51 @@ localStorage.setItem("user", JSON.stringify(user));
 
 
 // =========================================================
-// 🌐 BASE URL
+// 🌐 BASE URL (FIXED)
 // =========================================================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "https://student-management-system-api-cznx.onrender.com";
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
 
 // =========================================================
-// 🔐 AUTH HEADER
+// 🔐 HEADERS + FETCH WRAPPER
 // =========================================================
 function getAuthHeaders() {
+  const token = getToken();   // ✅ dynamic
+
   return {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${token}`
   };
+}
+
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...getAuthHeaders()
+    }
+  });
+
+  if (res.status === 401) {
+    logoutUser("Session expired");
+    throw new Error("Unauthorized");
+  }
+
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    throw new Error(data.message || data.error || "Request failed");
+  }
+
+  return data;
 }
 
 
@@ -66,14 +98,8 @@ function getAuthHeaders() {
 // =========================================================
 async function loadStudents() {
   try {
-    const res = await fetch(`${BASE_URL}/api/students`, {
-      headers: getAuthHeaders()
-    });
-
-    if (res.status === 401) logoutUser("Session expired");
-
-    const data = await res.json();
-    const students = data.data || data || [];
+    const data = await fetchJSON(`${BASE_URL}/students`);
+    const students = data.data || [];
 
     let html = "";
 
@@ -96,31 +122,27 @@ async function loadStudents() {
 
   } catch (err) {
     console.error(err);
-    logoutUser("Session expired");
   }
 }
 
 
 // =========================================================
-// ➕ ADD STUDENT (FIXED BUG)
+// ➕ ADD STUDENT
 // =========================================================
 window.addStudent = async () => {
-  const nameInput = document.getElementById("name");
-  const rollInput = document.getElementById("roll");
-
-  const name = nameInput.value.trim();
-  const roll = rollInput.value.trim();
+  const name = document.getElementById("name").value.trim();
+  const roll = document.getElementById("roll").value.trim();
 
   if (!name || !roll) return alert("Fill all fields");
 
   try {
-    await fetch(`${BASE_URL}/api/students`, {
+    await fetchJSON(`${BASE_URL}/students`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({ name, rollno: roll })
     });
 
     loadStudents();
+
   } catch {
     alert("Error adding student");
   }
@@ -132,12 +154,12 @@ window.addStudent = async () => {
 // =========================================================
 window.deleteStudent = async (roll) => {
   try {
-    await fetch(`${BASE_URL}/api/students/${roll}`, {
-      method: "DELETE",
-      headers: getAuthHeaders()
+    await fetchJSON(`${BASE_URL}/students/${roll}`, {
+      method: "DELETE"
     });
 
     loadStudents();
+
   } catch {
     alert("Delete failed");
   }
@@ -153,18 +175,18 @@ window.markAttendance = async () => {
   const status = document.getElementById("status").value;
 
   try {
-    await fetch(`${BASE_URL}/api/attendance/mark`, {
+    await fetchJSON(`${BASE_URL}/attendance/mark`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({
         rollno: roll,
         date,
         status,
-        teacher_id: user.id   // ✅ FIXED
+        teacher_id: user.identifier   // ✅ FIXED
       })
     });
 
     alert("Attendance marked");
+
   } catch {
     alert("Error marking attendance");
   }
@@ -179,18 +201,18 @@ window.addMarks = async () => {
   const marks = document.getElementById("marks").value;
 
   try {
-    await fetch(`${BASE_URL}/api/marks/update`, {
+    await fetchJSON(`${BASE_URL}/marks/update`, {
       method: "POST",
-      headers: getAuthHeaders(),
       body: JSON.stringify({
         rollno: roll,
         subject: "default",
-        marks,
-        teacher_id: user.id   // ✅ FIXED
+        marks: Number(marks),
+        teacher_id: user.identifier   // ✅ FIXED
       })
     });
 
     alert("Marks updated");
+
   } catch {
     alert("Error updating marks");
   }
@@ -208,16 +230,6 @@ window.filterStudents = () => {
       row.innerText.toLowerCase().includes(input) ? "" : "none";
   });
 };
-
-
-// =========================================================
-// 🚪 LOGOUT
-// =========================================================
-function logoutUser(msg) {
-  alert(msg);
-  localStorage.clear();
-  window.location.href = "teacher-login.html";
-}
 
 
 // =========================================================

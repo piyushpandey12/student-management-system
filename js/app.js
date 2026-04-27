@@ -15,11 +15,11 @@ function getUser() {
   }
 }
 
-const user = getUser();
-const token = localStorage.getItem("token");
-
 // 🔐 PROTECT DASHBOARD
-if ((!user || !token) && window.location.pathname.includes("dashboard")) {
+if (
+  (!localStorage.getItem("token") || !getUser()) &&
+  window.location.pathname.includes("dashboard")
+) {
   window.location.href = "index.html";
 }
 
@@ -31,6 +31,13 @@ async function handleResponse(res) {
     data = await res.json();
   } catch {}
 
+  // 🔥 HANDLE TOKEN EXPIRY
+  if (res.status === 401) {
+    alert("Session expired. Please login again.");
+    logout();
+    throw new Error("Unauthorized");
+  }
+
   if (!res.ok) {
     throw new Error(data.message || data.error || "Something went wrong");
   }
@@ -39,9 +46,11 @@ async function handleResponse(res) {
 }
 
 function getHeaders() {
+  const token = localStorage.getItem("token");
+
   return {
     "Content-Type": "application/json",
-    "Authorization": "Bearer " + token
+    "Authorization": `Bearer ${token}`
   };
 }
 
@@ -61,7 +70,12 @@ async function login(event) {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rollno, password })
+
+      // ✅ FIXED
+      body: JSON.stringify({
+        identifier: rollno,
+        password
+      })
     });
 
     const data = await handleResponse(res);
@@ -70,7 +84,7 @@ async function login(event) {
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("token", data.token);
 
-    // ✅ ROLE BASED REDIRECT
+    // ✅ REDIRECT
     if (data.user.role === "teacher") {
       window.location.href = "teacher-dashboard.html";
     } else {
@@ -141,7 +155,7 @@ async function loadStudents() {
         </td>
 
         <td>
-          <input type="number" value="${s.avg_marks || 0}"
+          <input type="number" value="${s.marks || 0}"
           onchange="updateMarks('${s.rollno}', this.value)">
         </td>
 
@@ -181,6 +195,7 @@ async function deleteStudent(rollno) {
 // ================= ATTENDANCE =================
 async function markAttendance(rollno) {
   const today = new Date().toISOString().split("T")[0];
+  const user = getUser();
 
   try {
     await fetch(`${BASE_URL}/attendance/mark`, {
@@ -190,7 +205,7 @@ async function markAttendance(rollno) {
         rollno,
         date: today,
         status: "present",
-        teacher_id: user?.id
+        teacher_id: user?.identifier   // ✅ FIXED
       })
     });
 
@@ -204,6 +219,8 @@ async function markAttendance(rollno) {
 
 // ================= MARKS =================
 async function updateMarks(rollno, marks) {
+  const user = getUser();
+
   try {
     await fetch(`${BASE_URL}/marks/update`, {
       method: "POST",
@@ -212,7 +229,7 @@ async function updateMarks(rollno, marks) {
         rollno,
         subject: "Math",
         marks: Number(marks),
-        teacher_id: user?.id
+        teacher_id: user?.identifier   // ✅ FIXED
       })
     });
 
@@ -242,7 +259,7 @@ async function loadDashboardStats() {
       }).then(handleResponse);
 
       document.getElementById("att").innerText =
-        (att.percentage || 0) + "%";
+        (att.percent || 0) + "%";
 
       const marks = await fetch(`${BASE_URL}/marks/stats/${rollno}`, {
         headers: getHeaders()

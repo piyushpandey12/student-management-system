@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
     <title>@integrate.system - Technical Login Form Animation</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+   
 </head>
 
 <body> <!---------- integrate.system -------->
@@ -43,10 +43,7 @@
 
 
             <!-- Custom Glass Button -->
-            <button class="glass-google-btn" onclick="triggerGoogleLogin()">
-                <img src="https://developers.google.com/identity/images/g-logo.png" />
-                Continue with Google
-            </button>
+
 
         </div>
 
@@ -203,68 +200,67 @@
     <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
     <script src="js/script.js"></script>
     <script>
-        function handleGoogleLogin(response) {
+const BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
-            fetch("https://student-management-system-api-cznx.onrender.com/api/auth/google", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    token: response.credential,
-                    role: "student"
-                })
-            })
-                .then(res => {
-                    if (!res.ok) throw new Error("Server error");
-                    return res.json();
-                })
-                .then(data => {
-                    if (!data.token) throw new Error(data.error || "Login failed");
+// ================= LOGIN HANDLER =================
+document.getElementById("submitBtn").addEventListener("click", handleLogin);
 
-                    localStorage.setItem("token", data.token);
-                    localStorage.setItem("user", JSON.stringify(data.user));
+async function handleLogin() {
+    const rollno = document.getElementById("rollno").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const agree = document.getElementById("subscribe").checked;
+    const errorMsg = document.getElementById("errorMsg");
 
-                    window.location.href = "student-dashboard.html";
-                })
-                .catch(err => {
-                    document.getElementById("errorMsg").innerText = "❌ " + err.message;
-                });
+    errorMsg.innerText = "";
+
+    // ✅ VALIDATION
+    if (!rollno || !password) {
+        errorMsg.innerText = "⚠️ Please fill all fields";
+        return;
+    }
+
+    if (!agree) {
+        errorMsg.innerText = "⚠️ You must agree to terms";
+        return;
+    }
+
+    try {
+        const res = await fetch(`${BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ rollno, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.message || "Login failed");
         }
 
+        // ✅ SAVE SESSION
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
 
-        // 🔥 INIT GOOGLE (ONLY ONCE)
-        let googleInitialized = false;
-
-        function initGoogle() {
-            if (googleInitialized) return;
-
-            if (window.google && google.accounts && google.accounts.id) {
-
-                google.accounts.id.initialize({
-                    client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-                    callback: handleGoogleLogin
-                });
-
-                googleInitialized = true;
-
-            } else {
-                setTimeout(initGoogle, 500);
-            }
+        // ✅ REDIRECT
+        if (data.user.role === "teacher") {
+            window.location.href = "teacher-dashboard.html";
+        } else {
+            window.location.href = "student-dashboard.html";
         }
 
-        document.addEventListener("DOMContentLoaded", initGoogle);
+    } catch (err) {
+        console.error("LOGIN ERROR:", err);
+        errorMsg.innerText = "❌ " + err.message;
+    }
+}
+</script>
 
-
-        // 🔥 TRIGGER BUTTON CLICK
-        function triggerGoogleLogin() {
-            if (window.google && google.accounts && google.accounts.id) {
-                google.accounts.id.prompt();
-            } else {
-                document.getElementById("errorMsg").innerText = "⚠️ Google not loaded yet";
-            }
-        }
-    </script>
 </body>
 
 </html>

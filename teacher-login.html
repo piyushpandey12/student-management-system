@@ -6,53 +6,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
     <title>@integrate.system - Technical Login Form Animation</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
 </head>
 
 <body>
     <!---------- integrate.system -------->
     <div class="form-container">
 
-        <!-- Roll Number -->
-        <label class="form-row">
-            <input type="text" id="teacherId" placeholder="Teacher ID" required>
-        </label>
+    <!-- Roll Number -->
+<label class="form-row">
+    <input type="text" id="identifier" placeholder="Teacher ID" required>
+</label>
 
-        <!-- Password -->
-        <label class="form-row">
-            <input type="password" id="password" name="password" placeholder="Password" required>
-        </label>
+<!-- Password -->
+<label class="form-row">
+    <input type="password" id="password" placeholder="Password" required>
+</label>
 
-        <!-- Checkbox -->
-        <label class="form-row checkbox-row">
-            <input type="checkbox" id="subscribe" name="subscribe">
-            <span>Agree to terms</span>
-        </label>
+<!-- Checkbox -->
+<label class="form-row checkbox-row">
+    <input type="checkbox" id="subscribe">
+    <span>Agree to terms</span>
+</label>
 
-        <!-- Error Message -->
-        <div id="errorMsg" style="color:yellow; margin-top:10px;"></div>
+<!-- Error -->
+<div id="errorMsg" style="color:yellow; margin-top:10px;"></div>
 
-        <!-- Submit Button -->
-        <div class="form-row">
-            <input type="button" id="submitBtn" value="Login">
-        </div>
+<!-- Button -->
+<div class="form-row">
+    <input type="button" id="submitBtn" value="Login">
+</div>
 
         <div class="form-row" style="margin-top:10px;">
 
-    <!-- Google Init -->
-    <div id="g_id_onload"
-        data-client_id="891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com"
-        data-callback="handleGoogleLogin"
-        data-auto_prompt="false">
-    </div>
 
-    <!-- Custom Glass Button -->
-    <button class="glass-google-btn" onclick="triggerGoogleLogin()">
-        <img src="https://developers.google.com/identity/images/g-logo.png" />
-        Continue with Google
-    </button>
-
-</div>
 
 
     </div>
@@ -235,52 +222,7 @@
     </div>
     <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
     <script src="js/teacher-login.js"></script>
-    <script>
-function handleGoogleLogin(response) {
-    fetch("https://student-management-system-api-cznx.onrender.com/api/auth/google", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            token: response.credential,
-            role: "teacher"
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (!data.token) throw new Error(data.error || "Login failed");
-
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-
-        window.location.href = "teacher-dashboard.html";
-    })
-    .catch(err => {
-        document.getElementById("errorMsg").innerText = "❌ " + err.message;
-    });
-}
-
-
-function initGoogle() {
-    if (window.google && google.accounts && google.accounts.id) {
-
-        google.accounts.id.initialize({
-            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleLogin
-        });
-
-    } else {
-        setTimeout(initGoogle, 500);
-    }
-}
-
-function triggerGoogleLogin() {
-    google.accounts.id.prompt(); // 🔥 triggers popup
-}
-
-document.addEventListener("DOMContentLoaded", initGoogle);
-</script>
+   
 </body>
 
 </html>

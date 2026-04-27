@@ -1,178 +1,227 @@
 // =========================================================
 // 🔐 AUTH GUARD
 // =========================================================
-const token = localStorage.getItem("token");
+function logoutUser(message) {
+  alert(message);
+  localStorage.clear();
+  window.location.href = "login.html";
+}
 
-if (!token) {
-    logoutUser("Session expired. Please login again.");
+function getToken() {
+  return localStorage.getItem("token");
 }
 
 function isValidJWT(token) {
-    return token.split(".").length === 3;
+  return token && token.split(".").length === 3;
 }
 
-if (!isValidJWT(token)) {
-    logoutUser("Invalid token. Please login again.");
-}
-
+// Base64URL-safe decode
 function parseJwt(token) {
-    try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(
-            atob(base64)
-                .split('')
-                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                .join('')
-        );
-        return JSON.parse(jsonPayload);
-    } catch {
-        return null;
-    }
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
 }
+
+const token = getToken();
+if (!token) logoutUser("Session expired");
+if (!isValidJWT(token)) logoutUser("Invalid token");
 
 const payload = parseJwt(token);
-
-if (!payload) {
-    logoutUser("Corrupted token. Please login again.");
+if (!payload) logoutUser("Corrupted token");
+if (payload.exp && payload.exp < Date.now() / 1000) {
+  logoutUser("Session expired");
 }
 
-const currentTime = Date.now() / 1000;
-
-if (!payload.exp || payload.exp < currentTime) {
-    logoutUser("Session expired. Please login again.");
-}
-
-// ✅ Save user safely
+// normalized user object
 const user = {
-    id: payload.identifier,
-    role: payload.role
+  identifier: payload.identifier,
+  role: payload.role
 };
-
 localStorage.setItem("user", JSON.stringify(user));
 
 
 // =========================================================
-// 🌐 BASE URL
+// 🌐 BASE URL (UNIFIED)
 // =========================================================
 const BASE_URL =
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "localhost"
-        ? "http://127.0.0.1:5000"
-        : "https://student-management-system-api-cznx.onrender.com";
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
 
 // =========================================================
-// 🔐 AUTH HEADER
+// 🔐 HEADERS + FETCH WRAPPER
 // =========================================================
 function getAuthHeaders() {
-    return {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-    };
+  const t = getToken();
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${t}`
+  };
+}
+
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...getAuthHeaders()
+    }
+  });
+
+  if (res.status === 401) {
+    logoutUser("Session expired");
+    throw new Error("Unauthorized");
+  }
+
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    throw new Error(data.message || data.error || "Request failed");
+  }
+
+  return data;
 }
 
 
 // =========================================================
-// 📌 LOAD STUDENTS (MAIN DATA)
+// 📊 CHART INSTANCES
+// =========================================================
+let attendanceChart, marksChart;
+
+
+// =========================================================
+// 📌 LOAD STUDENTS (LIST)
 // =========================================================
 async function loadStudents() {
-    const container = document.getElementById("studentsList");
+  const container = document.getElementById("studentsList");
 
-    try {
-        container.innerHTML = "⏳ Loading...";
+  try {
+    container.innerHTML = "⏳ Loading...";
 
-        const res = await fetch(`${BASE_URL}/api/students`, {
-            headers: getAuthHeaders()
-        });
+    const data = await fetchJSON(`${BASE_URL}/students`);
+    const students = data.data || [];
 
-        if (res.status === 401) {
-            logoutUser("Session expired");
-            return;
-        }
-
-        const data = await res.json();
-
-        if (!Array.isArray(data)) {
-            throw new Error("Invalid data format");
-        }
-
-        if (data.length === 0) {
-            container.innerHTML = "No students found.";
-            return;
-        }
-
-        container.innerHTML = data.map(student => `
-            <div class="student-card">
-                <p><strong>Roll No:</strong> ${student.rollno}</p>
-                <p><strong>Name:</strong> ${student.name}</p>
-            </div>
-        `).join("");
-
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = "❌ Failed to load students";
+    if (students.length === 0) {
+      container.innerHTML = "No students found.";
+      return;
     }
+
+    container.innerHTML = students.map(s => `
+      <div class="student-card">
+        <p><strong>Roll No:</strong> ${s.rollno}</p>
+        <p><strong>Name:</strong> ${s.name}</p>
+      </div>
+    `).join("");
+
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = "❌ Failed to load students";
+  }
 }
 
 
 // =========================================================
-// 📅 LOAD ATTENDANCE
+// 📊 DASHBOARD STATS + CHARTS
+// =========================================================
+async function loadDashboardStats() {
+  try {
+    const data = await fetchJSON(`${BASE_URL}/students`);
+    const students = data.data || [];
+
+    document.getElementById("total").innerText = students.length;
+
+    if (students.length === 0) return;
+
+    const rollno = students[0].rollno;
+
+    // ===== ATTENDANCE =====
+    const att = await fetchJSON(`${BASE_URL}/attendance/stats/${rollno}`);
+    const present = att.present || 0;
+    const absent = att.absent || 0;
+    const percent = att.percent || 0;
+
+    document.getElementById("att").innerText = percent + "%";
+
+    // ===== MARKS =====
+    const marks = await fetchJSON(`${BASE_URL}/marks/stats/${rollno}`);
+
+    document.getElementById("marks").innerText = marks.average || 0;
+    document.getElementById("top").innerText = marks.highest || 0;
+
+    // ===== ATTENDANCE CHART =====
+    const attCtx = document.getElementById("attendanceChart");
+    if (attendanceChart) attendanceChart.destroy();
+
+    attendanceChart = new Chart(attCtx, {
+      type: "doughnut",
+      data: {
+        labels: ["Present", "Absent"],
+        datasets: [{
+          data: [present, absent]
+        }]
+      }
+    });
+
+    // ===== MARKS CHART =====
+    const marksCtx = document.getElementById("marksChart");
+    if (marksChart) marksChart.destroy();
+
+    marksChart = new Chart(marksCtx, {
+      type: "bar",
+      data: {
+        labels: ["Average", "Highest"],
+        datasets: [{
+          data: [marks.average || 0, marks.highest || 0]
+        }]
+      }
+    });
+
+  } catch (err) {
+    console.error("Dashboard error:", err);
+  }
+}
+
+
+// =========================================================
+// 📅 OPTIONAL DETAIL SECTIONS
 // =========================================================
 async function loadAttendance() {
-    try {
-        const res = await fetch(`${BASE_URL}/api/attendance/stats/${user.id}`, {
-            headers: getAuthHeaders()
-        });
+  try {
+    const data = await fetchJSON(`${BASE_URL}/attendance/stats/${user.identifier}`);
 
-        if (res.status === 401) {
-            logoutUser("Session expired");
-            return;
-        }
+    document.getElementById("attendance").innerText =
+      `Present: ${data.present || 0}, Absent: ${data.absent || 0}`;
 
-        const data = await res.json();
-
-        document.getElementById("attendance").innerText =
-            `Present: ${data.present || 0}, Absent: ${data.absent || 0}`;
-
-    } catch (err) {
-        console.error(err);
-    }
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-
-// =========================================================
-// 📊 LOAD MARKS
-// =========================================================
 async function loadMarks() {
-    try {
-        const res = await fetch(`${BASE_URL}/api/marks/stats/${user.id}`, {
-            headers: getAuthHeaders()
-        });
+  try {
+    const data = await fetchJSON(`${BASE_URL}/marks/stats/${user.identifier}`);
 
-        if (res.status === 401) {
-            logoutUser("Session expired");
-            return;
-        }
+    document.getElementById("marksDetail").innerText =
+      `Average: ${data.average || 0}, Highest: ${data.highest || 0}`;
 
-        const data = await res.json();
-
-        document.getElementById("marks").innerText =
-            JSON.stringify(data, null, 2);
-
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-
-// =========================================================
-// 🚪 LOGOUT
-// =========================================================
-function logoutUser(message) {
-    alert(message);
-    localStorage.clear();
-    window.location.href = "login.html";
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 
@@ -180,7 +229,8 @@ function logoutUser(message) {
 // 🚀 INIT
 // =========================================================
 document.addEventListener("DOMContentLoaded", () => {
-    loadStudents();
-    loadAttendance();
-    loadMarks();
+  loadStudents();
+  loadDashboardStats();
+  loadAttendance();
+  loadMarks();
 });

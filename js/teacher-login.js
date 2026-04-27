@@ -1,12 +1,12 @@
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "https://student-management-system-api-cznx.onrender.com";
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
-// ================= GOOGLE LOGIN =================
 
-// ================= AUTO REDIRECT =================
+
+// ================= SAFE AUTH =================
 function getUser(){
   try {
     return JSON.parse(localStorage.getItem("user"));
@@ -18,15 +18,19 @@ function getUser(){
 const user = getUser();
 const token = localStorage.getItem("token");
 
-// ✅ SINGLE CLEAN REDIRECT LOGIC
-if (user && token) {
-  if (user.role === "teacher") {
-    window.location.href = "teacher-dashboard.html";
-  } else {
-    window.location.href = "student-dashboard.html";
-  }
+// 🔒 STRICT CHECK
+if (
+  token &&
+  typeof token === "string" &&
+  token.length > 10 &&
+  user &&
+  (user.role === "teacher" || user.role === "student")
+) {
+  window.location.href =
+    user.role === "teacher"
+      ? "teacher-dashboard.html"
+      : "student-dashboard.html";
 }
-
 const containerEl = document.querySelector(".container");
 const checkboxEl = document.querySelector(
   '.form-container .form-row input[type="checkbox"]',
@@ -40,106 +44,63 @@ const passwordEl = document.querySelector(
 const submitBtn = document.getElementById("submitBtn");
 
 document.getElementById("submitBtn").addEventListener("click", async () => {
-  const teacherId = document.getElementById("teacherId").value.trim();
+
+  if (submitBtn.disabled) return; // ✅ prevent invalid click
+
+  const identifier = document.getElementById("teacherId").value.trim();
   const password = document.getElementById("password").value.trim();
   const errorMsg = document.getElementById("errorMsg");
 
   errorMsg.innerText = "";
 
-  if (!teacherId || !password) {
+  if (!identifier || !password) {
     errorMsg.innerText = "⚠️ Please fill all fields";
     return;
   }
 
   try {
-    const res = await fetch(`${BASE_URL}/api/auth/login`, {
+
+    errorMsg.innerText = "⏳ Logging in...";
+
+    const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        identifier: teacherId,
+        identifier,
         password
       })
     });
 
-    const data = await res.json();
+    let data;
 
-    if (!res.ok) {
-      errorMsg.innerText = data.message || data.error;
-      return;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error("Invalid server response");
     }
 
+    if (!res.ok) {
+      throw new Error(data.message || "Login failed");
+    }
+
+    // ✅ SAVE SESSION
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
 
-    window.location.href = "teacher-dashboard.html";
+    errorMsg.innerText = "✅ Login successful";
+
+    setTimeout(() => {
+      window.location.href = "teacher-dashboard.html";
+    }, 700);
 
   } catch (err) {
-    errorMsg.innerText = "Server error";
+    console.error("LOGIN ERROR:", err);
+    errorMsg.innerText = "❌ " + err.message;
   }
 });
 
-// ================= GOOGLE LOGIN =================
-
-window.handleGoogleLogin = async function (response) {
-  const errorMsg = document.getElementById("errorMsg");
-
-  try {
-    const res = await fetch(`${BASE_URL}/api/auth/google`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        token: response.credential,
-        role: "teacher"
-      })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      errorMsg.innerText = data.error || "Google login failed";
-      return;
-    }
-
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-
-    window.location.href = "teacher-dashboard.html";
-
-  } catch (err) {
-    errorMsg.innerText = "Google login error";
-  }
-};
-
-
-// 👉 BUTTON CLICK HANDLER
-window.triggerGoogleLogin = function () {
-google.accounts.id.renderButton(
-  document.getElementById("googleBtn"),
-  { theme: "outline", size: "large" }
-);
-};
-
-function initGoogle() {
-  if (window.google && google.accounts && google.accounts.id) {
-    google.accounts.id.initialize({
-      client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-      callback: handleGoogleLogin
-    });
-  } else {
-    setTimeout(initGoogle, 500);
-  }
-}
-
-document.addEventListener("DOMContentLoaded", initGoogle);
-
-// ✅ ADD THIS CHECK HERE
-if (!teacherIdEl || !passwordEl || !submitBtn) {
-  console.error("❌ Missing DOM elements");
-}
 const sprayer = document.querySelector(".sprayer");
 const sprayHandContainer = document.querySelector(".spray-hand-container");
 const sprayLines = Array.from(document.querySelectorAll(".spray-line"));

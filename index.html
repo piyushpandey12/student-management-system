@@ -3,14 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Smart Attendance</title>
+
+<!-- GOOGLE FONT (for stylish title like your image) -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600;800&display=swap" rel="stylesheet">
 
 <style>
 *{
     margin:0;
     padding:0;
     box-sizing:border-box;
-    font-family:sans-serif;
+    font-family:'Poppins',sans-serif;
 }
 
 body{
@@ -32,17 +36,28 @@ body{
     box-shadow:0 15px 40px rgba(0,0,0,0.3);
 }
 
-/* TITLE */
+/* TITLE (Styled like modern UI) */
 h1{
     color:white;
-    margin-bottom:10px;
+    font-size:32px;
+    font-weight:800;
+    letter-spacing:1px;
 }
 
+h1 span{
+    display:block;
+    font-size:18px;
+    font-weight:300;
+    color:#ddd;
+    margin-top:5px;
+}
+
+/* TEXT */
 p{
     color:#ddd;
     font-size:14px;
-    margin-bottom:30px;
-    line-height:1.5;
+    margin:30px 0;
+    line-height:1.6;
 }
 
 /* BUTTON */
@@ -74,7 +89,7 @@ p{
     transform:scale(1.05);
 }
 
-/* INFO TEXT */
+/* NOTE */
 .note{
     margin-top:20px;
     font-size:12px;
@@ -87,12 +102,15 @@ p{
 
 <div class="container">
 
-    <h1>Smart Attendance System</h1>
+    <h1>
+        Smart Attendance
+        <span>System</span>
+    </h1>
 
     <p>
-        Select your role to continue.  
-        You will be redirected to signup if you are new,  
-        or login if you already have an account.
+        Select your role to continue.<br>
+        New users will signup automatically,<br>
+        existing users will login securely.
     </p>
 
     <!-- STUDENT -->
@@ -106,50 +124,57 @@ p{
     </button>
 
     <div class="note">
-        Secure access • Role-based dashboard • Easy tracking
+        Secure • Role-based • Fast access
     </div>
 
 </div>
 
 <script>
-// ================= SAFE PARSE =================
+// ================= SAFE USER PARSE =================
 function getUser() {
     try {
-        return JSON.parse(localStorage.getItem("user"));
+        const data = localStorage.getItem("user");
+        return data ? JSON.parse(data) : null;
     } catch {
         return null;
     }
 }
 
-// ================= CHECK TOKEN =================
+// ================= SESSION VALIDATION =================
 const token = localStorage.getItem("token");
 const user = getUser();
 
-// 🔐 Redirect ONLY if valid session exists
-if (token && user && user.role) {
+// 🔒 STRICT VALIDATION
+if (
+    token &&
+    typeof token === "string" &&
+    token.length > 10 &&
+    user &&
+    (user.role === "student" || user.role === "teacher")
+) {
     window.location.href =
         user.role === "teacher"
         ? "teacher-dashboard.html"
         : "student-dashboard.html";
 }
 
-
 // ================= ROLE HANDLER =================
 function handleRole(role){
 
-    // 🔥 Clear old session (prevents auto-login bug)
-    localStorage.clear();
+    // 🔥 Clear ONLY auth-related data (not everything)
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
-    // Save role for next page
+    // Save role
     localStorage.setItem("role", role);
 
     // Redirect
-    if(role === "teacher"){
-        window.location.href = "teacher-signup.html";
-    } else {
-        window.location.href = "signup.html";
-    }
+    window.location.href =
+        role === "teacher"
+        ? "teacher-signup.html"
+        : "signup.html";
 }
 </script>
+
 </body>
 </html>

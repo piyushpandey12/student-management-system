@@ -1,11 +1,6 @@
 # ================= IMPORTS =================
 from flask import Blueprint, request, jsonify
-from backend.services.auth_service import (
-    register_user,
-    login_user,
-    google_login_service,
-    google_signup_service   # ✅ ADD THIS
-)
+from backend.services.auth_service import register_user, login_user
 
 # ================= BLUEPRINT =================
 auth_bp = Blueprint("auth", __name__)
@@ -35,12 +30,18 @@ def register():
                 "message": "Identifier & password required"
             }), 400
 
-        result, status = register_user(identifier, password, role, name)
+        result = register_user(identifier, name, password, role)
+
+        if "error" in result:
+            return jsonify({
+                "status": "error",
+                "message": result["error"]
+            }), 400
 
         return jsonify({
-            "status": "success" if status < 400 else "error",
-            "message": result.get("message") or result.get("error")
-        }), status
+            "status": "success",
+            "message": "User registered successfully"
+        }), 201
 
     except Exception as e:
         return jsonify({
@@ -71,90 +72,17 @@ def login():
                 "message": "Missing credentials"
             }), 400
 
-        result, status = login_user(identifier, password)
+        result = login_user(identifier, password)
 
-        if status >= 400:
+        if "error" in result:
             return jsonify({
                 "status": "error",
-                "message": result.get("error", "Login failed")
-            }), status
+                "message": result["error"]
+            }), 401
 
         return jsonify({
             "status": "success",
-            "token": result["token"],
-            "user": result["user"]
-        }), 200
-
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-
-# =========================================================
-# 🔐 GOOGLE LOGIN (EXISTING)
-# =========================================================
-@auth_bp.route("/google", methods=["POST"])
-def google_login():
-    try:
-        data = request.get_json() or {}
-        token = data.get("token")
-
-        if not token:
-            return jsonify({
-                "status": "error",
-                "message": "Token missing"
-            }), 400
-
-        result, status = google_login_service(token)
-
-        if status >= 400:
-            return jsonify({
-                "status": "error",
-                "message": result.get("error", "Google login failed")
-            }), status
-
-        return jsonify({
-            "status": "success",
-            "token": result["token"],
-            "user": result["user"]
-        }), 200
-
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-
-# =========================================================
-# 🆕 GOOGLE SIGNUP (FIXED)
-# =========================================================
-@auth_bp.route("/google-signup", methods=["POST"])
-def google_signup():
-    try:
-        data = request.get_json() or {}
-        token = data.get("token")
-        role = data.get("role", "student")
-
-        if not token:
-            return jsonify({
-                "status": "error",
-                "message": "Token missing"
-            }), 400
-
-        result, status = google_signup_service(token, role)
-
-        if status >= 400:
-            return jsonify({
-                "status": "error",
-                "message": result.get("error", "Google signup failed")
-            }), status
-
-        return jsonify({
-            "status": "success",
-            "token": result["token"],
+            "token": result["token"],   # 🔥 JWT required here
             "user": result["user"]
         }), 200
 

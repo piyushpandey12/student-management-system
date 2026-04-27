@@ -3,6 +3,7 @@
 import psycopg2
 import os
 from datetime import date
+from psycopg2.extras import RealDictCursor
 
 
 # =========================================
@@ -18,23 +19,49 @@ def get_connection():
 
 
 # =========================================
-# ✅ ADD STUDENT
+# ✅ GET STUDENT DASHBOARD (OPTIMIZED)
 # =========================================
-def add_student(rollno, name):
+def get_student_dashboard(rollno):
     conn = get_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
+        # 🔹 Get student
         cur.execute(
-            "INSERT INTO students (rollno, name) VALUES (%s, %s)",
-            (rollno, name)
+            "SELECT rollno, name FROM students WHERE rollno=%s",
+            (rollno,)
         )
-        conn.commit()
-        return {"success": True}
+        student = cur.fetchone()
 
-    except Exception as e:
-        conn.rollback()
-        return {"error": str(e)}
+        if not student:
+            return {"error": "Student not found"}
+
+        # 🔹 Get marks
+        cur.execute(
+            "SELECT subject, marks FROM marks WHERE rollno=%s",
+            (rollno,)
+        )
+        marks = cur.fetchall()
+
+        # 🔹 Get attendance
+        cur.execute(
+            "SELECT date, status FROM attendance WHERE rollno=%s ORDER BY date",
+            (rollno,)
+        )
+        attendance = cur.fetchall()
+
+        # 📊 Attendance %
+        total = len(attendance)
+        present = sum(1 for a in attendance if a["status"] == "present")
+
+        percentage = round((present / total) * 100, 2) if total > 0 else 0
+
+        return {
+            "student": student,
+            "marks": marks,
+            "attendance": attendance,
+            "attendance_percentage": percentage
+        }
 
     finally:
         cur.close()
@@ -42,123 +69,30 @@ def add_student(rollno, name):
 
 
 # =========================================
-# ✅ GET STUDENT DETAILS
-# =========================================
-def get_student(rollno):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT rollno, name FROM students WHERE rollno=%s",
-        (rollno,)
-    )
-
-    student = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    if not student:
-        return None
-
-    return {
-        "rollno": student[0],
-        "name": student[1]
-    }
-
-
-# =========================================
-# ✅ GET MARKS
-# =========================================
-def get_marks(rollno):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT subject, marks FROM marks WHERE rollno=%s",
-        (rollno,)
-    )
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return [
-        {"subject": r[0], "marks": r[1]}
-        for r in rows
-    ]
-
-
-# =========================================
-# ✅ GET ATTENDANCE
-# =========================================
-def get_attendance(rollno):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT date, status FROM attendance WHERE rollno=%s ORDER BY date",
-        (rollno,)
-    )
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return [
-        {
-            "date": str(r[0]),
-            "status": r[1]
-        }
-        for r in rows
-    ]
-
-
-# =========================================
-# ✅ FULL DASHBOARD DATA
-# =========================================
-def get_student_dashboard(rollno):
-    student = get_student(rollno)
-
-    if not student:
-        return {"error": "Student not found"}
-
-    marks = get_marks(rollno)
-    attendance = get_attendance(rollno)
-
-    # 📊 Attendance %
-    total = len(attendance)
-    present = len([a for a in attendance if a["status"] == "present"])
-
-    percentage = round((present / total) * 100, 2) if total > 0 else 0
-
-    return {
-        "student": student,
-        "marks": marks,
-        "attendance": attendance,
-        "attendance_percentage": percentage
-    }
-
-
-# =========================================
-# ✅ ADD MARKS
+# ✅ ADD MARKS (SAFE UPSERT)
 # =========================================
 def add_marks(rollno, subject, marks, teacher_id=None):
     conn = get_connection()
     cur = conn.cursor()
 
     try:
+        # 🔹 Check student exists
+        cur.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
+        if not cur.fetchone():
+            return {"error": "Student not found"}
+
         cur.execute(
             """
             INSERT INTO marks (rollno, subject, marks, teacher_id)
             VALUES (%s, %s, %s, %s)
             ON CONFLICT (rollno, subject)
-            DO UPDATE SET marks = EXCLUDED.marks
+            DO UPDATE SET 
+                marks = EXCLUDED.marks,
+                teacher_id = EXCLUDED.teacher_id
             """,
             (rollno, subject, marks, teacher_id)
         )
+
         conn.commit()
         return {"success": True}
 
@@ -181,15 +115,23 @@ def mark_attendance(rollno, status, teacher_id=None):
     today = date.today()
 
     try:
+        # 🔹 Validate student
+        cur.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
+        if not cur.fetchone():
+            return {"error": "Student not found"}
+
         cur.execute(
             """
             INSERT INTO attendance (rollno, date, status, teacher_id)
             VALUES (%s, %s, %s, %s)
             ON CONFLICT (rollno, date)
-            DO UPDATE SET status = EXCLUDED.status
+            DO UPDATE SET 
+                status = EXCLUDED.status,
+                teacher_id = EXCLUDED.teacher_id
             """,
             (rollno, today, status.lower(), teacher_id)
         )
+
         conn.commit()
         return {"success": True}
 

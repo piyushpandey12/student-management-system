@@ -8,19 +8,15 @@ DROP TABLE IF EXISTS teachers CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- =========================================
--- 📌 USERS TABLE (FINAL FIXED)
+-- 📌 USERS TABLE (GOOGLE REMOVED)
 -- =========================================
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
 
-    identifier VARCHAR(255) UNIQUE NOT NULL,   -- 🔥 FIXED
-    email VARCHAR(255),
+    identifier VARCHAR(255) UNIQUE NOT NULL,   -- rollno / teacher_id
     name VARCHAR(255),
 
-    password TEXT,                             -- nullable for Google
-    google_id VARCHAR(255) UNIQUE,
-
-    provider VARCHAR(50) DEFAULT 'local',      -- 🔥 IMPORTANT
+    password TEXT NOT NULL,                    -- 🔥 now mandatory
 
     role VARCHAR(10) CHECK (role IN ('student','teacher')) NOT NULL,
 
@@ -31,7 +27,7 @@ CREATE TABLE users (
 -- 📌 STUDENTS TABLE
 -- =========================================
 CREATE TABLE students (
-    rollno VARCHAR(50) PRIMARY KEY,   -- 🔥 increased size
+    rollno VARCHAR(50) PRIMARY KEY,
     user_id INT UNIQUE,
     name VARCHAR(255) NOT NULL CHECK (name <> ''),
 
@@ -99,7 +95,6 @@ CREATE TABLE attendance (
 -- 📌 INDEXES
 -- =========================================
 CREATE INDEX idx_users_identifier ON users(identifier);
-CREATE INDEX idx_users_email ON users(email);
 
 -- =========================================
 -- 📌 FUNCTIONS
@@ -115,8 +110,8 @@ RETURNS VOID AS $$
 DECLARE
     new_user_id INT;
 BEGIN
-    INSERT INTO users (identifier, name, password, role, provider)
-    VALUES (p_roll, p_name, p_password, 'student', 'local')
+    INSERT INTO users (identifier, name, password, role)
+    VALUES (p_roll, p_name, p_password, 'student')
     RETURNING id INTO new_user_id;
 
     INSERT INTO students (rollno, name, user_id)
@@ -140,8 +135,8 @@ RETURNS VOID AS $$
 DECLARE
     new_user_id INT;
 BEGIN
-    INSERT INTO users (identifier, name, password, role, provider)
-    VALUES (p_id, p_name, p_password, 'teacher', 'local')
+    INSERT INTO users (identifier, name, password, role)
+    VALUES (p_id, p_name, p_password, 'teacher')
     RETURNING id INTO new_user_id;
 
     INSERT INTO teachers (teacher_id, name, user_id)

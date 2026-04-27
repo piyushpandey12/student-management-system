@@ -1,7 +1,9 @@
 from flask import Blueprint, jsonify, request, g
 from backend.utils.db import get_connection, release_connection
 from datetime import datetime
+from psycopg2.extras import RealDictCursor
 from backend.utils.auth_utils import login_required, role_required
+
 attendance_bp = Blueprint('attendance', __name__)
 
 
@@ -10,7 +12,7 @@ attendance_bp = Blueprint('attendance', __name__)
 # =========================================================
 @attendance_bp.route("/mark", methods=["POST"])
 @login_required
-@role_required("teacher")   # 🔐 only teacher allowed
+@role_required("teacher")
 def mark_attendance():
 
     data = request.get_json(silent=True) or {}
@@ -19,29 +21,19 @@ def mark_attendance():
     date = data.get("date")
     status = (data.get("status") or "").lower()
 
-    teacher_id = g.user.get("identifier")  # 🔥 from token
+    teacher_id = g.user.get("identifier")
 
     # ✅ VALIDATION
     if not rollno or not date or not status:
-        return jsonify({
-            "status": "error",
-            "message": "rollno, date, status required"
-        }), 400
+        return jsonify({"error": "rollno, date, status required"}), 400
 
-    # ✅ DATE FORMAT
+    if status not in ["present", "absent"]:
+        return jsonify({"error": "Invalid status"}), 400
+
     try:
         datetime.strptime(date, "%Y-%m-%d")
     except ValueError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid date format (YYYY-MM-DD)"
-        }), 400
-
-    if status not in ["present", "absent"]:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid status"
-        }), 400
+        return jsonify({"error": "Invalid date format (YYYY-MM-DD)"}), 400
 
     db = None
     cursor = None
@@ -50,7 +42,12 @@ def mark_attendance():
         db = get_connection()
         cursor = db.cursor()
 
-        # ✅ CALL DB FUNCTION (BEST PRACTICE)
+        # 🔒 CHECK STUDENT EXISTS
+        cursor.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
+        if not cursor.fetchone():
+            return jsonify({"error": "Student not found"}), 404
+
+        # ✅ CALL DB FUNCTION
         cursor.execute(
             "SELECT mark_attendance(%s, %s, %s, %s)",
             (rollno, date, status, teacher_id)
@@ -69,7 +66,7 @@ def mark_attendance():
 
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "Failed to mark attendance"
         }), 500
 
     finally:
@@ -80,13 +77,13 @@ def mark_attendance():
 
 
 # =========================================================
-# 📌 GET ATTENDANCE (SECURE)
+# 📌 GET ATTENDANCE
 # =========================================================
 @attendance_bp.route("/<rollno>", methods=["GET"])
 @login_required
 def get_attendance(rollno):
 
-    # 🔐 student can only see their own data
+    # 🔐 Access control
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -95,7 +92,7 @@ def get_attendance(rollno):
 
     try:
         db = get_connection()
-        cursor = db.cursor()
+        cursor = db.cursor(cursor_factory=RealDictCursor)
 
         cursor.execute("""
             SELECT date, status
@@ -110,18 +107,15 @@ def get_attendance(rollno):
             "status": "success",
             "data": [
                 {
-                    "date": r[0].strftime("%Y-%m-%d"),
-                    "status": r[1]
+                    "date": r["date"].strftime("%Y-%m-%d"),
+                    "status": r["status"]
                 }
                 for r in rows
             ]
         })
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"error": "Failed to fetch attendance"}), 500
 
     finally:
         if cursor:
@@ -131,7 +125,7 @@ def get_attendance(rollno):
 
 
 # =========================================================
-# 📌 ATTENDANCE STATS (WITH ANALYSIS)
+# 📌 ATTENDANCE STATS
 # =========================================================
 @attendance_bp.route("/stats/<rollno>", methods=["GET"])
 @login_required
@@ -149,8 +143,8 @@ def attendance_stats(rollno):
 
         cursor.execute("""
             SELECT 
-                COUNT(*) FILTER (WHERE status='present'),
-                COUNT(*)
+                COUNT(*) FILTER (WHERE status='present') AS present,
+                COUNT(*) AS total
             FROM attendance
             WHERE rollno = %s
         """, (rollno,))
@@ -162,7 +156,7 @@ def attendance_stats(rollno):
 
         percentage = round((present / total) * 100, 2) if total else 0
 
-        # 🔥 ADD ANALYSIS MESSAGE
+        # 📊 ANALYSIS
         if percentage >= 75:
             remark = "Good attendance"
         elif percentage >= 50:
@@ -180,11 +174,8 @@ def attendance_stats(rollno):
             }
         })
 
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+    except Exception:
+        return jsonify({"error": "Failed to fetch stats"}), 500
 
     finally:
         if cursor:

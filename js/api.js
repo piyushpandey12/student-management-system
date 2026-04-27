@@ -1,11 +1,11 @@
 // =========================================================
-// 🌐 BASE URL
+// 🌐 BASE URL (UNIFIED)
 // =========================================================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
   window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "https://student-management-system-api-cznx.onrender.com";
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
 
 // =========================================================
@@ -81,7 +81,7 @@ async function handleResponse(res) {
 // 🔐 AUTH APIs
 // =========================================================
 export async function loginUser(data) {
-  const res = await fetchWithTimeout(`${BASE_URL}/api/auth/login`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
@@ -99,7 +99,7 @@ export async function loginUser(data) {
 
 
 export async function registerUser(data) {
-  const res = await fetchWithTimeout(`${BASE_URL}/api/auth/register`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
@@ -110,36 +110,10 @@ export async function registerUser(data) {
 
 
 // =========================================================
-// 🔥 GOOGLE AUTH (ONLY ONE FUNCTION - FINAL)
-// =========================================================
-export async function googleAuth(credential, role) {
-  if (!credential) throw new Error("Google credential missing");
-
-  const res = await fetchWithTimeout(`${BASE_URL}/api/auth/google`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      token: credential,
-      role
-    })
-  });
-
-  const result = await handleResponse(res);
-
-  if (!result.token) throw new Error("Google login failed");
-
-  localStorage.setItem("token", result.token);
-  localStorage.setItem("user", JSON.stringify(result.user));
-
-  return result;
-}
-
-
-// =========================================================
 // 👨‍🎓 STUDENT APIs
 // =========================================================
 export async function getStudents() {
-  const res = await fetchWithTimeout(`${BASE_URL}/api/students`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/students`, {
     headers: getAuthHeaders()
   });
 
@@ -148,7 +122,7 @@ export async function getStudents() {
 
 
 export async function addStudentAPI(data) {
-  const res = await fetchWithTimeout(`${BASE_URL}/api/students`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/students`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(data)
@@ -159,7 +133,7 @@ export async function addStudentAPI(data) {
 
 
 export async function deleteStudentAPI(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/api/students/${rollno}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/students/${rollno}`, {
     method: "DELETE",
     headers: getAuthHeaders()
   });
@@ -175,7 +149,7 @@ export async function markAttendanceAPI(rollno, date, status) {
   const user = getUser();
   if (!user) throw new Error("Session expired");
 
-  const res = await fetchWithTimeout(`${BASE_URL}/api/attendance/mark`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/attendance/mark`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({
@@ -191,7 +165,7 @@ export async function markAttendanceAPI(rollno, date, status) {
 
 
 export async function getAttendanceStats(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/api/attendance/stats/${rollno}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/attendance/stats/${rollno}`, {
     headers: getAuthHeaders()
   });
 
@@ -206,7 +180,7 @@ export async function addMarksAPI(rollno, subject, marks) {
   const user = getUser();
   if (!user) throw new Error("Session expired");
 
-  const res = await fetchWithTimeout(`${BASE_URL}/api/marks/update`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/marks/update`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({
@@ -222,7 +196,7 @@ export async function addMarksAPI(rollno, subject, marks) {
 
 
 export async function getMarksStats(rollno) {
-  const res = await fetchWithTimeout(`${BASE_URL}/api/marks/stats/${rollno}`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/marks/stats/${rollno}`, {
     headers: getAuthHeaders()
   });
 
