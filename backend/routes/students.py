@@ -1,5 +1,8 @@
-# ================= IMPORTS =================
+# =========================================================
+# 📌 IMPORTS
+# =========================================================
 from flask import Blueprint, request, jsonify, g
+import logging
 
 from backend.services.student_service import (
     get_all_students,
@@ -11,6 +14,7 @@ from backend.services.student_service import (
 from backend.utils.auth_utils import login_required, role_required
 
 students_bp = Blueprint("students", __name__)
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
@@ -30,18 +34,21 @@ def get_students():
     result, status = get_all_students(page, limit)
 
     if status >= 400:
-        return jsonify({"error": result.get("error", "Failed to fetch students")}), status
+        return jsonify({
+            "status": "error",
+            "message": result.get("error", "Failed to fetch students")
+        }), status
 
     return jsonify({
         "status": "success",
-        "data": result["data"],
+        "data": result.get("data", []),
         "page": page,
         "limit": limit
     }), 200
 
 
 # =========================================================
-# 📌 ADD STUDENT
+# 📌 ADD STUDENT (FINAL FIXED)
 # =========================================================
 @students_bp.route("/", methods=["POST"])
 @login_required
@@ -52,25 +59,45 @@ def add_student():
 
     name = (data.get("name") or "").strip()
     rollno = (data.get("rollno") or "").strip().lower()
-    password = data.get("password")  # 🔥 now dynamic
+    password = (data.get("password") or "").strip()
 
+    # =========================================================
+    # ✅ VALIDATION
+    # =========================================================
     if not name or not rollno or not password:
-        return jsonify({"error": "name, rollno, password required"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "name, rollno, password required"
+        }), 400
 
-    # 🔒 basic validation
     if len(password) < 6:
-        return jsonify({"error": "Password must be at least 6 characters"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "Password must be at least 6 characters"
+        }), 400
 
-    result, status = create_student(rollno, name, password)
+    try:
+        result, status = create_student(rollno, name, password)
 
-    if status >= 400:
-        return jsonify({"error": result.get("error", "Failed to add student")}), status
+        if status >= 400:
+            return jsonify({
+                "status": "error",
+                "message": result.get("error", "Failed to add student")
+            }), status
 
-    return jsonify({
-        "status": "success",
-        "message": result.get("message", "Student added successfully"),
-        "rollno": rollno
-    }), status
+        return jsonify({
+            "status": "success",
+            "message": result.get("message", "Student added successfully"),
+            "rollno": rollno
+        }), 201
+
+    except Exception as e:
+        logger.error(f"🔥 Add Student Error: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": "Internal server error"
+        }), 500
 
 
 # =========================================================
@@ -83,15 +110,27 @@ def delete_student(rollno):
 
     rollno = rollno.strip().lower()
 
-    result, status = remove_student(rollno)
+    try:
+        result, status = remove_student(rollno)
 
-    if status >= 400:
-        return jsonify({"error": result.get("error", "Failed to delete student")}), status
+        if status >= 400:
+            return jsonify({
+                "status": "error",
+                "message": result.get("error", "Failed to delete student")
+            }), status
 
-    return jsonify({
-        "status": "success",
-        "message": result.get("message", "Deleted successfully")
-    }), status
+        return jsonify({
+            "status": "success",
+            "message": result.get("message", "Deleted successfully")
+        }), 200
+
+    except Exception as e:
+        logger.error(f"🔥 Delete Error: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": "Internal server error"
+        }), 500
 
 
 # =========================================================
@@ -103,16 +142,31 @@ def student_dashboard(rollno):
 
     rollno = rollno.strip().lower()
 
-    # 🔐 Access control
+    # 🔐 ACCESS CONTROL
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
-        return jsonify({"error": "Unauthorized"}), 403
+        return jsonify({
+            "status": "error",
+            "message": "Unauthorized"
+        }), 403
 
-    result, status = get_student_dashboard_data(rollno)
+    try:
+        result, status = get_student_dashboard_data(rollno)
 
-    if status >= 400:
-        return jsonify({"error": result.get("error", "Failed to load dashboard")}), status
+        if status >= 400:
+            return jsonify({
+                "status": "error",
+                "message": result.get("error", "Failed to load dashboard")
+            }), status
 
-    return jsonify({
-        "status": "success",
-        "data": result
-    }), 200
+        return jsonify({
+            "status": "success",
+            "data": result
+        }), 200
+
+    except Exception as e:
+        logger.error(f"🔥 Dashboard Error: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": "Internal server error"
+        }), 500

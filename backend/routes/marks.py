@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# 📌 ADD / UPDATE MARKS (FIXED)
+# 📌 ADD / UPDATE MARKS (FINAL FIX - NO ON CONFLICT)
 # =========================================================
 @marks_bp.route("/update", methods=["POST"])
 @login_required
@@ -50,15 +50,26 @@ def update_marks():
         if not cursor.fetchone():
             return jsonify({"error": "Student not found"}), 404
 
-        # ✅ UPSERT (PER SUBJECT)
+        # =========================================================
+        # ✅ MANUAL UPSERT (NO DB CONSTRAINT NEEDED)
+        # =========================================================
         cursor.execute("""
-            INSERT INTO marks (rollno, subject, marks, teacher_id)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (rollno, subject)
-            DO UPDATE SET
-                marks = EXCLUDED.marks,
-                teacher_id = EXCLUDED.teacher_id
-        """, (rollno, subject, marks, teacher_id))
+            SELECT 1 FROM marks WHERE rollno=%s AND subject=%s
+        """, (rollno, subject))
+
+        if cursor.fetchone():
+            # 🔄 UPDATE
+            cursor.execute("""
+                UPDATE marks
+                SET marks=%s, teacher_id=%s
+                WHERE rollno=%s AND subject=%s
+            """, (marks, teacher_id, rollno, subject))
+        else:
+            # ➕ INSERT
+            cursor.execute("""
+                INSERT INTO marks (rollno, subject, marks, teacher_id)
+                VALUES (%s, %s, %s, %s)
+            """, (rollno, subject, marks, teacher_id))
 
         db.commit()
 

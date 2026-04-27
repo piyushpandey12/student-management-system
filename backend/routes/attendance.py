@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# 📌 MARK ATTENDANCE (FIXED)
+# 📌 MARK ATTENDANCE (FINAL FIX)
 # =========================================================
 @attendance_bp.route("/mark", methods=["POST"])
 @login_required
@@ -25,7 +25,6 @@ def mark_attendance():
     rollno = (data.get("rollno") or "").strip().lower()
     date = data.get("date")
     status = (data.get("status") or "").strip().lower()
-
     teacher_id = g.user.get("identifier")
 
     # ✅ VALIDATION
@@ -52,11 +51,25 @@ def mark_attendance():
         if not cursor.fetchone():
             return jsonify({"error": "Student not found"}), 404
 
-        # ✅ UPSERT ATTENDANCE
-        cursor.execute(
-            "SELECT mark_attendance(%s, %s, %s, %s)",
-            (rollno, date, status, teacher_id)
-        )
+        # ✅ UPSERT LOGIC (NO FUNCTION)
+        cursor.execute("""
+            SELECT 1 FROM attendance
+            WHERE rollno=%s AND date=%s
+        """, (rollno, date))
+
+        if cursor.fetchone():
+            # UPDATE
+            cursor.execute("""
+                UPDATE attendance
+                SET status=%s, teacher_id=%s
+                WHERE rollno=%s AND date=%s
+            """, (status, teacher_id, rollno, date))
+        else:
+            # INSERT
+            cursor.execute("""
+                INSERT INTO attendance (rollno, date, status, teacher_id)
+                VALUES (%s, %s, %s, %s)
+            """, (rollno, date, status, teacher_id))
 
         db.commit()
 
@@ -73,7 +86,7 @@ def mark_attendance():
 
         return jsonify({
             "status": "error",
-            "message": str(e)   # ✅ show real error
+            "message": str(e)
         }), 500
 
     finally:
@@ -171,21 +184,12 @@ def attendance_stats(rollno):
 
         percentage = round((present / total) * 100, 2) if total else 0
 
-        # 📊 ANALYSIS
-        if percentage >= 75:
-            remark = "Good attendance"
-        elif percentage >= 50:
-            remark = "Average attendance"
-        else:
-            remark = "Low attendance"
-
         return jsonify({
             "status": "success",
             "data": {
                 "present": present,
                 "total": total,
-                "percentage": percentage,
-                "remark": remark
+                "percentage": percentage
             }
         }), 200
 
