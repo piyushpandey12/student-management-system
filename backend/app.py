@@ -16,13 +16,13 @@ logger.info("🔥 App is starting...")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
-# ================= CORS =================
+# ================= CORS CONFIG =================
 CORS(
     app,
     resources={
         r"/api/*": {
             "origins": [
-                "https://student-management-system-8jil.vercel.app",
+                "https://student-management-system-z317-hbp99h9ag.vercel.app",
                 "http://localhost:5500",
                 "http://127.0.0.1:5500"
             ]
@@ -31,10 +31,39 @@ CORS(
     supports_credentials=True
 )
 
+# ================= FORCE CORS HEADERS =================
+@app.after_request
+def after_request(response):
+    origin = request.headers.get("Origin")
+
+    allowed_origins = [
+        "https://student-management-system-z317-hbp99h9ag.vercel.app",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500"
+    ]
+
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+
+    return response
+
+
+# ================= HANDLE PREFLIGHT (CRITICAL) =================
+@app.route("/api/<path:path>", methods=["OPTIONS"])
+def handle_options(path):
+    return jsonify({"status": "ok"}), 200
+
+
 # ================= REQUEST LOGGING =================
 @app.before_request
 def log_request():
     logger.info(f"{request.method} {request.path}")
+
 
 # ================= IMPORT BLUEPRINTS =================
 try:
@@ -49,7 +78,8 @@ except Exception as e:
     logger.error("❌ Import Error: %s", str(e))
     raise
 
-# ================= INIT DB (LAZY SAFE) =================
+
+# ================= INIT DB =================
 @app.before_first_request
 def setup():
     try:
@@ -58,6 +88,7 @@ def setup():
     except Exception as e:
         logger.error("❌ DB Init Failed: %s", str(e))
         raise
+
 
 # ================= REGISTER BLUEPRINTS =================
 try:
@@ -71,6 +102,7 @@ try:
 except Exception as e:
     logger.error("❌ Blueprint Register Error: %s", str(e))
     raise
+
 
 # ================= ROUTES =================
 @app.route("/")
