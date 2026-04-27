@@ -27,7 +27,6 @@ def get_all_students(page=1, limit=50):
         """, (limit, offset))
 
         rows = cursor.fetchall()
-
         return {"data": rows}, 200
 
     except Exception as e:
@@ -39,7 +38,7 @@ def get_all_students(page=1, limit=50):
 
 
 # =========================================================
-# ➕ CREATE STUDENT (FINAL FIX + PASSWORD VALIDATION)
+# ➕ CREATE STUDENT (FINAL FIX)
 # =========================================================
 def create_student(rollno, name, password):
     conn = None
@@ -55,32 +54,25 @@ def create_student(rollno, name, password):
         conn = get_connection()
         cur = get_cursor(conn)
 
-        # 🔍 check existing user
+        # 🔍 CHECK EXISTING USER
         cur.execute("SELECT id FROM users WHERE identifier=%s", (rollno,))
         if cur.fetchone():
             return {"error": "Student already exists"}, 400
 
-        # 🔐 hash password
+        # 🔐 HASH PASSWORD
         hashed = hash_password(password)
 
-        # ✅ insert into users
+        # ✅ INSERT INTO USERS
         cur.execute("""
             INSERT INTO users (identifier, name, password, role)
             VALUES (%s, %s, %s, 'student')
-            RETURNING id
         """, (rollno, name, hashed))
 
-        row = cur.fetchone()
-        if not row or "id" not in row:
-            raise Exception("User creation failed")
-
-        user_id = row["id"]
-
-        # ✅ insert into students
+        # ✅ INSERT INTO STUDENTS (FIXED — NO user_id)
         cur.execute("""
-         INSERT INTO students (rollno, name)
-          VALUES (%s, %s)
-        """, (rollno, name, user_id))
+            INSERT INTO students (rollno, name)
+            VALUES (%s, %s)
+        """, (rollno, name))
 
         conn.commit()
 
@@ -175,7 +167,9 @@ def get_student_dashboard_data(rollno):
             "student": student,
             "marks": marks,
             "average_marks": round(avg_marks, 2),
-            "attendance_percent": attendance_percent
+            "attendance_percent": attendance_percent,
+            "present_days": present,
+            "total_days": total
         }, 200
 
     except Exception as e:
