@@ -16,17 +16,20 @@ logger.info("🔥 App is starting...")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
+# 🔥🔥🔥 CRITICAL FIX (NO MORE REDIRECT → NO MORE CORS ERROR)
+app.url_map.strict_slashes = False
+
 
 # =========================================================
 # 🌐 CORS (FINAL FIX)
 # =========================================================
 CORS(
     app,
-    resources={r"/api/*": {"origins": "*"}},   # 🔥 allow all (safe for now)
+    resources={r"/api/*": {"origins": "*"}},
     supports_credentials=True
 )
 
-# 🔥 FORCE HEADERS (CRITICAL FOR VERCEL)
+# 🔥 FORCE HEADERS
 @app.after_request
 def after_request(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -35,14 +38,14 @@ def after_request(response):
     return response
 
 
-# 🔥 HANDLE PREFLIGHT (MOST IMPORTANT FIX)
+# 🔥 PREFLIGHT FIX (VERY IMPORTANT)
 @app.route("/api/<path:path>", methods=["OPTIONS"])
 def options_handler(path):
     return "", 200
 
 
 # =========================================================
-# 📦 IMPORT BLUEPRINTS (MUST BE BEFORE REGISTER)
+# 📦 IMPORT BLUEPRINTS
 # =========================================================
 try:
     from backend.routes.auth import auth_bp
@@ -69,7 +72,7 @@ logger.info("✅ Blueprints registered")
 
 
 # =========================================================
-# 🗄️ INIT DB (FLASK 3 SAFE)
+# 🗄️ INIT DB
 # =========================================================
 def setup_db():
     try:

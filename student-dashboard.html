@@ -16,30 +16,16 @@ body{background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);color:#fff}
 .sidebar h2{margin-bottom:30px}
 .sidebar button{width:100%;padding:12px;margin:8px 0;border:none;border-radius:12px;background:rgba(255,255,255,0.12);color:#fff;cursor:pointer}
 .main{flex:1;padding:25px}
-.nav{display:flex;justify-content:space-between;margin-bottom:20px}
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
 .card{padding:20px;border-radius:15px;background:rgba(255,255,255,0.1)}
 .charts{display:flex;gap:30px;margin-top:20px}
 canvas{background:rgba(255,255,255,0.1);padding:15px;border-radius:15px}
 table{width:100%;margin-top:20px}
 td,th{padding:10px;text-align:left}
-#calendar{margin-top:15px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+#calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:10px}
 .day{padding:10px;text-align:center;border-radius:10px;background:rgba(255,255,255,0.1)}
 .present{background:#00ff88;color:black}
 .absent{background:#ff4d4d}
-
-/* NEW INFO BLOCKS */
-.extra{
-    margin-top:20px;
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:15px;
-}
-.box{
-    background:rgba(255,255,255,0.1);
-    padding:15px;
-    border-radius:12px;
-}
 </style>
 </head>
 
@@ -48,45 +34,32 @@ td,th{padding:10px;text-align:left}
 <div class="container">
 
 <div class="sidebar">
-    <h2>Student</h2>
-    <button onclick="show('dashboard')">Dashboard</button>
-    <button onclick="show('marks')">Marks</button>
-    <button onclick="logout()">Logout</button>
+<h2>Student</h2>
+<button onclick="show('dashboard')">Dashboard</button>
+<button onclick="show('marks')">Marks</button>
+<button onclick="logout()">Logout</button>
 </div>
 
 <div class="main">
 
-<div class="nav">
-    <h2 id="welcome">Welcome</h2>
-</div>
+<h2 id="welcome"></h2>
 
 <div class="cards">
-    <div class="card">Attendance %<br><b id="att">0%</b></div>
-    <div class="card">Present Days<br><b id="present">0</b></div>
-    <div class="card">Total Days<br><b id="total">0</b></div>
-    <div class="card">🔥 Streak<br><b id="streak">0</b></div>
+<div class="card">Attendance %<br><b id="att">0%</b></div>
+<div class="card">Present<br><b id="present">0</b></div>
+<div class="card">Total<br><b id="total">0</b></div>
+<div class="card">Avg Marks<br><b id="avg">0</b></div>
 </div>
 
 <div id="dashboard">
 
 <div class="charts">
-    <canvas id="attendanceChart"></canvas>
-    <canvas id="marksChart"></canvas>
+<canvas id="attendanceChart"></canvas>
+<canvas id="marksChart"></canvas>
 </div>
 
-<canvas id="weeklyChart" style="margin-top:20px;"></canvas>
-
-<div>
-<h3>Attendance Calendar</h3>
+<h3>Calendar</h3>
 <div id="calendar"></div>
-</div>
-
-<!-- ✅ YOUR NEW DIVS NOW USED -->
-<div class="extra">
-    <div class="box"><h4>Students</h4><div id="studentsList"></div></div>
-    <div class="box"><h4>Attendance</h4><div id="attendance"></div></div>
-    <div class="box"><h4>Marks</h4><div id="marks"></div></div>
-</div>
 
 </div>
 
@@ -103,24 +76,21 @@ td,th{padding:10px;text-align:left}
 
 <script>
 
-// ================= SAFE AUTH =================
-function getUser(){
-    try {
-        return JSON.parse(localStorage.getItem("user"));
-    } catch {
-        return null;
-    }
+// ================= AUTH =================
+function logout(msg){
+  if(msg) alert(msg);
+  localStorage.clear();
+  window.location.href="login.html";
 }
 
 const token = localStorage.getItem("token");
-const user = getUser();
+const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-if (!token || !user || !user.identifier) {
-    logout("Session expired");
+if(!token || !user.identifier){
+  logout("Session expired");
 }
 
-const rollno = user.identifier;
-document.getElementById("welcome").innerText = "Welcome " + rollno;
+document.getElementById("welcome").innerText = "Welcome " + user.identifier;
 
 
 // ================= BASE URL =================
@@ -130,69 +100,40 @@ const BASE_URL =
     : "https://student-management-system-api-cznx.onrender.com/api";
 
 
-// ================= HEADERS =================
-function getHeaders(){
-    return {
-        "Content-Type":"application/json",
-        "Authorization":"Bearer "+token
-    };
-}
-
-
-// ================= RESPONSE HANDLER =================
-async function handleResponse(res){
-    let data;
-
-    try {
-        data = await res.json();
-    } catch {
-        throw new Error("Invalid server response");
+// ================= FETCH =================
+async function api(url){
+  const res = await fetch(url,{
+    headers:{
+      "Authorization":"Bearer "+token
     }
+  });
 
-    if(res.status === 401){
-        logout("Session expired");
-    }
+  if(res.status===401) logout("Session expired");
 
-    if(!res.ok){
-        throw new Error(data.message || "Something went wrong");
-    }
+  const data = await res.json().catch(()=>({}));
 
-    return data;
+  if(!res.ok) throw new Error(data.message || "Error");
+
+  return data;
 }
 
 
 // ================= DASHBOARD =================
 async function loadDashboard(){
-    try{
-        const res = await fetch(`${BASE_URL}/students/dashboard/${rollno}`, {
-            headers:getHeaders()
-        });
 
-        const data = await handleResponse(res);
-        const d = data.data || {};
+  const data = await api(`${BASE_URL}/students/dashboard/${user.identifier}`);
+  const d = data.data;
 
-        document.getElementById("att").innerText = (d.attendance_percent || 0) + "%";
-        document.getElementById("present").innerText = d.present_days || 0;
-        document.getElementById("total").innerText = d.total_days || 0;
+  document.getElementById("att").innerText = d.attendance_percent + "%";
+  document.getElementById("present").innerText = d.attendance.present;
+  document.getElementById("total").innerText = d.attendance.total;
+  document.getElementById("avg").innerText = d.average_marks;
 
-        // marks table
-        document.getElementById("marksList").innerHTML =
-            (d.marks || []).map(m =>
-                `<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`
-            ).join("");
+  // marks table
+  document.getElementById("marksList").innerHTML =
+    d.marks.map(m=>`<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
 
-        // extra blocks
-        document.getElementById("studentsList").innerText = rollno;
-        document.getElementById("attendance").innerText = (d.attendance_percent || 0) + "%";
-        document.getElementById("marks").innerText =
-            (d.marks || []).reduce((a,b)=>a + b.marks, 0);
-
-        drawCharts(d);
-
-    }catch(err){
-        console.error(err);
-        alert(err.message);
-    }
+  drawCharts(d);
 }
 
 
@@ -201,74 +142,59 @@ let aChart, mChart;
 
 function drawCharts(d){
 
-    const present = d.present_days || 0;
-    const total = d.total_days || 0;
+  if(aChart) aChart.destroy();
+  if(mChart) mChart.destroy();
 
-    if(aChart) aChart.destroy();
-    if(mChart) mChart.destroy();
+  aChart = new Chart(attendanceChart,{
+    type:'pie',
+    data:{
+      labels:['Present','Absent'],
+      datasets:[{
+        data:[
+          d.attendance.present,
+          d.attendance.total - d.attendance.present
+        ]
+      }]
+    }
+  });
 
-    aChart = new Chart(document.getElementById("attendanceChart"), {
-        type:'pie',
-        data:{
-            labels:['Present','Absent'],
-            datasets:[{
-                data:[present, Math.max(total - present, 0)]
-            }]
-        }
-    });
-
-    mChart = new Chart(document.getElementById("marksChart"), {
-        type:'bar',
-        data:{
-            labels:(d.marks || []).map(m=>m.subject),
-            datasets:[{
-                data:(d.marks || []).map(m=>m.marks)
-            }]
-        }
-    });
+  mChart = new Chart(marksChart,{
+    type:'bar',
+    data:{
+      labels:d.marks.map(m=>m.subject),
+      datasets:[{
+        data:d.marks.map(m=>m.marks)
+      }]
+    }
+  });
 }
 
 
 // ================= CALENDAR =================
 async function loadCalendar(){
-    try{
-        const res = await fetch(`${BASE_URL}/attendance/${rollno}`, {
-            headers:getHeaders()
-        });
 
-        const data = await handleResponse(res);
+  const res = await api(`${BASE_URL}/attendance/${user.identifier}`);
+  const data = res.data;
 
-        const cal = document.getElementById("calendar");
-        cal.innerHTML = "";
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
 
-        (data.data || []).forEach(r=>{
-            const div = document.createElement("div");
-            div.className = "day " + (r.status || "");
-            div.innerText = r.date ? r.date.split("-")[2] : "";
-            cal.appendChild(div);
-        });
-
-    }catch(err){
-        console.error(err);
-    }
+  data.forEach(r=>{
+    const div=document.createElement("div");
+    div.className="day "+r.status;
+    div.innerText=r.date.split("-")[2];
+    cal.appendChild(div);
+  });
 }
 
 
 // ================= NAV =================
 function show(id){
-    document.getElementById("dashboard").style.display =
-        id === "dashboard" ? "block" : "none";
+  document.getElementById("dashboard").style.display =
+    id==="dashboard"?"block":"none";
 
-    document.getElementById("marksSection").style.display =
-        id === "marks" ? "block" : "none";
-}
-
-
-// ================= LOGOUT =================
-function logout(msg){
-    if(msg) alert(msg);
-    localStorage.clear();
-    window.location.href="login.html";
+  document.getElementById("marksSection").style.display =
+    id==="marks"?"block":"none";
 }
 
 
@@ -277,5 +203,6 @@ loadDashboard();
 loadCalendar();
 
 </script>
+
 </body>
 </html>

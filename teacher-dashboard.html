@@ -48,7 +48,6 @@ th,td{padding:10px;text-align:left;}
 
 <div class="grid">
 
-<!-- ADD STUDENT -->
 <div class="card">
 <h3>➕ Add Student</h3>
 <div class="input-group">
@@ -59,7 +58,6 @@ th,td{padding:10px;text-align:left;}
 </div>
 </div>
 
-<!-- ATTENDANCE -->
 <div class="card">
 <h3>📅 Attendance</h3>
 <div class="input-group">
@@ -73,24 +71,18 @@ th,td{padding:10px;text-align:left;}
 </div>
 </div>
 
-<!-- MARKS -->
 <div class="card">
 <h3>📊 Marks</h3>
 <div class="input-group">
 <input id="rollMarks" placeholder="Roll No">
 
 <select id="subject">
+<option value="">Select Subject</option>
 <option>Big Data Analytics</option>
-<option>Big Data Analytics Lab</option>
 <option>Cloud Computing</option>
-<option>Cloud Computing Lab</option>
-<option>Engineering Aptitude - III</option>
-<option>Functional English - III</option>
-<option>Information Security</option>
 <option>Machine Learning</option>
-<option>Machine Learning Lab</option>
-<option>Mobile Application Development</option>
-<option>Mobile Application Development Lab</option>
+<option>Information Security</option>
+<option>Mobile App Development</option>
 </select>
 
 <input id="marks" placeholder="Marks">
@@ -98,7 +90,6 @@ th,td{padding:10px;text-align:left;}
 </div>
 </div>
 
-<!-- STUDENTS TABLE -->
 <div class="card" style="grid-column:1/-1">
 <h3>📋 Students</h3>
 <table id="table">
@@ -119,13 +110,11 @@ th,td{padding:10px;text-align:left;}
 </div>
 
 <script>
-// =========================================================
-// 🔐 AUTH (SAFE)
-// =========================================================
+// ================= AUTH =================
 function logout(msg){
     alert(msg);
     localStorage.clear();
-    window.location.href = "teacher-login.html";
+    window.location.href="teacher-login.html";
 }
 
 const token = localStorage.getItem("token");
@@ -145,204 +134,170 @@ if(payload.exp && payload.exp < Date.now()/1000){
 const user = { identifier: payload.identifier };
 
 
-// =========================================================
-// 🌐 BASE URL
-// =========================================================
+// ================= BASE URL =================
 const BASE_URL =
   window.location.hostname === "localhost"
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-system-api-cznx.onrender.com/api";
 
 
-// =========================================================
-// 📡 API HELPER
-// =========================================================
-async function api(url, options = {}){
-    const res = await fetch(url, {
+// ================= API =================
+async function api(url, options={}){
+    const res = await fetch(url,{
         ...options,
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token,
-            ...(options.headers || {})
+        headers:{
+            "Content-Type":"application/json",
+            "Authorization":"Bearer "+token
         }
     });
 
-    if(res.status === 401){
-        logout("Session expired");
-    }
+    if(res.status===401) logout("Session expired");
 
     const data = await res.json().catch(()=>({}));
 
     if(!res.ok){
-        throw new Error(data.message || data.error || "Request failed");
+        throw new Error(data.message || data.error || "Error");
     }
 
     return data;
 }
 
 
-// =========================================================
-// 📋 LOAD STUDENTS
-// =========================================================
+// ================= LOAD STUDENTS =================
 async function loadStudents(){
     try{
         const res = await api(`${BASE_URL}/students`);
         const students = res.data || [];
 
-        let html = "";
+        document.querySelector("#table tbody").innerHTML =
+        students.map(s=>{
+            let grade="C";
+            if(s.avg_marks>90) grade="A";
+            else if(s.avg_marks>70) grade="B";
 
-        students.forEach(s=>{
-            let grade = "C";
-            if(s.avg_marks > 90) grade = "A";
-            else if(s.avg_marks > 70) grade = "B";
-
-            html += `
+            return `
             <tr>
                 <td>${s.rollno}</td>
                 <td>${s.name}</td>
                 <td>${s.avg_marks || 0}</td>
                 <td class="grade${grade}">${grade}</td>
-                <td>
-                    <button onclick="deleteStudent('${s.rollno}')">Delete</button>
-                </td>
+                <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
             </tr>`;
-        });
+        }).join("");
 
-        document.querySelector("#table tbody").innerHTML = html;
-
-    }catch(err){
-        console.error("Load error:", err);
+    }catch(e){
+        console.error("Load error:", e);
     }
 }
 
 
-// =========================================================
-// ➕ ADD STUDENT
-// =========================================================
+// ================= ADD STUDENT =================
 async function addStudent(){
-    const name = document.getElementById("name").value.trim();
-    const roll = document.getElementById("roll").value.trim();
-    const password = document.getElementById("password").value.trim();
+    const name=document.getElementById("name").value.trim();
+    const roll=document.getElementById("roll").value.trim();
+    const password=document.getElementById("password").value.trim();
 
     if(!name || !roll || !password){
         return alert("Fill all fields");
     }
 
     try{
-        await api(`${BASE_URL}/students`, {
-            method: "POST",
-            body: JSON.stringify({
-                name,
-                rollno: roll,
-                password
-            })
+        await api(`${BASE_URL}/students`,{
+            method:"POST",
+            body:JSON.stringify({ name, rollno:roll, password })
         });
 
-        alert("Student added successfully");
+        alert("Student added");
 
-        // clear
-        document.getElementById("name").value = "";
-        document.getElementById("roll").value = "";
-        document.getElementById("password").value = "";
+        document.getElementById("name").value="";
+        document.getElementById("roll").value="";
+        document.getElementById("password").value="";
 
         loadStudents();
 
-    }catch(err){
-        alert(err.message);
+    }catch(e){
+        alert(e.message);
     }
 }
 
 
-// =========================================================
-// ❌ DELETE STUDENT
-// =========================================================
+// ================= DELETE =================
 async function deleteStudent(roll){
     try{
-        await api(`${BASE_URL}/students/${roll}`, {
-            method: "DELETE"
-        });
-
+        await api(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
         loadStudents();
-
-    }catch(err){
-        alert(err.message);
+    }catch(e){
+        alert(e.message);
     }
 }
 
 
-// =========================================================
-// 📅 ATTENDANCE
-// =========================================================
+// ================= ATTENDANCE =================
 async function markAttendance(){
-    const roll = document.getElementById("rollAtt").value.trim();
-    const date = document.getElementById("date").value;
-    const status = document.getElementById("status").value;
+    const roll=document.getElementById("rollAtt").value.trim();
+    const date=document.getElementById("date").value;
+    const status=document.getElementById("status").value;
 
     if(!roll || !date){
         return alert("Fill all fields");
     }
 
     try{
-        await api(`${BASE_URL}/attendance/mark`, {
-            method: "POST",
-            body: JSON.stringify({
-                rollno: roll,
+        await api(`${BASE_URL}/attendance/mark`,{
+            method:"POST",
+            body:JSON.stringify({
+                rollno:roll,
                 date,
                 status,
-                teacher_id: user.identifier   // ✅ required
+                teacher_id:user.identifier
             })
         });
 
         alert("Attendance marked");
 
-    }catch(err){
-        alert(err.message);
+    }catch(e){
+        alert(e.message);
     }
 }
 
 
-// =========================================================
-// 📊 MARKS (PER SUBJECT FIXED)
-// =========================================================
+// ================= MARKS =================
 async function addMarks(){
-    const roll = document.getElementById("rollMarks").value.trim();
-    const subject = document.getElementById("subject").value.trim();
-    const marks = document.getElementById("marks").value.trim();
+    const roll=document.getElementById("rollMarks").value.trim();
+    const subject=document.getElementById("subject").value.trim();
+    const marks=document.getElementById("marks").value.trim();
 
     if(!roll || !subject || !marks){
         return alert("Fill all fields");
     }
 
-    if(isNaN(marks) || marks < 0 || marks > 100){
+    if(isNaN(marks) || marks<0 || marks>100){
         return alert("Marks must be 0–100");
     }
 
     try{
-        await api(`${BASE_URL}/marks/update`, {
-            method: "POST",
-            body: JSON.stringify({
-                rollno: roll,
+        await api(`${BASE_URL}/marks/update`,{
+            method:"POST",
+            body:JSON.stringify({
+                rollno:roll,
                 subject,
-                marks: Number(marks),
-                teacher_id: user.identifier   // ✅ required
+                marks:Number(marks),
+                teacher_id:user.identifier
             })
         });
 
         alert(`Marks saved for ${subject}`);
-
-        document.getElementById("marks").value = "";
+        document.getElementById("marks").value="";
 
         loadStudents();
 
-    }catch(err){
-        alert(err.message);
+    }catch(e){
+        alert(e.message);
     }
 }
 
 
-// =========================================================
-// 🚀 INIT
-// =========================================================
+// ================= INIT =================
 document.addEventListener("DOMContentLoaded", loadStudents);
 
 </script>
