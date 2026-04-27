@@ -16,18 +16,17 @@ logger.info("🔥 App is starting...")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
-# ================= CORS CONFIG =================
+
+# ================= CORS =================
+ALLOWED_ORIGINS = [
+    "https://student-management-system-z317-hbp99h9ag.vercel.app",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+]
+
 CORS(
     app,
-    resources={
-        r"/api/*": {
-            "origins": [
-                "https://student-management-system-z317-hbp99h9ag.vercel.app",
-                "http://localhost:5500",
-                "http://127.0.0.1:5500"
-            ]
-        }
-    },
+    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
     supports_credentials=True
 )
 
@@ -36,13 +35,7 @@ CORS(
 def after_request(response):
     origin = request.headers.get("Origin")
 
-    allowed_origins = [
-        "https://student-management-system-z317-hbp99h9ag.vercel.app",
-        "http://localhost:5500",
-        "http://127.0.0.1:5500"
-    ]
-
-    if origin in allowed_origins:
+    if origin in ALLOWED_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
     else:
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -53,16 +46,29 @@ def after_request(response):
     return response
 
 
-# ================= HANDLE PREFLIGHT (CRITICAL) =================
+# ================= HANDLE PREFLIGHT =================
 @app.route("/api/<path:path>", methods=["OPTIONS"])
 def handle_options(path):
     return jsonify({"status": "ok"}), 200
 
 
-# ================= REQUEST LOGGING =================
+# ================= REQUEST LOG =================
 @app.before_request
 def log_request():
     logger.info(f"{request.method} {request.path}")
+
+
+# ================= INIT DB (FLASK 3 FIX) =================
+def setup_db():
+    try:
+        init_db_pool()
+        logger.info("✅ DB Pool initialized")
+    except Exception as e:
+        logger.error("❌ DB Init Failed: %s", str(e))
+        raise
+
+# 🔥 RUN AT STARTUP (REPLACES before_first_request)
+setup_db()
 
 
 # ================= IMPORT BLUEPRINTS =================
@@ -77,17 +83,6 @@ try:
 except Exception as e:
     logger.error("❌ Import Error: %s", str(e))
     raise
-
-
-# ================= INIT DB =================
-@app.before_first_request
-def setup():
-    try:
-        init_db_pool()
-        logger.info("✅ DB Pool initialized")
-    except Exception as e:
-        logger.error("❌ DB Init Failed: %s", str(e))
-        raise
 
 
 # ================= REGISTER BLUEPRINTS =================
@@ -159,7 +154,7 @@ def test_db():
             release_connection(conn)
 
 
-# ================= ROUTE LIST =================
+# ================= ROUTES LIST =================
 @app.route("/routes")
 def routes():
     return jsonify({
