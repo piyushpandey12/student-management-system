@@ -78,8 +78,8 @@ def create_student(rollno, name, password):
 
         # ✅ insert into students
         cur.execute("""
-            INSERT INTO students (rollno, name, user_id)
-            VALUES (%s, %s, %s)
+         INSERT INTO students (rollno, name)
+          VALUES (%s, %s)
         """, (rollno, name, user_id))
 
         conn.commit()
