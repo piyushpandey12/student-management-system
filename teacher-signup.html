@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Teacher Signup</title>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
 body{
@@ -37,15 +35,6 @@ button{
 button:hover{background:#ff416c;}
 .message{margin-top:10px;}
 .link{margin-top:15px;}
-.divider{margin:15px 0;}
-
-.glass-google-btn{
-    background:rgba(255,255,255,0.15);
-    border:1px solid rgba(255,255,255,0.3);
-}
-.glass-google-btn img{
-    width:18px;margin-right:8px;
-}
 </style>
 </head>
 
@@ -54,11 +43,15 @@ button:hover{background:#ff416c;}
 <div class="container">
     <h2>Teacher Registration</h2>
 
-    <!-- NORMAL SIGNUP -->
     <form id="signupForm">
         <div class="input-group">
             <label>Teacher ID</label>
             <input type="text" id="teacherId" required>
+        </div>
+
+        <div class="input-group">
+            <label>Name</label>
+            <input type="text" id="name" required>
         </div>
 
         <div class="input-group">
@@ -69,14 +62,6 @@ button:hover{background:#ff416c;}
         <button type="submit">Register</button>
     </form>
 
-    <div class="divider">OR</div>
-
-    <!-- GOOGLE BUTTON -->
-    <button class="glass-google-btn" id="googleBtn">
-        <img src="https://developers.google.com/identity/images/g-logo.png" />
-        Continue with Google
-    </button>
-
     <div id="message" class="message"></div>
 
     <div class="link">
@@ -85,23 +70,24 @@ button:hover{background:#ff416c;}
 </div>
 
 <script type="module">
-import { registerUser, loginUser, googleAuth } from "./js/api.js";
+import { registerUser, loginUser } from "./js/api.js";
 
 const msg = document.getElementById("message");
 
-// ================= REDIRECT =================
+// 🔁 Redirect if already logged in
 if (localStorage.getItem("token")) {
     window.location.href = "teacher-dashboard.html";
 }
 
-// ================= NORMAL SIGNUP =================
+// 🚀 Signup handler
 document.getElementById("signupForm").addEventListener("submit", async (e)=>{
     e.preventDefault();
 
     const teacherId = document.getElementById("teacherId").value.trim().toLowerCase();
+    const name = document.getElementById("name").value.trim();
     const password = document.getElementById("password").value.trim();
 
-    if(!teacherId || !password){
+    if(!teacherId || !password || !name){
         msg.innerText = "⚠️ All fields required";
         msg.style.color = "yellow";
         return;
@@ -111,16 +97,23 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
         msg.innerText = "⏳ Registering...";
         msg.style.color = "white";
 
+        // 🔥 REGISTER
         await registerUser({
             identifier: teacherId,
             password,
-            role: "teacher"
+            role: "teacher",
+            name
         });
 
-        await loginUser({
+        // 🔐 LOGIN
+        const res = await loginUser({
             identifier: teacherId,
             password
         });
+
+        // store token
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("user", JSON.stringify(res.user));
 
         msg.innerText = "✅ Registered & Logged in!";
         msg.style.color = "lightgreen";
@@ -130,57 +123,12 @@ document.getElementById("signupForm").addEventListener("submit", async (e)=>{
         },1000);
 
     }catch(err){
-        msg.innerText = "❌ " + err.message;
+        console.error(err);
+
+        msg.innerText = "❌ " + (err.message || "Something went wrong");
         msg.style.color = "red";
     }
 });
-
-// ================= GOOGLE INIT (FIXED) =================
-let googleInitialized = false;
-
-function initGoogle(){
-    if (googleInitialized) return;
-
-    if(window.google && google.accounts){
-
-        google.accounts.id.initialize({
-            client_id: "891518537612-l1frt7eo83cv9kaq03u1nv561j2jd003.apps.googleusercontent.com",
-            callback: handleGoogleLogin
-        });
-
-        document.getElementById("googleBtn").addEventListener("click", ()=>{
-            google.accounts.id.prompt();
-        });
-
-        googleInitialized = true;
-
-    } else {
-        setTimeout(initGoogle,500);
-    }
-}
-
-document.addEventListener("DOMContentLoaded", initGoogle);
-
-// ================= GOOGLE HANDLER =================
-window.handleGoogleLogin = async function(response){
-    try{
-        msg.innerText = "⏳ Signing up with Google...";
-        msg.style.color = "white";
-
-        await googleAuth(response.credential, "teacher");
-
-        msg.innerText = "✅ Google Signup Successful!";
-        msg.style.color = "lightgreen";
-
-        setTimeout(()=>{
-            window.location.href = "teacher-dashboard.html";
-        },1000);
-
-    }catch(err){
-        msg.innerText = "❌ " + err.message;
-        msg.style.color = "red";
-    }
-};
 </script>
 
 </body>

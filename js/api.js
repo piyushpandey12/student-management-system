@@ -1,5 +1,5 @@
 // =========================================================
-// 🌐 BASE URL (UNIFIED)
+// 🌐 BASE URL (UNIFIED + SAFE)
 // =========================================================
 const BASE_URL =
   window.location.hostname === "127.0.0.1" ||
@@ -26,7 +26,10 @@ function getUser() {
 function getAuthHeaders() {
   const token = getToken();
 
-  if (!token) throw new Error("Session expired");
+  if (!token) {
+    logout();
+    throw new Error("Session expired");
+  }
 
   return {
     "Content-Type": "application/json",
@@ -36,21 +39,31 @@ function getAuthHeaders() {
 
 
 // =========================================================
-// ⏱️ FETCH WITH TIMEOUT
+// ⏱️ FETCH WITH TIMEOUT + NETWORK SAFETY
 // =========================================================
-function fetchWithTimeout(url, options = {}, timeout = 10000) {
+async function fetchWithTimeout(url, options = {}, timeout = 10000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
-  return fetch(url, {
-    ...options,
-    signal: controller.signal
-  }).finally(() => clearTimeout(timer));
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Request timeout");
+    }
+    throw new Error("Network error (backend not reachable)");
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 
 // =========================================================
-// 📌 RESPONSE HANDLER
+// 📌 RESPONSE HANDLER (STRICT + DEBUG)
 // =========================================================
 async function handleResponse(res) {
   const text = await res.text();
@@ -60,15 +73,16 @@ async function handleResponse(res) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("Invalid JSON → " + text);
+    throw new Error("Invalid JSON response");
   }
 
+  // 🔐 Unauthorized
   if (res.status === 401) {
-    alert(data.message || "Session expired");
     logout();
-    throw new Error("Unauthorized");
+    throw new Error(data.message || "Session expired");
   }
 
+  // ❌ Server errors
   if (!res.ok) {
     throw new Error(data.message || data.error || "Server error");
   }
@@ -89,8 +103,11 @@ export async function loginUser(data) {
 
   const result = await handleResponse(res);
 
-  if (!result.token) throw new Error("Token not received");
+  if (!result.token) {
+    throw new Error("Token not received");
+  }
 
+  // ✅ store session
   localStorage.setItem("token", result.token);
   localStorage.setItem("user", JSON.stringify(result.user));
 
@@ -208,6 +225,7 @@ export async function getMarksStats(rollno) {
 // 🚪 LOGOUT
 // =========================================================
 export function logout() {
-  localStorage.clear();
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
   window.location.href = "index.html";
 }
