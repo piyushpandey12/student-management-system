@@ -1,13 +1,18 @@
+# =========================================================
+# 📌 IMPORTS
+# =========================================================
 from flask import Blueprint, jsonify, request, g
 from backend.utils.db import get_connection, release_connection
 from backend.utils.auth_utils import login_required, role_required
 from psycopg2.extras import RealDictCursor
+import logging
 
 marks_bp = Blueprint('marks', __name__)
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# 📌 ADD / UPDATE MARKS
+# 📌 ADD / UPDATE MARKS (FIXED)
 # =========================================================
 @marks_bp.route("/update", methods=["POST"])
 @login_required
@@ -16,13 +21,13 @@ def update_marks():
 
     data = request.get_json(silent=True) or {}
 
-    rollno = (data.get("rollno") or "").strip()
+    rollno = (data.get("rollno") or "").strip().lower()
     subject = (data.get("subject") or "").strip().lower()
     teacher_id = g.user.get("identifier")
 
-    # 🔁 Safe conversion
+    # 🔁 SAFE PARSE
     try:
-        marks = float(data.get("marks"))
+        marks = int(data.get("marks"))
     except (TypeError, ValueError):
         return jsonify({"error": "marks must be a number"}), 400
 
@@ -45,26 +50,32 @@ def update_marks():
         if not cursor.fetchone():
             return jsonify({"error": "Student not found"}), 404
 
-        # ✅ UPSERT via DB function
-        cursor.execute(
-            "SELECT update_marks(%s, %s, %s, %s)",
-            (rollno, subject, marks, teacher_id)
-        )
+        # ✅ UPSERT (PER SUBJECT)
+        cursor.execute("""
+            INSERT INTO marks (rollno, subject, marks, teacher_id)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (rollno, subject)
+            DO UPDATE SET
+                marks = EXCLUDED.marks,
+                teacher_id = EXCLUDED.teacher_id
+        """, (rollno, subject, marks, teacher_id))
 
         db.commit()
 
         return jsonify({
             "status": "success",
-            "message": "Marks saved successfully"
-        })
+            "message": f"Marks saved for {subject}"
+        }), 200
 
-    except Exception:
+    except Exception as e:
         if db:
             db.rollback()
 
+        logger.error(f"🔥 Marks Error: {str(e)}")
+
         return jsonify({
             "status": "error",
-            "message": "Failed to update marks"
+            "message": str(e)
         }), 500
 
     finally:
@@ -80,6 +91,8 @@ def update_marks():
 @marks_bp.route("/<rollno>", methods=["GET"])
 @login_required
 def get_marks(rollno):
+
+    rollno = rollno.strip().lower()
 
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
@@ -98,15 +111,18 @@ def get_marks(rollno):
             ORDER BY subject ASC
         """, (rollno,))
 
-        rows = cursor.fetchall()
-
         return jsonify({
             "status": "success",
-            "data": rows
-        })
+            "data": cursor.fetchall()
+        }), 200
 
-    except Exception:
-        return jsonify({"error": "Failed to fetch marks"}), 500
+    except Exception as e:
+        logger.error(f"🔥 Fetch Marks Error: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:
@@ -121,6 +137,8 @@ def get_marks(rollno):
 @marks_bp.route("/stats/<rollno>", methods=["GET"])
 @login_required
 def marks_stats(rollno):
+
+    rollno = rollno.strip().lower()
 
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
@@ -149,13 +167,12 @@ def marks_stats(rollno):
         min_m = int(min_m)
         total = int(total)
 
-        # 📊 ANALYSIS
         if avg >= 75:
-            remark = "Excellent performance"
+            remark = "Excellent"
         elif avg >= 50:
-            remark = "Average performance"
+            remark = "Average"
         else:
-            remark = "Needs improvement"
+            remark = "Needs Improvement"
 
         return jsonify({
             "status": "success",
@@ -166,10 +183,15 @@ def marks_stats(rollno):
                 "subjects": total,
                 "remark": remark
             }
-        })
+        }), 200
 
-    except Exception:
-        return jsonify({"error": "Failed to fetch stats"}), 500
+    except Exception as e:
+        logger.error(f"🔥 Stats Error: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:

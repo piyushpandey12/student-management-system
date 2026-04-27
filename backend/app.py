@@ -17,61 +17,33 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
 
-# ================= CORS =================
-ALLOWED_ORIGINS = [
-    "https://student-management-system-z317-hbp99h9ag.vercel.app",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500"
-]
-
+# =========================================================
+# 🌐 CORS (FINAL FIX)
+# =========================================================
 CORS(
     app,
-    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
+    resources={r"/api/*": {"origins": "*"}},   # 🔥 allow all (safe for now)
     supports_credentials=True
 )
 
-# ================= FORCE CORS HEADERS =================
+# 🔥 FORCE HEADERS (CRITICAL FOR VERCEL)
 @app.after_request
 def after_request(response):
-    origin = request.headers.get("Origin")
-
-    if origin in ALLOWED_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-    else:
-        response.headers["Access-Control-Allow-Origin"] = "*"
-
+    response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-
     return response
 
 
-# ================= HANDLE PREFLIGHT =================
+# 🔥 HANDLE PREFLIGHT (MOST IMPORTANT FIX)
 @app.route("/api/<path:path>", methods=["OPTIONS"])
-def handle_options(path):
-    return jsonify({"status": "ok"}), 200
+def options_handler(path):
+    return "", 200
 
 
-# ================= REQUEST LOG =================
-@app.before_request
-def log_request():
-    logger.info(f"{request.method} {request.path}")
-
-
-# ================= INIT DB (FLASK 3 FIX) =================
-def setup_db():
-    try:
-        init_db_pool()
-        logger.info("✅ DB Pool initialized")
-    except Exception as e:
-        logger.error("❌ DB Init Failed: %s", str(e))
-        raise
-
-# 🔥 RUN AT STARTUP (REPLACES before_first_request)
-setup_db()
-
-
-# ================= IMPORT BLUEPRINTS =================
+# =========================================================
+# 📦 IMPORT BLUEPRINTS (MUST BE BEFORE REGISTER)
+# =========================================================
 try:
     from backend.routes.auth import auth_bp
     from backend.routes.students import students_bp
@@ -85,21 +57,34 @@ except Exception as e:
     raise
 
 
-# ================= REGISTER BLUEPRINTS =================
-try:
-    app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(students_bp, url_prefix="/api/students")
-    app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
-    app.register_blueprint(marks_bp, url_prefix="/api/marks")
+# =========================================================
+# 📌 REGISTER BLUEPRINTS
+# =========================================================
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+app.register_blueprint(students_bp, url_prefix="/api/students")
+app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
+app.register_blueprint(marks_bp, url_prefix="/api/marks")
 
-    logger.info("✅ Blueprints registered")
-
-except Exception as e:
-    logger.error("❌ Blueprint Register Error: %s", str(e))
-    raise
+logger.info("✅ Blueprints registered")
 
 
-# ================= ROUTES =================
+# =========================================================
+# 🗄️ INIT DB (FLASK 3 SAFE)
+# =========================================================
+def setup_db():
+    try:
+        init_db_pool()
+        logger.info("✅ DB Pool initialized")
+    except Exception as e:
+        logger.error("❌ DB Init Failed: %s", str(e))
+        raise
+
+setup_db()
+
+
+# =========================================================
+# 📌 ROUTES
+# =========================================================
 @app.route("/")
 def home():
     return jsonify({
@@ -118,7 +103,9 @@ def health():
     return jsonify({"status": "healthy"}), 200
 
 
-# ================= DB TEST =================
+# =========================================================
+# 🔍 DB TEST
+# =========================================================
 @app.route("/test-db")
 def test_db():
     conn = None
@@ -154,7 +141,9 @@ def test_db():
             release_connection(conn)
 
 
-# ================= ROUTES LIST =================
+# =========================================================
+# 📌 DEBUG ROUTES
+# =========================================================
 @app.route("/routes")
 def routes():
     return jsonify({
@@ -162,7 +151,17 @@ def routes():
     })
 
 
-# ================= ERROR HANDLERS =================
+# =========================================================
+# ⚠️ ERROR HANDLERS
+# =========================================================
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({
+        "status": "error",
+        "message": "Route not found"
+    }), 404
+
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     logger.error("🔥 Unhandled Exception: %s", str(e))
@@ -173,21 +172,14 @@ def handle_exception(e):
     }), 500
 
 
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({
-        "status": "error",
-        "message": "Route not found"
-    }), 404
-
-
-# ================= RUN =================
+# =========================================================
+# 🚀 RUN
+# =========================================================
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    debug_mode = os.getenv("FLASK_ENV") == "development"
 
     app.run(
         host="0.0.0.0",
         port=port,
-        debug=debug_mode
+        debug=True
     )

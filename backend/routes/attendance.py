@@ -1,14 +1,19 @@
+# =========================================================
+# 📌 IMPORTS
+# =========================================================
 from flask import Blueprint, jsonify, request, g
 from backend.utils.db import get_connection, release_connection
 from datetime import datetime
 from psycopg2.extras import RealDictCursor
 from backend.utils.auth_utils import login_required, role_required
+import logging
 
 attendance_bp = Blueprint('attendance', __name__)
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# 📌 MARK ATTENDANCE (SECURE VERSION)
+# 📌 MARK ATTENDANCE (FIXED)
 # =========================================================
 @attendance_bp.route("/mark", methods=["POST"])
 @login_required
@@ -17,9 +22,9 @@ def mark_attendance():
 
     data = request.get_json(silent=True) or {}
 
-    rollno = data.get("rollno")
+    rollno = (data.get("rollno") or "").strip().lower()
     date = data.get("date")
-    status = (data.get("status") or "").lower()
+    status = (data.get("status") or "").strip().lower()
 
     teacher_id = g.user.get("identifier")
 
@@ -47,7 +52,7 @@ def mark_attendance():
         if not cursor.fetchone():
             return jsonify({"error": "Student not found"}), 404
 
-        # ✅ CALL DB FUNCTION
+        # ✅ UPSERT ATTENDANCE
         cursor.execute(
             "SELECT mark_attendance(%s, %s, %s, %s)",
             (rollno, date, status, teacher_id)
@@ -58,15 +63,17 @@ def mark_attendance():
         return jsonify({
             "status": "success",
             "message": "Attendance marked successfully"
-        })
+        }), 200
 
     except Exception as e:
         if db:
             db.rollback()
 
+        logger.error(f"🔥 Attendance Error: {str(e)}")
+
         return jsonify({
             "status": "error",
-            "message": "Failed to mark attendance"
+            "message": str(e)   # ✅ show real error
         }), 500
 
     finally:
@@ -83,7 +90,8 @@ def mark_attendance():
 @login_required
 def get_attendance(rollno):
 
-    # 🔐 Access control
+    rollno = rollno.strip().lower()
+
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -112,10 +120,15 @@ def get_attendance(rollno):
                 }
                 for r in rows
             ]
-        })
+        }), 200
 
     except Exception as e:
-        return jsonify({"error": "Failed to fetch attendance"}), 500
+        logger.error(f"🔥 Fetch Attendance Error: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:
@@ -130,6 +143,8 @@ def get_attendance(rollno):
 @attendance_bp.route("/stats/<rollno>", methods=["GET"])
 @login_required
 def attendance_stats(rollno):
+
+    rollno = rollno.strip().lower()
 
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
@@ -149,7 +164,7 @@ def attendance_stats(rollno):
             WHERE rollno = %s
         """, (rollno,))
 
-        result = cursor.fetchone()
+        result = cursor.fetchone() or (0, 0)
 
         present = result[0] or 0
         total = result[1] or 0
@@ -172,10 +187,15 @@ def attendance_stats(rollno):
                 "percentage": percentage,
                 "remark": remark
             }
-        })
+        }), 200
 
-    except Exception:
-        return jsonify({"error": "Failed to fetch stats"}), 500
+    except Exception as e:
+        logger.error(f"🔥 Stats Error: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     finally:
         if cursor:

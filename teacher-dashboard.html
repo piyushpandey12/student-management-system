@@ -119,180 +119,231 @@ th,td{padding:10px;text-align:left;}
 </div>
 
 <script>
-// ================= AUTH =================
+// =========================================================
+// 🔐 AUTH (SAFE)
+// =========================================================
 function logout(msg){
     alert(msg);
     localStorage.clear();
-    window.location.href="teacher-login.html";
+    window.location.href = "teacher-login.html";
 }
 
 const token = localStorage.getItem("token");
 if(!token) logout("Session expired");
 
-const payload = JSON.parse(atob(token.split('.')[1]));
+let payload;
+try{
+    payload = JSON.parse(atob(token.split('.')[1]));
+}catch{
+    logout("Invalid token");
+}
+
+if(payload.exp && payload.exp < Date.now()/1000){
+    logout("Session expired");
+}
+
 const user = { identifier: payload.identifier };
 
-// ================= BASE URL =================
+
+// =========================================================
+// 🌐 BASE URL
+// =========================================================
 const BASE_URL =
   window.location.hostname === "localhost"
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-system-api-cznx.onrender.com/api";
 
-// ================= FETCH =================
-function getHeaders(){
-    return {
-        "Content-Type":"application/json",
-        "Authorization":"Bearer "+token
-    };
-}
 
-async function api(url, options={}){
-    const res = await fetch(url,{
+// =========================================================
+// 📡 API HELPER
+// =========================================================
+async function api(url, options = {}){
+    const res = await fetch(url, {
         ...options,
-        headers:{...getHeaders(), ...(options.headers||{})}
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token,
+            ...(options.headers || {})
+        }
     });
+
+    if(res.status === 401){
+        logout("Session expired");
+    }
 
     const data = await res.json().catch(()=>({}));
 
-    if(res.status===401) logout("Session expired");
-
-    if(!res.ok) throw new Error(data.message || data.error);
+    if(!res.ok){
+        throw new Error(data.message || data.error || "Request failed");
+    }
 
     return data;
 }
 
-// ================= LOAD STUDENTS =================
+
+// =========================================================
+// 📋 LOAD STUDENTS
+// =========================================================
 async function loadStudents(){
     try{
         const res = await api(`${BASE_URL}/students`);
         const students = res.data || [];
 
-        let html="";
-        students.forEach(s=>{
-            let grade="C";
-            if(s.avg_marks>90) grade="A";
-            else if(s.avg_marks>70) grade="B";
+        let html = "";
 
-            html+=`
+        students.forEach(s=>{
+            let grade = "C";
+            if(s.avg_marks > 90) grade = "A";
+            else if(s.avg_marks > 70) grade = "B";
+
+            html += `
             <tr>
-            <td>${s.rollno}</td>
-            <td>${s.name}</td>
-            <td>${s.avg_marks||0}</td>
-            <td class="grade${grade}">${grade}</td>
-            <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
+                <td>${s.rollno}</td>
+                <td>${s.name}</td>
+                <td>${s.avg_marks || 0}</td>
+                <td class="grade${grade}">${grade}</td>
+                <td>
+                    <button onclick="deleteStudent('${s.rollno}')">Delete</button>
+                </td>
             </tr>`;
         });
 
-        document.querySelector("#table tbody").innerHTML=html;
+        document.querySelector("#table tbody").innerHTML = html;
 
-    }catch(e){
-        console.error(e);
+    }catch(err){
+        console.error("Load error:", err);
     }
 }
 
-// ================= ADD STUDENT =================
+
+// =========================================================
+// ➕ ADD STUDENT
+// =========================================================
 async function addStudent(){
-    const name=document.getElementById("name").value.trim();
-    const roll=document.getElementById("roll").value.trim();
-    const password=document.getElementById("password").value.trim();
+    const name = document.getElementById("name").value.trim();
+    const roll = document.getElementById("roll").value.trim();
+    const password = document.getElementById("password").value.trim();
 
     if(!name || !roll || !password){
         return alert("Fill all fields");
     }
 
     try{
-        await api(`${BASE_URL}/students`,{
-            method:"POST",
-            body:JSON.stringify({
+        await api(`${BASE_URL}/students`, {
+            method: "POST",
+            body: JSON.stringify({
                 name,
                 rollno: roll,
-                password,
-                role:"student"
+                password
             })
         });
 
         alert("Student added successfully");
 
-        // clear fields
-        document.getElementById("name").value="";
-        document.getElementById("roll").value="";
-        document.getElementById("password").value="";
+        // clear
+        document.getElementById("name").value = "";
+        document.getElementById("roll").value = "";
+        document.getElementById("password").value = "";
 
         loadStudents();
 
-    }catch(e){
-        alert(e.message);
+    }catch(err){
+        alert(err.message);
     }
 }
 
-// ================= DELETE =================
+
+// =========================================================
+// ❌ DELETE STUDENT
+// =========================================================
 async function deleteStudent(roll){
     try{
-        await api(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
+        await api(`${BASE_URL}/students/${roll}`, {
+            method: "DELETE"
+        });
+
         loadStudents();
-    }catch(e){
-        alert(e.message);
+
+    }catch(err){
+        alert(err.message);
     }
 }
 
-// ================= ATTENDANCE =================
+
+// =========================================================
+// 📅 ATTENDANCE
+// =========================================================
 async function markAttendance(){
-    const roll=document.getElementById("rollAtt").value;
-    const date=document.getElementById("date").value;
-    const status=document.getElementById("status").value;
+    const roll = document.getElementById("rollAtt").value.trim();
+    const date = document.getElementById("date").value;
+    const status = document.getElementById("status").value;
 
     if(!roll || !date){
         return alert("Fill all fields");
     }
 
     try{
-        await api(`${BASE_URL}/attendance/mark`,{
-            method:"POST",
-            body:JSON.stringify({
-                rollno:roll,
+        await api(`${BASE_URL}/attendance/mark`, {
+            method: "POST",
+            body: JSON.stringify({
+                rollno: roll,
                 date,
                 status,
-                teacher_id:user.identifier
+                teacher_id: user.identifier   // ✅ required
             })
         });
 
         alert("Attendance marked");
 
-    }catch(e){
-        alert(e.message);
+    }catch(err){
+        alert(err.message);
     }
 }
 
-// ================= MARKS =================
-async function addMarks(){
-    const roll=document.getElementById("rollMarks").value;
-    const subject=document.getElementById("subject").value;
-    const marks=document.getElementById("marks").value;
 
-    if(!roll || !marks){
+// =========================================================
+// 📊 MARKS (PER SUBJECT FIXED)
+// =========================================================
+async function addMarks(){
+    const roll = document.getElementById("rollMarks").value.trim();
+    const subject = document.getElementById("subject").value.trim();
+    const marks = document.getElementById("marks").value.trim();
+
+    if(!roll || !subject || !marks){
         return alert("Fill all fields");
     }
 
+    if(isNaN(marks) || marks < 0 || marks > 100){
+        return alert("Marks must be 0–100");
+    }
+
     try{
-        await api(`${BASE_URL}/marks/update`,{
-            method:"POST",
-            body:JSON.stringify({
-                rollno:roll,
+        await api(`${BASE_URL}/marks/update`, {
+            method: "POST",
+            body: JSON.stringify({
+                rollno: roll,
                 subject,
-                marks:Number(marks),
-                teacher_id:user.identifier
+                marks: Number(marks),
+                teacher_id: user.identifier   // ✅ required
             })
         });
 
-        alert("Marks updated");
+        alert(`Marks saved for ${subject}`);
 
-    }catch(e){
-        alert(e.message);
+        document.getElementById("marks").value = "";
+
+        loadStudents();
+
+    }catch(err){
+        alert(err.message);
     }
 }
 
-// ================= INIT =================
-loadStudents();
+
+// =========================================================
+// 🚀 INIT
+// =========================================================
+document.addEventListener("DOMContentLoaded", loadStudents);
 
 </script>
 
