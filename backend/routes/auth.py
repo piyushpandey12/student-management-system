@@ -12,27 +12,35 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/register", methods=["POST"])
 def register():
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
         identifier = (
             data.get("rollno") or
             data.get("teacherId") or
             data.get("identifier") or ""
-        ).lower().strip()
+        ).strip().lower()
 
         password = data.get("password")
         role = data.get("role", "student")
         name = data.get("name", "User")
 
+        # ✅ validation
         if not identifier or not password:
             return jsonify({
                 "status": "error",
                 "message": "Identifier & password required"
             }), 400
 
+        # optional stronger validation
+        if len(password) < 4:
+            return jsonify({
+                "status": "error",
+                "message": "Password must be at least 4 characters"
+            }), 400
+
         result = register_user(identifier, name, password, role)
 
-        if "error" in result:
+        if result.get("error"):
             return jsonify({
                 "status": "error",
                 "message": result["error"]
@@ -56,16 +64,17 @@ def register():
 @auth_bp.route("/login", methods=["POST"])
 def login():
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
         identifier = (
             data.get("rollno") or
             data.get("teacherId") or
             data.get("identifier") or ""
-        ).lower().strip()
+        ).strip().lower()
 
         password = data.get("password")
 
+        # ✅ validation
         if not identifier or not password:
             return jsonify({
                 "status": "error",
@@ -74,7 +83,7 @@ def login():
 
         result = login_user(identifier, password)
 
-        if "error" in result:
+        if result.get("error"):
             return jsonify({
                 "status": "error",
                 "message": result["error"]
@@ -82,7 +91,7 @@ def login():
 
         return jsonify({
             "status": "success",
-            "token": result["token"],   # 🔥 JWT required here
+            "token": result["token"],
             "user": result["user"]
         }), 200
 

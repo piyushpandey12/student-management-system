@@ -1,12 +1,18 @@
+# ================= IMPORTS =================
 import os
 import jwt
 from datetime import datetime, timedelta
-from backend.utils.db import get_connection, release_connection
+
+from backend.utils.db import get_connection, get_cursor, release_connection
 from backend.utils.auth_utils import hash_password, verify_password
 
+# ================= CONFIG =================
 SECRET_KEY = os.getenv("SECRET_KEY", "student-secret")
 
 
+# =========================================================
+# 🔐 GENERATE TOKEN
+# =========================================================
 def generate_token(identifier, role):
     payload = {
         "identifier": identifier,
@@ -16,59 +22,77 @@ def generate_token(identifier, role):
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
 
-def register_user(identifier, password, role, name):
-    identifier = identifier.lower().strip()
-
-    db = get_connection()
-    cur = db.cursor()
+# =========================================================
+# 📌 REGISTER USER
+# =========================================================
+def register_user(identifier, name, password, role):
+    conn = None
 
     try:
-        cur.execute("SELECT 1 FROM users WHERE identifier=%s", (identifier,))
-        if cur.fetchone():
-            return {"error": "User already exists"}, 409
+        identifier = identifier.lower().strip()
 
+        conn = get_connection()
+        cur = get_cursor(conn)  # ✅ dict cursor
+
+        # 🔍 check existing user
+        cur.execute("SELECT id FROM users WHERE identifier=%s", (identifier,))
+        if cur.fetchone():
+            return {"error": "User already exists"}
+
+        # 🔐 hash password
         hashed = hash_password(password)
 
+        # 📥 insert user
         cur.execute("""
             INSERT INTO users (identifier, name, password, role)
             VALUES (%s, %s, %s, %s)
             RETURNING id
         """, (identifier, name, hashed, role))
 
-        user_id = cur.fetchone()[0]
+        user = cur.fetchone()
+        user_id = user["id"]
 
+        # 👇 insert into role-specific table
         if role == "student":
             cur.execute("""
                 INSERT INTO students (rollno, name, user_id)
                 VALUES (%s, %s, %s)
             """, (identifier, name, user_id))
-        else:
+
+        elif role == "teacher":
             cur.execute("""
                 INSERT INTO teachers (teacher_id, name, user_id)
                 VALUES (%s, %s, %s)
             """, (identifier, name, user_id))
 
-        db.commit()
-        return {"message": "Registered"}, 201
+        conn.commit()
 
-    except Exception:
-        db.rollback()
-        return {"error": "Registration failed"}, 500
+        return {"success": True}
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return {"error": str(e)}
 
     finally:
-        cur.close()
-        release_connection(db)
+        if conn:
+            release_connection(conn)
 
 
+# =========================================================
+# 📌 LOGIN USER
+# =========================================================
 def login_user(identifier, password):
-    identifier = identifier.lower().strip()
-
-    db = get_connection()
-    cur = db.cursor()
+    conn = None
 
     try:
+        identifier = identifier.lower().strip()
+
+        conn = get_connection()
+        cur = get_cursor(conn)  # ✅ dict cursor
+
         cur.execute("""
-            SELECT password, role
+            SELECT identifier, password, role
             FROM users
             WHERE identifier=%s
         """, (identifier,))
@@ -76,26 +100,26 @@ def login_user(identifier, password):
         user = cur.fetchone()
 
         if not user:
-            return {"error": "User not found"}, 404
+            return {"error": "User not found"}
 
-        db_password, role = user
+        # 🔐 verify hashed password
+        if not verify_password(user["password"], password):
+            return {"error": "Invalid credentials"}
 
-        if not verify_password(db_password, password):
-            return {"error": "Invalid credentials"}, 401
-
-        token = generate_token(identifier, role)
+        # 🔑 generate token
+        token = generate_token(user["identifier"], user["role"])
 
         return {
             "token": token,
             "user": {
-                "identifier": identifier,
-                "role": role
+                "identifier": user["identifier"],
+                "role": user["role"]
             }
-        }, 200
+        }
 
-    except Exception:
-        return {"error": "Login failed"}, 500
+    except Exception as e:
+        return {"error": str(e)}
 
     finally:
-        cur.close()
-        release_connection(db)
+        if conn:
+            release_connection(conn)
