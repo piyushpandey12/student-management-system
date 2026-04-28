@@ -172,12 +172,14 @@ async function api(url, options={}) {
 }
 
 // ================= LOAD =================
-let studentsData=[];
+let studentsData = [];
 
 async function loadStudents(){
 
   const res = await api(`${BASE_URL}/students`);
   studentsData = res.data || [];
+
+  console.log("STUDENTS:", studentsData); // 🔥 DEBUG
 
   totalStudents.innerText = studentsData.length;
 
@@ -196,8 +198,11 @@ async function loadStudents(){
     return;
   }
 
+  // ✅ FIXED DROPDOWN
   select.innerHTML = studentsData.map(s =>
-    `<option value="${s.rollno}">${s.name} (${s.rollno})</option>`
+    `<option value="${s.rollno}">
+      ${s.name} (${s.rollno})
+    </option>`
   ).join("");
 
   select.value = studentsData[0].rollno;
@@ -207,17 +212,23 @@ async function loadStudents(){
 
 // ================= TABLE =================
 function renderTable(){
+  const table = document.getElementById("table");
+
   table.innerHTML = studentsData.map(s=>`
     <tr>
       <td>${s.rollno}</td>
       <td>${s.name}</td>
-      <td>${s.avg_marks||0}</td>
-      <td><button class="delete" onclick="deleteStudent('${s.rollno}')">Delete</button></td>
+      <td>${s.avg_marks || 0}</td>
+      <td>
+        <button class="delete" onclick="deleteStudent('${s.rollno}')">
+          Delete
+        </button>
+      </td>
     </tr>
   `).join("");
 }
 
-// ================= ADD STUDENT (FINAL FIX) =================
+// ================= ADD =================
 async function addStudent(){
 
   const name = document.getElementById("name").value.trim();
@@ -240,7 +251,7 @@ async function addStudent(){
       },
       body:JSON.stringify({
         name,
-        rollno: roll,   // ✅ FINAL CORRECT KEY
+        rollno: roll,   // ✅ CORRECT FIELD
         password
       })
     });
@@ -267,33 +278,42 @@ async function addStudent(){
 }
 
 // ================= DELETE =================
-async function deleteStudent(id){
+async function deleteStudent(rollno){
   if(!confirm("Delete?")) return;
-  await api(`${BASE_URL}/students/${id}`,{method:"DELETE"});
+
+  await api(`${BASE_URL}/students/${rollno}`,{
+    method:"DELETE"
+  });
+
   loadStudents();
 }
 
 // ================= MARKS =================
 function renderMarksForm(){
+  const marksForm = document.getElementById("marksForm");
+
   marksForm.innerHTML = SUBJECTS.map(sub=>`
-    <div>${sub}<input type="number" id="mark_${sub}"></div>
+    <div>
+      ${sub}
+      <input type="number" id="mark_${sub}">
+    </div>
   `).join("");
 }
 
 async function saveMarks(){
 
-  const id = studentSelect.value;
+  const rollno = document.getElementById("studentSelect").value;
 
-  if(!id) return alert("Select student");
+  if(!rollno) return alert("Select student");
 
   const marks = SUBJECTS.map(sub=>({
-    subject:sub,
-    marks:Number(document.getElementById(`mark_${sub}`).value||0)
+    subject: sub,
+    marks: Number(document.getElementById(`mark_${sub}`).value || 0)
   }));
 
-  await api(`${BASE_URL}/marks/${id}`,{
+  await api(`${BASE_URL}/marks/${rollno}`,{
     method:"POST",
-    body:JSON.stringify({ marks }) // ✅ backend usually doesn't need identifier here
+    body:JSON.stringify({ marks })
   });
 
   alert("✅ Marks saved");
@@ -301,9 +321,9 @@ async function saveMarks(){
 
 // ================= NAV =================
 function show(id){
-  dashboard.style.display=id==="dashboard"?"block":"none";
-  students.style.display=id==="students"?"block":"none";
-  marks.style.display=id==="marks"?"block":"none";
+  dashboard.style.display = id==="dashboard" ? "block" : "none";
+  students.style.display = id==="students" ? "block" : "none";
+  marks.style.display = id==="marks" ? "block" : "none";
 }
 
 // ================= LOGOUT =================
@@ -316,6 +336,5 @@ function logout(){
 loadStudents();
 
 </script>
-
 </body>
 </html>
