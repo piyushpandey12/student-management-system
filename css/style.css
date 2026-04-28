@@ -187,24 +187,17 @@ svg {
   right: 0;
 }
 
-.forgot-password {
-  position: absolute;
-  top: 100%; /* place exactly after form */
-  margin-top: 10px; /* spacing below button */
-  left: 50%;
-  transform: translateX(-50%);
-
+.forgot-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
   font-size: 13px;
-  color: #ffd700;
   cursor: pointer;
-
-  opacity: 0.85;
-  transition: all 0.25s ease;
-  white-space: nowrap;
+  opacity: 0.8;
+  transition: 0.3s;
 }
 
-.forgot-password:hover {
+.forgot-btn:hover {
   opacity: 1;
   text-decoration: underline;
-  transform: translateX(-50%) scale(1.05);
 }

@@ -4,25 +4,19 @@ const BASE_URL =
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-system-api-cznx.onrender.com/api";
 async function forgotPassword() {
-  const studentId = document.getElementById("teacherId").value.trim();
-  // (you can rename input id later if you want)
+  const studentId = document.getElementById("rollno").value.trim();
 
   if (!studentId) {
     return showError("Enter Student ID first");
   }
 
-  const newPassword = prompt("Enter new password:");
+  const newPassword = prompt("Enter new password (min 6 chars, letter + number):");
 
-  if (!newPassword || newPassword.length < 4) {
-    return alert("Password must be at least 4 characters");
+  if (!newPassword || newPassword.length < 6) {
+    return showError("Password must be at least 6 characters");
   }
 
   try {
-    const BASE_URL =
-      location.hostname === "localhost"
-        ? "http://127.0.0.1:5000/api"
-        : "https://student-management-system-api-cznx.onrender.com/api";
-
     const res = await fetch(`${BASE_URL}/auth/reset-password`, {
       method: "POST",
       headers: {
@@ -30,28 +24,24 @@ async function forgotPassword() {
       },
       body: JSON.stringify({
         identifier: studentId,
-        new_password: newPassword,
-        role: "student", // ✅ changed here
+        new_password: newPassword, // 🔥 important
+        role: "student"
       }),
     });
 
     const data = await res.json();
 
+    console.log("Reset response:", data);
+
     if (!res.ok) {
-      throw new Error(data.message || "Reset failed");
+      throw new Error(data.message || data.error || "Reset failed");
     }
 
-    alert("Password reset successful ✅");
+    alert("✅ Password reset successful!");
   } catch (e) {
-    showError(e.message);
+    console.error(e);
+    showError(e.message || "Something went wrong");
   }
-}
-
-// error handler (same)
-function showError(msg) {
-  const el = document.getElementById("errorMsg");
-  if (el) el.innerText = msg;
-  else alert(msg);
 }
 // ================= AUTH CHECK =================
 function getUser() {

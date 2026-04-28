@@ -11,28 +11,23 @@ async function forgotPassword() {
     return showError("Enter Teacher ID first");
   }
 
-  const newPassword = prompt("Enter new password:");
+  const newPassword = prompt("Enter new password (min 6 chars, letter + number):");
 
-  if (!newPassword || newPassword.length < 4) {
-    return alert("Password must be at least 4 characters");
+  if (!newPassword || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(newPassword)) {
+    return showError("Password must contain letter + number (min 6)");
   }
 
   try {
-    const BASE_URL =
-      location.hostname === "localhost"
-        ? "http://127.0.0.1:5000/api"
-        : "https://student-management-system-api-cznx.onrender.com/api";
-
     const res = await fetch(`${BASE_URL}/auth/reset-password`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         identifier: teacherId,
         new_password: newPassword,
-        role: "teacher",
-      }),
+        role: "teacher"
+      })
     });
 
     const data = await res.json();
@@ -41,17 +36,11 @@ async function forgotPassword() {
       throw new Error(data.message || "Reset failed");
     }
 
-    alert("Password reset successful ✅");
-  } catch (e) {
-    showError(e.message);
-  }
-}
+    alert("✅ Password reset successful");
 
-// error handler
-function showError(msg) {
-  const el = document.getElementById("errorMsg");
-  if (el) el.innerText = msg;
-  else alert(msg);
+  } catch (err) {
+    showError(err.message);
+  }
 }
 
 // ================= SAFE AUTH =================
@@ -980,3 +969,13 @@ function checkForm() {
     duration: 0.3,
   });
 }
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("forgotBtn");
+
+  if (!btn) {
+    console.error("❌ forgotBtn not found in DOM");
+    return;
+  }
+
+  btn.addEventListener("click", forgotPassword);
+});

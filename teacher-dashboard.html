@@ -28,8 +28,6 @@ body{
   padding:20px;
 }
 
-.sidebar h2{margin-bottom:15px}
-
 .sidebar button{
   width:100%;
   padding:12px;
@@ -39,25 +37,21 @@ body{
   background:rgba(255,255,255,0.12);
   color:#fff;
   cursor:pointer;
+  transition:0.3s;
+}
+
+.sidebar button:hover{
+  background:rgba(255,255,255,0.25);
 }
 
 /* MAIN */
 .main{flex:1;padding:25px}
-
-/* HEADER */
-.header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:20px;
-}
 
 /* CARDS */
 .cards{
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:15px;
-  margin-top:20px;
 }
 
 .card{
@@ -80,44 +74,33 @@ table{
   margin-top:10px;
   border-collapse:collapse;
 }
-
 th,td{padding:10px}
+tr{background:rgba(255,255,255,0.05)}
 
-th{
-  background:rgba(255,255,255,0.2);
+/* BUTTONS */
+button.action{
+  background:linear-gradient(135deg,#4f46e5,#6366f1);
+  border:none;
+  padding:10px 15px;
+  border-radius:10px;
+  color:#fff;
+  cursor:pointer;
 }
 
-tr{
-  background:rgba(255,255,255,0.05);
+button.delete{
+  background:#ef4444;
+  border:none;
+  padding:6px 10px;
+  border-radius:8px;
+  color:#fff;
+  cursor:pointer;
 }
 
-/* INPUT */
-input{
+input,select{
   padding:10px;
-  margin:5px;
   border:none;
   border-radius:10px;
-}
-
-/* BUTTON */
-button.action{
-  background:#4f46e5;
-  color:#fff;
-}
-
-/* CHART */
-canvas{
-  background:rgba(255,255,255,0.1);
-  padding:10px;
-  border-radius:15px;
-  margin-top:20px;
-}
-
-/* RESPONSIVE */
-@media(max-width:768px){
-  .container{flex-direction:column}
-  .sidebar{width:100%;display:flex;gap:10px}
-  .cards{grid-template-columns:1fr}
+  margin:5px;
 }
 </style>
 </head>
@@ -126,35 +109,27 @@ canvas{
 
 <div class="container">
 
-<!-- SIDEBAR -->
 <div class="sidebar">
   <h2>👨‍🏫 Teacher</h2>
   <button onclick="show('dashboard')">Dashboard</button>
   <button onclick="show('students')">Students</button>
+  <button onclick="show('marks')">Marks</button>
   <button onclick="show('analytics')">Analytics</button>
-  <button onclick="show('leaderboard')">Leaderboard</button>
-  <button onclick="downloadReport()">Export</button>
   <button onclick="logout()">Logout</button>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 
-<div class="header">
-  <h2>Teacher Dashboard</h2>
-</div>
-
-<!-- KPI -->
+<!-- CARDS -->
 <div class="cards">
-  <div class="card"><p>Total Students</p><h2 id="totalStudents">0</h2></div>
-  <div class="card"><p>Class Avg</p><h2 id="classAvg">0</h2></div>
-  <div class="card"><p>Top Score</p><h2 id="topScore">0</h2></div>
-  <div class="card"><p>Weak Students</p><h2 id="weakCount">0</h2></div>
+  <div class="card">Students <h2 id="totalStudents">0</h2></div>
+  <div class="card">Avg <h2 id="classAvg">0</h2></div>
+  <div class="card">Top <h2 id="topScore">0</h2></div>
+  <div class="card">Weak <h2 id="weakCount">0</h2></div>
 </div>
 
 <!-- DASHBOARD -->
 <div id="dashboard" class="section">
-  <h3>Performance Overview</h3>
   <canvas id="performanceChart"></canvas>
 </div>
 
@@ -167,28 +142,28 @@ canvas{
 <input id="password" placeholder="Password">
 <button class="action" onclick="addStudent()">Add</button>
 
-<h3>Students List</h3>
-<input id="search" placeholder="Search..." onkeyup="filterStudents()">
-
 <table>
 <thead>
-<tr><th>Roll</th><th>Name</th><th>Avg</th><th>Grade</th><th>Action</th></tr>
+<tr><th>Roll</th><th>Name</th><th>Avg</th><th>Action</th></tr>
 </thead>
 <tbody id="table"></tbody>
 </table>
 
 </div>
 
-<!-- ANALYTICS -->
-<div id="analytics" class="section" style="display:none">
-<h3>Performance Distribution</h3>
-<canvas id="gradeChart"></canvas>
-</div>
+<!-- MARKS -->
+<div id="marks" class="section" style="display:none">
 
-<!-- LEADERBOARD -->
-<div id="leaderboard" class="section" style="display:none">
-<h3>Top Students</h3>
-<table><tbody id="leaderboardList"></tbody></table>
+<h3>Manage Marks</h3>
+
+<select id="studentSelect"></select>
+
+<div id="marksForm"></div>
+
+<button class="action" onclick="saveMarks()">Save Marks</button>
+
+<canvas id="subjectChart"></canvas>
+
 </div>
 
 </div>
@@ -196,12 +171,15 @@ canvas{
 
 <script>
 
+// SUBJECTS
+const SUBJECTS = [
+"Big Data Analytics","Cloud Computing","Machine Learning",
+"Information Security","Mobile Application Development"
+];
+
 // AUTH
 const token = localStorage.getItem("token");
 if(!token) location.href="index.html";
-
-const payload = JSON.parse(atob(token.split('.')[1]));
-if(payload.role !== "teacher") location.href="index.html";
 
 const BASE_URL = location.hostname==="localhost"
 ? "http://127.0.0.1:5000/api"
@@ -225,68 +203,85 @@ async function loadStudents(){
   const res = await api(`${BASE_URL}/students`);
   studentsData = res.data || [];
 
-  const total = studentsData.length;
-  const avg = (studentsData.reduce((a,b)=>a+(b.avg_marks||0),0)/total||0).toFixed(2);
-  const top = Math.max(...studentsData.map(s=>s.avg_marks||0),0);
-  const weak = studentsData.filter(s=>s.avg_marks<50).length;
-
-  totalStudents.innerText = total;
-  classAvg.innerText = avg;
-  topScore.innerText = top;
-  weakCount.innerText = weak;
+  totalStudents.innerText = studentsData.length;
 
   renderTable(studentsData);
-  drawCharts();
+
+  // dropdown
+  studentSelect.innerHTML = studentsData.map(s=>
+    `<option value="${s.rollno}">${s.name}</option>`
+  ).join("");
+
+  renderMarksForm();
 }
 
 // TABLE
 function renderTable(data){
-  table.innerHTML = data.map(s=>{
-    let grade="C";
-    if(s.avg_marks>90) grade="A";
-    else if(s.avg_marks>70) grade="B";
-
-    return `
+  table.innerHTML = data.map(s=>`
     <tr>
       <td>${s.rollno}</td>
       <td>${s.name}</td>
       <td>${s.avg_marks||0}</td>
-      <td>${grade}</td>
-      <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
-    </tr>`;
-  }).join("");
+      <td>
+        <button class="delete" onclick="deleteStudent('${s.rollno}')">Delete</button>
+      </td>
+    </tr>
+  `).join("");
 }
 
-// FILTER
-function filterStudents(){
-  const val = search.value.toLowerCase();
-  const filtered = studentsData.filter(s=>s.name.toLowerCase().includes(val));
-  renderTable(filtered);
+// MARK FORM
+function renderMarksForm(){
+  marksForm.innerHTML = SUBJECTS.map(sub=>`
+    <div>
+      ${sub}
+      <input type="number" id="mark_${sub}">
+    </div>
+  `).join("");
 }
 
-// CHARTS
-let perfChart, gradeChartObj;
+// SAVE MARKS
+async function saveMarks(){
+  const roll = studentSelect.value;
 
-function drawCharts(){
+  const marks = SUBJECTS.map(sub=>({
+    subject:sub,
+    marks:Number(document.getElementById(`mark_${sub}`).value||0)
+  }));
 
-  if(perfChart) perfChart.destroy();
-  if(gradeChartObj) gradeChartObj.destroy();
-
-  perfChart = new Chart(performanceChart,{
-    type:"bar",
-    data:{
-      labels:studentsData.map(s=>s.name),
-      datasets:[{data:studentsData.map(s=>s.avg_marks)}]
-    }
+  await api(`${BASE_URL}/marks/${roll}`,{
+    method:"POST",
+    body:JSON.stringify({marks})
   });
 
-  const A=studentsData.filter(s=>s.avg_marks>90).length;
-  const B=studentsData.filter(s=>s.avg_marks>70 && s.avg_marks<=90).length;
-  const C=studentsData.filter(s=>s.avg_marks<=70).length;
+  alert("Saved");
+}
 
-  gradeChartObj = new Chart(gradeChart,{
-    type:"doughnut",
-    data:{labels:["A","B","C"],datasets:[{data:[A,B,C]}]}
+// LOAD MARKS
+studentSelect.addEventListener("change", async ()=>{
+  const roll = studentSelect.value;
+  const res = await api(`${BASE_URL}/students/${roll}`);
+  const marks = res.data?.marks || [];
+
+  SUBJECTS.forEach(sub=>{
+    const f = marks.find(m=>m.subject===sub);
+    document.getElementById(`mark_${sub}`).value = f?.marks || "";
+  });
+
+  drawSubjectChart(marks);
+});
+
+// SUBJECT CHART
+let subjectChart;
+function drawSubjectChart(marks){
+
+  if(subjectChart) subjectChart.destroy();
+
+  subjectChart = new Chart(subjectChartCanvas,{
+    type:"bar",
+    data:{
+      labels:marks.map(m=>m.subject),
+      datasets:[{data:marks.map(m=>m.marks)}]
+    }
   });
 }
 
@@ -309,36 +304,11 @@ async function deleteStudent(roll){
   loadStudents();
 }
 
-// LEADERBOARD
-function loadLeaderboard(){
-  const sorted=[...studentsData].sort((a,b)=>b.avg_marks-a.avg_marks);
-  leaderboardList.innerHTML =
-    sorted.map((s,i)=>`
-      <tr><td>#${i+1}</td><td>${s.name}</td><td>${s.avg_marks}</td></tr>
-    `).join("");
-}
-
-// EXPORT
-function downloadReport(){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.text("Class Report",20,20);
-
-  studentsData.forEach((s,i)=>{
-    doc.text(`${s.name} - ${s.avg_marks}`,20,30+i*10);
-  });
-
-  doc.save("report.pdf");
-}
-
 // NAV
 function show(id){
-  dashboard.style.display = id==="dashboard"?"block":"none";
-  students.style.display = id==="students"?"block":"none";
-  analytics.style.display = id==="analytics"?"block":"none";
-  leaderboard.style.display = id==="leaderboard"?"block":"none";
-
-  if(id==="leaderboard") loadLeaderboard();
+  dashboard.style.display=id==="dashboard"?"block":"none";
+  students.style.display=id==="students"?"block":"none";
+  marks.style.display=id==="marks"?"block":"none";
 }
 
 // LOGOUT

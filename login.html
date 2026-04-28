@@ -12,38 +12,36 @@
 <body> <!---------- integrate.system -------->
     <div class="form-container">
 
-        <!-- Roll Number -->
-        <label class="form-row">
-            <input type="text" id="rollno" name="rollno" placeholder="Roll Number" required>
-        </label>
+    <!-- Roll Number -->
+    <label class="form-row">
+        <input type="text" id="rollno" name="rollno" placeholder="Roll Number" required>
+    </label>
 
-        <!-- Password -->
-        <label class="form-row">
-            <input type="password" id="password" name="password" placeholder="Password" required>
-        </label>
+    <!-- Password -->
+    <label class="form-row">
+        <input type="password" id="password" name="password" placeholder="Password" required>
+    </label>
 
-        <!-- Checkbox -->
-        <label class="form-row checkbox-row">
-            <input type="checkbox" id="subscribe" name="subscribe">
-            <span>Agree to terms</span>
-        </label>
+    <!-- Checkbox -->
+    <label class="form-row checkbox-row">
+        <input type="checkbox" id="subscribe" name="subscribe">
+        <span>Agree to terms</span>
+    </label>
 
-        <!-- Error Message -->
-        <div id="errorMsg" style="color:yellow; margin-top:10px;"></div>
+    <!-- Error Message -->
+    <div id="errorMsg" style="color:#ffcc00; margin-top:10px;"></div>
 
-        <!-- Submit Button -->
-        <div class="form-row">
-            <input type="button" id="submitBtn" value="Login">
-        </div>
-
-        <div class="forgot-password" onclick="forgotPassword()">
-            Forgot Password?
-        </div>
-
-
+    <!-- Submit Button -->
+    <div class="form-row">
+        <input type="button" id="submitBtn" value="Login">
     </div>
 
-    </div> <!-- Divider -->
+  
+    <div class="form-row" style="text-align:right;">
+        <button id="forgotBtn" class="forgot-btn">Forgot Password?</button>
+    </div>
+
+</div>
 
     </div> <svg viewBox="0 0 1000 1000" stroke-linecap="round" stroke-linejoin="round">
         <rect x="710" y="527" width="16" height="47" rx="10" ry="10"></rect>
