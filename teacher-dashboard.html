@@ -126,9 +126,9 @@ th,td{padding:10px;text-align:left;}
 
 <script>
 
-// ================= LOGOUT =================
+// ================= TEACHER LOGOUT =================
 function logout(msg){
-    if(!confirm("Are you sure you want to logout?")) return;
+    if(!confirm("Logout from Teacher Dashboard?")) return;
 
     if(msg) alert(msg);
 
@@ -139,7 +139,7 @@ function logout(msg){
 }
 
 
-// ================= AUTH =================
+// ================= AUTH (TEACHER ONLY) =================
 const token = localStorage.getItem("token");
 
 if(!token){
@@ -147,17 +147,27 @@ if(!token){
 }
 
 let payload;
+
 try{
     payload = JSON.parse(atob(token.split('.')[1]));
 }catch{
     logout("Invalid session");
 }
 
+// 🔥 ROLE CHECK (CRITICAL FIX)
+if(payload.role !== "teacher"){
+    alert("Access denied: Teacher only");
+    window.location.href = "index.html";
+}
+
+// Expiry check
 if(payload.exp && payload.exp < Date.now()/1000){
     logout("Session expired");
 }
 
-const user = { identifier: payload.identifier };
+const user = {
+    identifier: payload.identifier
+};
 
 
 // ================= BASE URL =================
@@ -198,8 +208,8 @@ async function loadStudents(){
         document.querySelector("#table tbody").innerHTML =
         students.map(s=>{
             let grade="C";
-            if(s.avg_marks>90) grade="A";
-            else if(s.avg_marks>70) grade="B";
+            if(s.avg_marks > 90) grade="A";
+            else if(s.avg_marks > 70) grade="B";
 
             return `
             <tr>
@@ -207,7 +217,11 @@ async function loadStudents(){
                 <td>${s.name}</td>
                 <td>${s.avg_marks || 0}</td>
                 <td class="grade${grade}">${grade}</td>
-                <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
+                <td>
+                    <button onclick="deleteStudent('${s.rollno}')">
+                        Delete
+                    </button>
+                </td>
             </tr>`;
         }).join("");
 
@@ -219,9 +233,9 @@ async function loadStudents(){
 
 // ================= ADD STUDENT =================
 async function addStudent(){
-    const name=document.getElementById("name").value.trim();
-    const roll=document.getElementById("roll").value.trim();
-    const password=document.getElementById("password").value.trim();
+    const name = document.getElementById("name").value.trim();
+    const roll = document.getElementById("roll").value.trim();
+    const password = document.getElementById("password").value.trim();
 
     if(!name || !roll || !password){
         return alert("Fill all fields");
@@ -250,8 +264,12 @@ async function addStudent(){
 // ================= DELETE =================
 async function deleteStudent(roll){
     try{
-        await api(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
+        await api(`${BASE_URL}/students/${roll}`,{
+            method:"DELETE"
+        });
+
         loadStudents();
+
     }catch(e){
         alert(e.message);
     }
@@ -260,9 +278,9 @@ async function deleteStudent(roll){
 
 // ================= ATTENDANCE =================
 async function markAttendance(){
-    const roll=document.getElementById("rollAtt").value.trim();
-    const date=document.getElementById("date").value;
-    const status=document.getElementById("status").value;
+    const roll = document.getElementById("rollAtt").value.trim();
+    const date = document.getElementById("date").value;
+    const status = document.getElementById("status").value;
 
     if(!roll || !date){
         return alert("Fill all fields");
@@ -289,15 +307,15 @@ async function markAttendance(){
 
 // ================= MARKS =================
 async function addMarks(){
-    const roll=document.getElementById("rollMarks").value.trim();
-    const subject=document.getElementById("subject").value.trim();
-    const marks=document.getElementById("marks").value.trim();
+    const roll = document.getElementById("rollMarks").value.trim();
+    const subject = document.getElementById("subject").value.trim();
+    const marks = document.getElementById("marks").value.trim();
 
     if(!roll || !subject || !marks){
         return alert("Fill all fields");
     }
 
-    if(isNaN(marks) || marks<0 || marks>100){
+    if(isNaN(marks) || marks < 0 || marks > 100){
         return alert("Marks must be 0–100");
     }
 
@@ -313,6 +331,7 @@ async function addMarks(){
         });
 
         alert(`Marks saved for ${subject}`);
+
         document.getElementById("marks").value="";
 
         loadStudents();
