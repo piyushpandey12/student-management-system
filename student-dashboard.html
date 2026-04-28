@@ -11,51 +11,13 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Poppins}
-
-body{
-  background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);
-  color:#fff;
-}
-
+body{background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);color:#fff}
 .container{display:flex}
-
-/* SIDEBAR */
-.sidebar{
-  width:240px;
-  min-height:100vh;
-  background:rgba(0,0,0,0.25);
-  backdrop-filter:blur(12px);
-  padding:20px;
-}
-
-.sidebar button{
-  width:100%;
-  padding:12px;
-  margin:8px 0;
-  border:none;
-  border-radius:12px;
-  background:rgba(255,255,255,0.15);
-  color:#fff;
-  cursor:pointer;
-}
-
-/* MAIN */
+.sidebar{width:240px;min-height:100vh;background:rgba(0,0,0,0.25);padding:20px}
+.sidebar button{width:100%;padding:12px;margin:8px 0;border:none;border-radius:12px;background:rgba(255,255,255,0.15);color:#fff;cursor:pointer}
 .main{flex:1;padding:25px}
-
-/* CARDS */
-.cards{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:15px;
-}
-
-.card{
-  padding:18px;
-  border-radius:15px;
-  background:rgba(255,255,255,0.15);
-}
-
-/* TABLE */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+.card{padding:18px;border-radius:15px;background:rgba(255,255,255,0.15)}
 table{width:100%;margin-top:10px;border-collapse:collapse}
 th{background:rgba(255,255,255,0.3);color:#000}
 th,td{padding:10px}
@@ -114,174 +76,178 @@ tr{background:rgba(255,255,255,0.08)}
 
 <script>
 
-// AUTH
+// ================= AUTH =================
 const token = localStorage.getItem("token");
-if(!token) location.href="index.html";
 
-const user = JSON.parse(atob(token.split('.')[1]));
-document.getElementById("welcome").innerText = "Welcome " + user.identifier;
+if (!token) location.href = "index.html";
 
-// API
-const BASE_URL = location.hostname==="localhost"
-? "http://127.0.0.1:5000/api"
-: "https://student-management-system-api-cznx.onrender.com/api";
-
-async function api(url){
-  const res = await fetch(url,{
-    headers:{Authorization:"Bearer "+token}
-  });
-  return res.json();
+let user = {};
+try {
+  user = JSON.parse(atob(token.split('.')[1]));
+} catch {
+  alert("Session expired. Login again.");
+  localStorage.clear();
+  location.href = "index.html";
 }
 
-// ================= LOAD =================
-async function loadDashboard(){
+document.getElementById("welcome").innerText =
+  "Welcome " + (user.identifier || user.rollno || "Student");
 
-  const res = await api(`${BASE_URL}/students/dashboard/${user.identifier}`);
+// ================= BASE URL =================
+const BASE_URL =
+  location.hostname === "localhost"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
+
+// ================= API =================
+async function api(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: "Bearer " + token }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.message || "API Error");
+
+    return data;
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
+    return {};
+  }
+}
+
+// ================= LOAD DASHBOARD =================
+async function loadDashboard() {
+
+  const id = user.identifier || user.rollno;
+
+  const res = await api(`${BASE_URL}/students/dashboard/${id}`);
   const d = res.data || res;
 
-  const present = d.attendance?.present ?? d.present ?? 0;
-  const total = d.attendance?.total ?? d.total ?? 0;
+  const present = d.attendance?.present || 0;
+  const total = d.attendance?.total || 0;
   const marks = d.marks || [];
 
-  document.getElementById("present").innerText = present;
-  document.getElementById("total").innerText = total;
+  presentEl.innerText = present;
+  totalEl.innerText = total;
 
-  const percent = total ? ((present/total)*100).toFixed(1) : 0;
-  document.getElementById("att").innerText = percent + "%";
+  const percent = total ? ((present / total) * 100).toFixed(1) : 0;
+  att.innerText = percent + "%";
 
-  const avg = marks.length
-    ? (marks.reduce((a,b)=>a+(b.marks||0),0)/marks.length).toFixed(2)
+  const avgVal = marks.length
+    ? (marks.reduce((a, b) => a + (b.marks || 0), 0) / marks.length).toFixed(2)
     : 0;
 
-  document.getElementById("avg").innerText = avg;
+  avg.innerText = avgVal;
 
-  // MARKS + GRADE
-  document.getElementById("marksList").innerHTML =
-    marks.map(m=>{
-      let grade = m.marks>=90?"A":m.marks>=70?"B":"C";
-      return `<tr><td>${m.subject}</td><td>${m.marks}</td><td>${grade}</td></tr>`;
-    }).join("");
+  // TABLE
+  marksList.innerHTML = marks.map(m => {
+    let grade =
+      m.marks >= 90 ? "A" :
+      m.marks >= 70 ? "B" :
+      m.marks >= 40 ? "C" : "F";
 
-  drawCharts(present,total,marks);
+    return `<tr>
+      <td>${m.subject}</td>
+      <td>${m.marks}</td>
+      <td>${grade}</td>
+    </tr>`;
+  }).join("");
+
+  drawCharts(present, total, marks);
 }
 
 // ================= CHART =================
-let aChart,mChart;
+let aChart, mChart;
 
-function drawCharts(present,total,marks){
+function drawCharts(present, total, marks) {
 
-  if(aChart) aChart.destroy();
-  if(mChart) mChart.destroy();
+  if (aChart) aChart.destroy();
+  if (mChart) mChart.destroy();
 
-  aChart = new Chart(attendanceChart,{
-    type:"doughnut",
-    data:{
-      labels:["Present","Absent"],
-      datasets:[{
-        data:[present,total-present],
-        backgroundColor:["#22c55e","#ef4444"]
-      }]
+  aChart = new Chart(document.getElementById("attendanceChart"), {
+    type: "doughnut",
+    data: {
+      labels: ["Present", "Absent"],
+      datasets: [{ data: [present, total - present] }]
     }
   });
 
-  mChart = new Chart(marksChart,{
-    type:"bar",
-    data:{
-      labels:marks.map(m=>m.subject),
-      datasets:[{
-        data:marks.map(m=>m.marks),
-        backgroundColor:"#4f46e5"
-      }]
+  mChart = new Chart(document.getElementById("marksChart"), {
+    type: "bar",
+    data: {
+      labels: marks.map(m => m.subject),
+      datasets: [{ data: marks.map(m => m.marks) }]
     }
   });
 }
 
 // ================= LEADERBOARD =================
-async function loadLeaderboard(){
+async function loadLeaderboard() {
 
   const res = await api(`${BASE_URL}/students`);
   const students = res.data || [];
 
-  const sorted = [...students].sort((a,b)=>
-    (b.avg_marks||0)-(a.avg_marks||0)
+  const sorted = students.sort((a, b) =>
+    (b.avg_marks || 0) - (a.avg_marks || 0)
   );
 
-  document.getElementById("leaderboardList").innerHTML =
-    sorted.map((s,i)=>`
-      <tr>
-        <td>#${i+1}</td>
-        <td>${s.identifier}</td>
-        <td>${s.avg_marks||0}</td>
-      </tr>
-    `).join("");
+  leaderboardList.innerHTML = sorted.map((s, i) => `
+    <tr>
+      <td>#${i + 1}</td>
+      <td>${s.rollno || s.identifier}</td>
+      <td>${s.avg_marks || 0}</td>
+    </tr>
+  `).join("");
 }
 
 // ================= PDF =================
-function downloadReport(){
+function downloadReport() {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
-  const avg = Number(document.getElementById("avg").innerText);
-  const cgpa = (avg/10).toFixed(2);
-  const status = avg>=40?"PASS":"FAIL";
+  const avgVal = Number(avg.innerText);
 
-  doc.setFillColor(79,70,229);
-  doc.rect(0,0,210,30,"F");
+  doc.text("Student Report", 20, 20);
+  doc.text(`ID: ${user.identifier || user.rollno}`, 20, 40);
+  doc.text(`Average: ${avgVal}`, 20, 50);
 
-  doc.setTextColor(255,255,255);
-  doc.text("Student Report Card", 70, 18);
+  let y = 70;
 
-  doc.setTextColor(0,0,0);
-  doc.text(`Student ID: ${user.identifier}`, 20, 50);
-  doc.text(`Average: ${avg}`, 20, 60);
-  doc.text(`CGPA: ${cgpa}`, 20, 70);
-  doc.text(`Status: ${status}`, 20, 80);
-
-  let y=100;
-
-  document.querySelectorAll("#marksList tr").forEach(row=>{
+  document.querySelectorAll("#marksList tr").forEach(row => {
     const cols = row.querySelectorAll("td");
-    if(cols.length>=2){
-      doc.text(cols[0].innerText,20,y);
-      doc.text(cols[1].innerText,120,y);
-      doc.text(cols[2].innerText,160,y);
-      y+=10;
-    }
+    doc.text(cols[0].innerText, 20, y);
+    doc.text(cols[1].innerText, 100, y);
+    doc.text(cols[2].innerText, 150, y);
+    y += 10;
   });
 
-  doc.save("report-card.pdf");
+  doc.save("report.pdf");
 }
 
 // ================= NAV =================
-function show(id){
-  dashboard.style.display = id==="dashboard"?"block":"none";
-  marksSection.style.display = id==="marks"?"block":"none";
-  leaderboard.style.display = id==="leaderboard"?"block":"none";
+function show(id) {
 
-  if(id==="leaderboard") loadLeaderboard();
+  dashboard.style.display = id === "dashboard" ? "block" : "none";
+  marksSection.style.display = id === "marks" ? "block" : "none";
+  leaderboard.style.display = id === "leaderboard" ? "block" : "none";
+
+  if (id === "leaderboard") loadLeaderboard();
 }
 
 // ================= LOGOUT =================
-function logout(){
+function logout() {
   localStorage.clear();
-  location.href="index.html";
+  location.href = "index.html";
 }
 
-// INIT
+// ================= INIT =================
 loadDashboard();
 
 </script>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
 
-  const forgotBtn = document.getElementById("forgotBtn");
-
-  if (forgotBtn) {
-    forgotBtn.addEventListener("click", forgotPassword);
-  }
-
-});
-</script>
 </body>
 </html>

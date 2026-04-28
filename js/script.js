@@ -22,11 +22,11 @@ async function forgotPassword() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        identifier: studentId,
-        new_password: newPassword, // 🔥 important
-        role: "student"
-      }),
+     body: JSON.stringify({
+    identifier: rollno,     // ✅ NOT rollno
+    new_password: newPassword,
+    role: "student"
+})
     });
 
     const data = await res.json();
@@ -211,8 +211,12 @@ rollnoEl.addEventListener("input", () => {
 });
 passwordEl.addEventListener("input", () => {
   // ✅ Strong password: letters + number, min 6
-  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
-  passwordValid = passwordRegex.test(passwordEl.value);
+  const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+
+if (!strongPassword.test(newPassword)) {
+    errorMsg.innerText = "Password must contain letter + number (min 6)";
+    return;
+}
 
   if (passwordValid) {
     passwordTl.play(); // safe now
@@ -965,3 +969,85 @@ submitBtn.addEventListener("click", async (e) => {
     errorEl.innerText = "⚠️ Backend not reachable!";
   }
 });
+// ================= INIT =================
+document.addEventListener("DOMContentLoaded", () => {
+    const forgotBtn = document.getElementById("forgotBtn");
+
+    if (!forgotBtn) {
+        console.error("❌ forgotBtn not found");
+        return;
+    }
+
+    // Prevent multiple bindings
+    forgotBtn.onclick = forgotPassword;
+});
+
+
+// ================= FORGOT PASSWORD =================
+// ================= PASSWORD RULE =================
+// ================= PASSWORD RULE (declare once globally) =================
+const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+
+
+// ================= FORGOT PASSWORD =================
+async function forgotPassword() {
+
+    const rollnoInput = document.getElementById("rollno");
+    const errorMsg = document.getElementById("errorMsg");
+
+    const rollno = rollnoInput ? rollnoInput.value.trim() : "";
+
+    // Clear previous error safely
+    if (errorMsg) errorMsg.innerText = "";
+
+    // ✅ Validate Roll Number
+    if (!rollno) {
+        if (errorMsg) errorMsg.innerText = "⚠️ Enter Roll Number first";
+        else alert("Enter Roll Number first");
+        return;
+    }
+
+    // ✅ Get new password
+    const newPassword = prompt("Enter new password (min 6 chars, letter + number):");
+
+    // ✅ Validate password (single source of truth)
+    if (!newPassword || !strongPassword.test(newPassword)) {
+        if (errorMsg) {
+            errorMsg.innerText = "⚠️ Password must contain letter + number (min 6)";
+        } else {
+            alert("Password must contain letter + number (min 6)");
+        }
+        return;
+    }
+
+    try {
+        const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                identifier: rollno,
+                new_password: newPassword,
+                role: "student"
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.message || "Reset failed");
+        }
+
+        alert("✅ Password reset successful. Please login again.");
+
+    } catch (err) {
+        console.error("RESET ERROR:", err);
+
+        if (errorMsg) {
+            errorMsg.innerText = "❌ " + err.message;
+        } else {
+            alert(err.message);
+        }
+    }
+}

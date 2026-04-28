@@ -7,19 +7,14 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Poppins}
-
 body{
   background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);
   color:#fff;
 }
-
 .container{display:flex}
-
-/* SIDEBAR */
 .sidebar{
   width:240px;
   min-height:100vh;
@@ -27,7 +22,6 @@ body{
   backdrop-filter:blur(15px);
   padding:20px;
 }
-
 .sidebar button{
   width:100%;
   padding:12px;
@@ -37,38 +31,24 @@ body{
   background:rgba(255,255,255,0.12);
   color:#fff;
   cursor:pointer;
-  transition:0.3s;
 }
-
-.sidebar button:hover{
-  background:rgba(255,255,255,0.25);
-}
-
-/* MAIN */
 .main{flex:1;padding:25px}
-
-/* CARDS */
 .cards{
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:15px;
 }
-
 .card{
   padding:15px;
   border-radius:15px;
   background:rgba(255,255,255,0.1);
 }
-
-/* SECTION */
 .section{
   background:rgba(255,255,255,0.1);
   padding:15px;
   border-radius:15px;
   margin-top:20px;
 }
-
-/* TABLE */
 table{
   width:100%;
   margin-top:10px;
@@ -76,31 +56,26 @@ table{
 }
 th,td{padding:10px}
 tr{background:rgba(255,255,255,0.05)}
-
-/* BUTTONS */
 button.action{
-  background:linear-gradient(135deg,#4f46e5,#6366f1);
+  background:#4f46e5;
   border:none;
-  padding:10px 15px;
+  padding:10px;
   border-radius:10px;
   color:#fff;
   cursor:pointer;
 }
-
 button.delete{
   background:#ef4444;
-  border:none;
-  padding:6px 10px;
+  padding:6px;
   border-radius:8px;
+  border:none;
   color:#fff;
-  cursor:pointer;
 }
-
 input,select{
   padding:10px;
-  border:none;
   border-radius:10px;
   margin:5px;
+  border:none;
 }
 </style>
 </head>
@@ -114,13 +89,11 @@ input,select{
   <button onclick="show('dashboard')">Dashboard</button>
   <button onclick="show('students')">Students</button>
   <button onclick="show('marks')">Marks</button>
-  <button onclick="show('analytics')">Analytics</button>
   <button onclick="logout()">Logout</button>
 </div>
 
 <div class="main">
 
-<!-- CARDS -->
 <div class="cards">
   <div class="card">Students <h2 id="totalStudents">0</h2></div>
   <div class="card">Avg <h2 id="classAvg">0</h2></div>
@@ -128,14 +101,11 @@ input,select{
   <div class="card">Weak <h2 id="weakCount">0</h2></div>
 </div>
 
-<!-- DASHBOARD -->
 <div id="dashboard" class="section">
   <canvas id="performanceChart"></canvas>
 </div>
 
-<!-- STUDENTS -->
 <div id="students" class="section" style="display:none">
-
 <h3>Add Student</h3>
 <input id="name" placeholder="Name">
 <input id="roll" placeholder="Roll">
@@ -148,22 +118,14 @@ input,select{
 </thead>
 <tbody id="table"></tbody>
 </table>
-
 </div>
 
-<!-- MARKS -->
 <div id="marks" class="section" style="display:none">
-
 <h3>Manage Marks</h3>
-
 <select id="studentSelect"></select>
-
 <div id="marksForm"></div>
-
 <button class="action" onclick="saveMarks()">Save Marks</button>
-
 <canvas id="subjectChart"></canvas>
-
 </div>
 
 </div>
@@ -171,32 +133,40 @@ input,select{
 
 <script>
 
-// SUBJECTS
+// ================= CONFIG =================
 const SUBJECTS = [
 "Big Data Analytics","Cloud Computing","Machine Learning",
 "Information Security","Mobile Application Development"
 ];
 
-// AUTH
 const token = localStorage.getItem("token");
 if(!token) location.href="index.html";
 
-const BASE_URL = location.hostname==="localhost"
-? "http://127.0.0.1:5000/api"
-: "https://student-management-system-api-cznx.onrender.com/api";
+const BASE_URL =
+  location.hostname==="localhost"
+  ? "http://127.0.0.1:5000/api"
+  : "https://student-management-system-api-cznx.onrender.com/api";
 
+// ================= API =================
 async function api(url,options={}){
-  const res = await fetch(url,{
-    ...options,
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization":"Bearer "+token
-    }
-  });
-  return res.json();
+  try{
+    const res = await fetch(url,{
+      ...options,
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+token
+      }
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.message || "Error");
+    return data;
+  }catch(e){
+    alert(e.message);
+    return {};
+  }
 }
 
-// DATA
+// ================= LOAD =================
 let studentsData=[];
 
 async function loadStudents(){
@@ -205,41 +175,62 @@ async function loadStudents(){
 
   totalStudents.innerText = studentsData.length;
 
-  renderTable(studentsData);
+  const avg = studentsData.reduce((a,b)=>a+(b.avg_marks||0),0)/(studentsData.length||1);
+  classAvg.innerText = avg.toFixed(2);
 
-  // dropdown
-  studentSelect.innerHTML = studentsData.map(s=>
-    `<option value="${s.rollno}">${s.name}</option>`
-  ).join("");
+  topScore.innerText = Math.max(...studentsData.map(s=>s.avg_marks||0),0);
+  weakCount.innerText = studentsData.filter(s=>(s.avg_marks||0)<40).length;
 
+  renderTable();
+  studentSelect.innerHTML = studentsData.map(s=>`<option value="${s.rollno}">${s.name}</option>`).join("");
   renderMarksForm();
 }
 
-// TABLE
-function renderTable(data){
-  table.innerHTML = data.map(s=>`
+// ================= TABLE =================
+function renderTable(){
+  table.innerHTML = studentsData.map(s=>`
     <tr>
       <td>${s.rollno}</td>
       <td>${s.name}</td>
       <td>${s.avg_marks||0}</td>
-      <td>
-        <button class="delete" onclick="deleteStudent('${s.rollno}')">Delete</button>
-      </td>
+      <td><button class="delete" onclick="deleteStudent('${s.rollno}')">Delete</button></td>
     </tr>
   `).join("");
 }
 
-// MARK FORM
+// ================= ADD =================
+async function addStudent(){
+  if(!name.value || !roll.value || !password.value){
+    return alert("Fill all fields");
+  }
+
+  await api(`${BASE_URL}/students`,{
+    method:"POST",
+    body:JSON.stringify({
+      name:name.value,
+      rollno:roll.value,
+      password:password.value
+    })
+  });
+
+  name.value=""; roll.value=""; password.value="";
+  loadStudents();
+}
+
+// ================= DELETE =================
+async function deleteStudent(roll){
+  if(!confirm("Delete?")) return;
+  await api(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
+  loadStudents();
+}
+
+// ================= MARKS =================
 function renderMarksForm(){
   marksForm.innerHTML = SUBJECTS.map(sub=>`
-    <div>
-      ${sub}
-      <input type="number" id="mark_${sub}">
-    </div>
+    <div>${sub}<input type="number" id="mark_${sub}"></div>
   `).join("");
 }
 
-// SAVE MARKS
 async function saveMarks(){
   const roll = studentSelect.value;
 
@@ -254,12 +245,14 @@ async function saveMarks(){
   });
 
   alert("Saved");
+  loadStudents();
 }
 
-// LOAD MARKS
+// ================= CHART =================
+let subjectChart;
+
 studentSelect.addEventListener("change", async ()=>{
-  const roll = studentSelect.value;
-  const res = await api(`${BASE_URL}/students/${roll}`);
+  const res = await api(`${BASE_URL}/students/${studentSelect.value}`);
   const marks = res.data?.marks || [];
 
   SUBJECTS.forEach(sub=>{
@@ -267,57 +260,31 @@ studentSelect.addEventListener("change", async ()=>{
     document.getElementById(`mark_${sub}`).value = f?.marks || "";
   });
 
-  drawSubjectChart(marks);
-});
-
-// SUBJECT CHART
-let subjectChart;
-function drawSubjectChart(marks){
-
   if(subjectChart) subjectChart.destroy();
 
-  subjectChart = new Chart(subjectChartCanvas,{
+  subjectChart = new Chart(document.getElementById("subjectChart"),{
     type:"bar",
     data:{
       labels:marks.map(m=>m.subject),
       datasets:[{data:marks.map(m=>m.marks)}]
     }
   });
-}
+});
 
-// ADD
-async function addStudent(){
-  await api(`${BASE_URL}/students`,{
-    method:"POST",
-    body:JSON.stringify({
-      name:name.value,
-      rollno:roll.value,
-      password:password.value
-    })
-  });
-  loadStudents();
-}
-
-// DELETE
-async function deleteStudent(roll){
-  await api(`${BASE_URL}/students/${roll}`,{method:"DELETE"});
-  loadStudents();
-}
-
-// NAV
+// ================= NAV =================
 function show(id){
   dashboard.style.display=id==="dashboard"?"block":"none";
   students.style.display=id==="students"?"block":"none";
   marks.style.display=id==="marks"?"block":"none";
 }
 
-// LOGOUT
+// ================= LOGOUT =================
 function logout(){
   localStorage.clear();
   location.href="index.html";
 }
 
-// INIT
+// ================= INIT =================
 loadStudents();
 
 </script>

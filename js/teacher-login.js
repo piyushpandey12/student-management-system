@@ -4,42 +4,76 @@ const BASE_URL =
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-system-api-cznx.onrender.com/api";
 
-async function forgotPassword() {
-  const teacherId = document.getElementById("teacherId").value.trim();
+// ================= ERROR HANDLER =================
+function showError(msg) {
+  const el = document.getElementById("errorMsg");
 
+  if (el) {
+    el.innerText = msg;
+  } else {
+    alert(msg);
+  }
+}
+
+// ================= FORGOT PASSWORD =================
+async function forgotPassword() {
+
+  const teacherInput = document.getElementById("teacherId");
+  const teacherId = teacherInput ? teacherInput.value.trim() : "";
+
+  // Clear old error
+  showError("");
+
+  // ✅ Validate Teacher ID
   if (!teacherId) {
-    return showError("Enter Teacher ID first");
+    showError("⚠️ Enter Teacher ID first");
+    return;
   }
 
-  const newPassword = prompt("Enter new password (min 6 chars, letter + number):");
+  // ✅ Get new password
+  const newPassword = prompt(
+    "Enter new password (min 6 chars, letter + number):"
+  );
 
-  if (!newPassword || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(newPassword)) {
-    return showError("Password must contain letter + number (min 6)");
+  // Regex for strong password
+  const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+
+  // ✅ Validate password
+  if (!newPassword || !regex.test(newPassword)) {
+    showError("⚠️ Password must contain letter + number (min 6)");
+    return;
   }
 
   try {
     const res = await fetch(`${BASE_URL}/auth/reset-password`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         identifier: teacherId,
         new_password: newPassword,
-        role: "teacher"
-      })
+        role: "teacher", // 🔥 REQUIRED
+      }),
     });
 
-    const data = await res.json();
+    // Safe JSON parsing
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error("Invalid server response");
+    }
 
     if (!res.ok) {
       throw new Error(data.message || "Reset failed");
     }
 
-    alert("✅ Password reset successful");
+    alert("✅ Password reset successful. Please login again.");
 
   } catch (err) {
-    showError(err.message);
+    console.error("RESET ERROR:", err);
+    showError("❌ " + err.message);
   }
 }
 
@@ -74,9 +108,7 @@ const checkboxEl = document.querySelector(
 );
 const teacherIdEl = document.getElementById("teacherId");
 
-const passwordEl = document.querySelector(
-  '.form-container .form-row input[name="password"]',
-);
+const passwordEl = document.getElementById("password");
 
 const submitBtn = document.getElementById("submitBtn");
 
@@ -970,12 +1002,42 @@ function checkForm() {
   });
 }
 document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("forgotBtn");
 
-  if (!btn) {
-    console.error("❌ forgotBtn not found in DOM");
-    return;
+  const teacherIdEl = document.getElementById("teacherId");
+  const passwordEl = document.getElementById("password");
+  const submitBtn = document.getElementById("submitBtn");
+  const checkboxEl = document.querySelector("#subscribe");
+  const forgotBtn = document.getElementById("forgotBtn");
+
+  // ================= FORGOT PASSWORD =================
+  if (forgotBtn) {
+    forgotBtn.addEventListener("click", forgotPassword);
   }
 
-  btn.addEventListener("click", forgotPassword);
+  // ================= LOGIN =================
+  submitBtn.addEventListener("click", handleLogin);
+
+  // ================= VALIDATION =================
+  teacherIdEl.addEventListener("input", () => {
+    rollnoValid = /^[a-zA-Z0-9]{3,}$/.test(teacherIdEl.value);
+    checkForm();
+  });
+
+  passwordEl.addEventListener("input", () => {
+    const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+    passwordValid = regex.test(passwordEl.value);
+
+    if (passwordValid) {
+      passwordTl.play();
+      passwordEl.classList.add("valid");
+    } else {
+      passwordTl.reverse();
+      passwordEl.classList.remove("valid");
+    }
+
+    checkForm();
+  });
+
+  checkboxEl.addEventListener("change", checkForm);
+
 });
