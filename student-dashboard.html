@@ -5,84 +5,132 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Dashboard</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-:root{
-  --primary:#4f46e5;
-  --bg:#0f172a;
-  --card:#1e293b;
-  --text:#e2e8f0;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Poppins}
 
 body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:Inter;
-  margin:0;
+  background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);
+  color:#fff;
 }
 
 .container{display:flex}
 
 /* SIDEBAR */
 .sidebar{
-  width:250px;
-  background:#020617;
-  height:100vh;
+  width:240px;
+  min-height:100vh;
+  background:rgba(255,255,255,0.08);
+  backdrop-filter:blur(15px);
   padding:20px;
-  position:fixed;
 }
+
+.sidebar h2{margin-bottom:15px}
 
 .sidebar button{
   width:100%;
-  padding:10px;
-  margin:5px 0;
-  background:none;
+  padding:12px;
+  margin:8px 0;
   border:none;
-  color:white;
+  border-radius:12px;
+  background:rgba(255,255,255,0.12);
+  color:#fff;
   cursor:pointer;
 }
 
 /* MAIN */
-.main{
-  margin-left:250px;
-  padding:20px;
-  width:100%;
+.main{flex:1;padding:25px}
+
+/* HEADER */
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
 }
 
 /* CARDS */
 .cards{
   display:grid;
   grid-template-columns:repeat(4,1fr);
-  gap:10px;
+  gap:15px;
 }
 
 .card{
-  background:var(--card);
   padding:15px;
-  border-radius:10px;
+  border-radius:15px;
+  background:rgba(255,255,255,0.1);
+}
+
+/* CHARTS */
+.charts{
+  display:flex;
+  gap:20px;
+  margin-top:20px;
+  flex-wrap:wrap;
+}
+
+canvas{
+  background:rgba(255,255,255,0.1);
+  padding:10px;
+  border-radius:15px;
+  width:300px !important;
+  height:250px !important;
+}
+
+/* SECTION */
+.section{
+  background:rgba(255,255,255,0.1);
+  padding:15px;
+  border-radius:15px;
+  margin-top:20px;
 }
 
 /* TABLE */
 table{
   width:100%;
-  background:var(--card);
-  border-radius:10px;
+  margin-top:10px;
+  border-collapse:collapse;
 }
 
 th,td{padding:10px}
+
+th{
+  background:rgba(255,255,255,0.2);
+}
+
+tr{
+  background:rgba(255,255,255,0.05);
+}
 
 /* CALENDAR */
 #calendarGrid{
   display:grid;
   grid-template-columns:repeat(7,1fr);
   gap:5px;
+  margin-top:10px;
 }
-.day{padding:10px;background:#334155;border-radius:6px}
+
+.day{
+  padding:10px;
+  background:#334155;
+  border-radius:6px;
+  text-align:center;
+}
+
 .present{background:#22c55e}
 .absent{background:#ef4444}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .container{flex-direction:column}
+  .sidebar{width:100%;display:flex;gap:10px}
+  .cards{grid-template-columns:1fr}
+  .charts{flex-direction:column}
+}
 </style>
 </head>
 
@@ -97,7 +145,7 @@ th,td{padding:10px}
   <button onclick="show('marks')">Marks</button>
   <button onclick="show('leaderboard')">Leaderboard</button>
   <button onclick="downloadReport()">Download Report</button>
-  <button onclick="toggleTheme()">🌙 Theme</button>
+  <button onclick="toggleTheme()">Theme</button>
   <button onclick="logout()">Logout</button>
 </div>
 
@@ -106,34 +154,45 @@ th,td{padding:10px}
 
 <div class="header">
   <h2 id="welcome"></h2>
-  <div>
-    <img id="avatar" width="35" style="border-radius:50%">
+
+  <div style="display:flex;align-items:center;gap:10px;">
+    <img id="avatar" width="40" style="border-radius:50%">
     <input type="file" onchange="uploadAvatar(event)">
   </div>
 </div>
 
 <!-- CARDS -->
 <div class="cards">
-  <div class="card">Attendance: <b id="att"></b></div>
-  <div class="card">Present: <b id="present"></b></div>
-  <div class="card">Total: <b id="total"></b></div>
-  <div class="card">Avg: <b id="avg"></b></div>
+  <div class="card"><p>Attendance</p><h2 id="att">0%</h2></div>
+  <div class="card"><p>Present</p><h2 id="present">0</h2></div>
+  <div class="card"><p>Total</p><h2 id="total">0</h2></div>
+  <div class="card"><p>Average</p><h2 id="avg">0</h2></div>
 </div>
 
 <!-- DASHBOARD -->
 <div id="dashboard">
 
-<canvas id="attendanceChart"></canvas>
-<canvas id="marksChart"></canvas>
+<div class="charts">
+  <canvas id="attendanceChart"></canvas>
+  <canvas id="marksChart"></canvas>
+</div>
 
-<div id="calendarGrid"></div>
+<div class="section">
+  <h3>AI Insight</h3>
+  <div id="activity"></div>
+</div>
 
-<div id="activity"></div>
+<div class="section">
+  <h3>Attendance Calendar</h3>
+  <div id="calendarGrid"></div>
+</div>
 
 </div>
 
 <!-- MARKS -->
 <div id="marksSection" style="display:none">
+<h3 style="margin-top:20px;">Marks</h3>
+
 <table>
 <thead><tr><th>Subject</th><th>Marks</th></tr></thead>
 <tbody id="marksList"></tbody>
@@ -142,7 +201,8 @@ th,td{padding:10px}
 
 <!-- LEADERBOARD -->
 <div id="leaderboard" style="display:none">
-<h3>Leaderboard</h3>
+<h3 style="margin-top:20px;">Leaderboard</h3>
+
 <table>
 <tbody id="leaderboardList"></tbody>
 </table>
@@ -170,7 +230,7 @@ async function api(url){
   return res.json();
 }
 
-// LOAD DASHBOARD
+// LOAD
 async function loadDashboard(){
   const res = await api(`${BASE_URL}/students/dashboard/${user.identifier}`);
   const d = res.data || res;
@@ -181,23 +241,28 @@ async function loadDashboard(){
 
   document.getElementById("present").innerText = present;
   document.getElementById("total").innerText = total;
-  document.getElementById("att").innerText = total?((present/total)*100).toFixed(1)+"%":0;
+  document.getElementById("att").innerText = total?((present/total)*100).toFixed(1)+"%":"0%";
 
   const avg = marks.length ? (marks.reduce((a,b)=>a+b.marks,0)/marks.length).toFixed(2) : 0;
   document.getElementById("avg").innerText = avg;
 
   document.getElementById("marksList").innerHTML =
-    marks.map(m=>`<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
+    marks.length
+    ? marks.map(m=>`<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("")
+    : `<tr><td colspan="2">No data</td></tr>`;
 
   drawCharts(present,total,marks);
   loadCalendar();
-  aiPrediction(avg,(present/total)*100);
+
+  const attendancePercent = total ? (present/total)*100 : 0;
+  aiPrediction(avg,attendancePercent);
 }
 
 // CHARTS
 let aChart,mChart;
 
 function drawCharts(present,total,marks){
+
   if(aChart) aChart.destroy();
   if(mChart) mChart.destroy();
 
@@ -229,7 +294,7 @@ async function loadCalendar(){
   }
 }
 
-// AI PREDICTION
+// AI
 function aiPrediction(avg,attendance){
   let score = avg*0.6 + attendance*0.4;
 
@@ -238,7 +303,20 @@ function aiPrediction(avg,attendance){
            :"High Risk";
 
   document.getElementById("activity").innerHTML =
-    `<p>🧠 ${msg}</p>`;
+    `<p>🧠 <b>${msg}</b></p>`;
+}
+
+// LEADERBOARD
+async function loadLeaderboard(){
+  const res = await api(`${BASE_URL}/students`);
+  const students = res.data || [];
+
+  const sorted = students.sort((a,b)=>b.avg_marks-a.avg_marks);
+
+  document.getElementById("leaderboardList").innerHTML =
+    sorted.map((s,i)=>`
+      <tr><td>#${i+1}</td><td>${s.identifier}</td><td>${s.avg_marks}</td></tr>
+    `).join("");
 }
 
 // AVATAR
@@ -263,12 +341,11 @@ function toggleTheme(){
   const dark=root.style.getPropertyValue('--bg')==='#0f172a';
 
   root.style.setProperty('--bg',dark?'#fff':'#0f172a');
-  root.style.setProperty('--text',dark?'#000':'#e2e8f0');
-  root.style.setProperty('--card',dark?'#f1f5f9':'#1e293b');
+  root.style.setProperty('--text',dark?'#000':'#fff');
 }
 
 // PDF
-async function downloadReport(){
+function downloadReport(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
@@ -277,19 +354,6 @@ async function downloadReport(){
   doc.text("Avg: "+document.getElementById("avg").innerText,20,40);
 
   doc.save("report.pdf");
-}
-
-// LEADERBOARD
-async function loadLeaderboard(){
-  const res = await api(`${BASE_URL}/students`);
-  const students = res.data || [];
-
-  const sorted = students.sort((a,b)=>b.avg_marks-a.avg_marks);
-
-  document.getElementById("leaderboardList").innerHTML =
-    sorted.map((s,i)=>`
-      <tr><td>#${i+1}</td><td>${s.identifier}</td><td>${s.avg_marks}</td></tr>
-    `).join("");
 }
 
 // NAV

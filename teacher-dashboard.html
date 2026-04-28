@@ -5,23 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Teacher Dashboard</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-:root{
-  --bg:#0f172a;
-  --card:#1e293b;
-  --primary:#4f46e5;
-  --text:#e2e8f0;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Poppins}
 
 body{
-  margin:0;
-  font-family:Inter;
-  background:var(--bg);
-  color:var(--text);
+  background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);
+  color:#fff;
 }
 
 .container{display:flex}
@@ -29,38 +22,34 @@ body{
 /* SIDEBAR */
 .sidebar{
   width:240px;
-  background:#020617;
-  height:100vh;
+  min-height:100vh;
+  background:rgba(255,255,255,0.08);
+  backdrop-filter:blur(15px);
   padding:20px;
-  position:fixed;
 }
 
-.sidebar h2{margin-bottom:20px}
+.sidebar h2{margin-bottom:15px}
 
 .sidebar button{
   width:100%;
-  padding:10px;
-  margin:5px 0;
+  padding:12px;
+  margin:8px 0;
   border:none;
-  background:none;
-  color:white;
-  text-align:left;
+  border-radius:12px;
+  background:rgba(255,255,255,0.12);
+  color:#fff;
   cursor:pointer;
 }
 
-.sidebar button:hover{background:var(--primary)}
-
 /* MAIN */
-.main{
-  margin-left:240px;
-  padding:20px;
-}
+.main{flex:1;padding:25px}
 
 /* HEADER */
 .header{
   display:flex;
   justify-content:space-between;
   align-items:center;
+  margin-bottom:20px;
 }
 
 /* CARDS */
@@ -72,39 +61,63 @@ body{
 }
 
 .card{
-  background:var(--card);
   padding:15px;
-  border-radius:10px;
+  border-radius:15px;
+  background:rgba(255,255,255,0.1);
+}
+
+/* SECTION */
+.section{
+  background:rgba(255,255,255,0.1);
+  padding:15px;
+  border-radius:15px;
+  margin-top:20px;
 }
 
 /* TABLE */
 table{
   width:100%;
-  background:var(--card);
   margin-top:10px;
-  border-radius:10px;
+  border-collapse:collapse;
 }
 
 th,td{padding:10px}
 
+th{
+  background:rgba(255,255,255,0.2);
+}
+
+tr{
+  background:rgba(255,255,255,0.05);
+}
+
 /* INPUT */
-input,select{
+input{
   padding:10px;
   margin:5px;
   border:none;
-  border-radius:6px;
+  border-radius:10px;
 }
 
+/* BUTTON */
 button.action{
   background:#4f46e5;
+  color:#fff;
 }
 
 /* CHART */
 canvas{
-  background:var(--card);
+  background:rgba(255,255,255,0.1);
   padding:10px;
-  border-radius:10px;
+  border-radius:15px;
   margin-top:20px;
+}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .container{flex-direction:column}
+  .sidebar{width:100%;display:flex;gap:10px}
+  .cards{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -120,7 +133,7 @@ canvas{
   <button onclick="show('students')">Students</button>
   <button onclick="show('analytics')">Analytics</button>
   <button onclick="show('leaderboard')">Leaderboard</button>
-  <button onclick="downloadReport()">Export Report</button>
+  <button onclick="downloadReport()">Export</button>
   <button onclick="logout()">Logout</button>
 </div>
 
@@ -133,21 +146,20 @@ canvas{
 
 <!-- KPI -->
 <div class="cards">
-  <div class="card">Total Students <h2 id="totalStudents">0</h2></div>
-  <div class="card">Class Avg <h2 id="classAvg">0</h2></div>
-  <div class="card">Top Score <h2 id="topScore">0</h2></div>
-  <div class="card">Weak Students <h2 id="weakCount">0</h2></div>
+  <div class="card"><p>Total Students</p><h2 id="totalStudents">0</h2></div>
+  <div class="card"><p>Class Avg</p><h2 id="classAvg">0</h2></div>
+  <div class="card"><p>Top Score</p><h2 id="topScore">0</h2></div>
+  <div class="card"><p>Weak Students</p><h2 id="weakCount">0</h2></div>
 </div>
 
 <!-- DASHBOARD -->
-<div id="dashboard">
-
-<canvas id="performanceChart"></canvas>
-
+<div id="dashboard" class="section">
+  <h3>Performance Overview</h3>
+  <canvas id="performanceChart"></canvas>
 </div>
 
 <!-- STUDENTS -->
-<div id="students" style="display:none">
+<div id="students" class="section" style="display:none">
 
 <h3>Add Student</h3>
 <input id="name" placeholder="Name">
@@ -168,13 +180,13 @@ canvas{
 </div>
 
 <!-- ANALYTICS -->
-<div id="analytics" style="display:none">
+<div id="analytics" class="section" style="display:none">
 <h3>Performance Distribution</h3>
 <canvas id="gradeChart"></canvas>
 </div>
 
 <!-- LEADERBOARD -->
-<div id="leaderboard" style="display:none">
+<div id="leaderboard" class="section" style="display:none">
 <h3>Top Students</h3>
 <table><tbody id="leaderboardList"></tbody></table>
 </div>
@@ -206,7 +218,7 @@ async function api(url,options={}){
   return res.json();
 }
 
-// LOAD STUDENTS + KPI
+// DATA
 let studentsData=[];
 
 async function loadStudents(){
@@ -218,10 +230,10 @@ async function loadStudents(){
   const top = Math.max(...studentsData.map(s=>s.avg_marks||0),0);
   const weak = studentsData.filter(s=>s.avg_marks<50).length;
 
-  document.getElementById("totalStudents").innerText = total;
-  document.getElementById("classAvg").innerText = avg;
-  document.getElementById("topScore").innerText = top;
-  document.getElementById("weakCount").innerText = weak;
+  totalStudents.innerText = total;
+  classAvg.innerText = avg;
+  topScore.innerText = top;
+  weakCount.innerText = weak;
 
   renderTable(studentsData);
   drawCharts();
@@ -229,33 +241,38 @@ async function loadStudents(){
 
 // TABLE
 function renderTable(data){
-  document.getElementById("table").innerHTML =
-    data.map(s=>{
-      let grade="C";
-      if(s.avg_marks>90) grade="A";
-      else if(s.avg_marks>70) grade="B";
+  table.innerHTML = data.map(s=>{
+    let grade="C";
+    if(s.avg_marks>90) grade="A";
+    else if(s.avg_marks>70) grade="B";
 
-      return `
-      <tr>
-        <td>${s.rollno}</td>
-        <td>${s.name}</td>
-        <td>${s.avg_marks||0}</td>
-        <td>${grade}</td>
-        <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
-      </tr>`;
-    }).join("");
+    return `
+    <tr>
+      <td>${s.rollno}</td>
+      <td>${s.name}</td>
+      <td>${s.avg_marks||0}</td>
+      <td>${grade}</td>
+      <td><button onclick="deleteStudent('${s.rollno}')">Delete</button></td>
+    </tr>`;
+  }).join("");
 }
 
 // FILTER
 function filterStudents(){
-  const val = document.getElementById("search").value.toLowerCase();
+  const val = search.value.toLowerCase();
   const filtered = studentsData.filter(s=>s.name.toLowerCase().includes(val));
   renderTable(filtered);
 }
 
 // CHARTS
+let perfChart, gradeChartObj;
+
 function drawCharts(){
-  new Chart(performanceChart,{
+
+  if(perfChart) perfChart.destroy();
+  if(gradeChartObj) gradeChartObj.destroy();
+
+  perfChart = new Chart(performanceChart,{
     type:"bar",
     data:{
       labels:studentsData.map(s=>s.name),
@@ -267,7 +284,7 @@ function drawCharts(){
   const B=studentsData.filter(s=>s.avg_marks>70 && s.avg_marks<=90).length;
   const C=studentsData.filter(s=>s.avg_marks<=70).length;
 
-  new Chart(gradeChart,{
+  gradeChartObj = new Chart(gradeChart,{
     type:"doughnut",
     data:{labels:["A","B","C"],datasets:[{data:[A,B,C]}]}
   });
@@ -275,15 +292,14 @@ function drawCharts(){
 
 // ADD
 async function addStudent(){
-  const name=document.getElementById("name").value;
-  const roll=document.getElementById("roll").value;
-  const password=document.getElementById("password").value;
-
   await api(`${BASE_URL}/students`,{
     method:"POST",
-    body:JSON.stringify({name,rollno:roll,password})
+    body:JSON.stringify({
+      name:name.value,
+      rollno:roll.value,
+      password:password.value
+    })
   });
-
   loadStudents();
 }
 
@@ -296,24 +312,23 @@ async function deleteStudent(roll){
 // LEADERBOARD
 function loadLeaderboard(){
   const sorted=[...studentsData].sort((a,b)=>b.avg_marks-a.avg_marks);
-  document.getElementById("leaderboardList").innerHTML =
+  leaderboardList.innerHTML =
     sorted.map((s,i)=>`
       <tr><td>#${i+1}</td><td>${s.name}</td><td>${s.avg_marks}</td></tr>
     `).join("");
 }
 
-// EXPORT PDF
+// EXPORT
 function downloadReport(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-
   doc.text("Class Report",20,20);
 
   studentsData.forEach((s,i)=>{
     doc.text(`${s.name} - ${s.avg_marks}`,20,30+i*10);
   });
 
-  doc.save("class-report.pdf");
+  doc.save("report.pdf");
 }
 
 // NAV
