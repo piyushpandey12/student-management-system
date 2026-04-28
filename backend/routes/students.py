@@ -24,31 +24,42 @@ logger = logging.getLogger(__name__)
 @login_required
 @role_required("teacher")
 def get_students():
-
     try:
         page = max(1, int(request.args.get("page", 1)))
         limit = min(100, max(1, int(request.args.get("limit", 50))))
     except ValueError:
-        return jsonify({"error": "Invalid pagination values"}), 400
-
-    result, status = get_all_students(page, limit)
-
-    if status >= 400:
         return jsonify({
             "status": "error",
-            "message": result.get("error", "Failed to fetch students")
-        }), status
+            "message": "Invalid pagination values"
+        }), 400
 
-    return jsonify({
-        "status": "success",
-        "data": result.get("data", []),
-        "page": page,
-        "limit": limit
-    }), 200
+    try:
+        result, status = get_all_students(page, limit)
+
+        if status >= 400:
+            return jsonify({
+                "status": "error",
+                "message": result.get("error", "Failed to fetch students")
+            }), status
+
+        return jsonify({
+            "status": "success",
+            "data": result.get("data", []),
+            "page": page,
+            "limit": limit
+        }), 200
+
+    except Exception as e:
+        logger.error(f"🔥 GET STUDENTS ERROR: {str(e)}")
+
+        return jsonify({
+            "status": "error",
+            "message": "Internal server error"
+        }), 500
 
 
 # =========================================================
-# 📌 ADD STUDENT (FINAL FIXED)
+# 📌 ADD STUDENT
 # =========================================================
 @students_bp.route("/", methods=["POST"])
 @login_required
@@ -61,23 +72,21 @@ def add_student():
     rollno = (data.get("rollno") or "").strip().lower()
     password = (data.get("password") or "").strip()
 
-    # =========================================================
     # ✅ VALIDATION
-    # =========================================================
     if not name or not rollno or not password:
         return jsonify({
             "status": "error",
             "message": "name, rollno, password required"
         }), 400
 
-    if len(password) < 6:
+    if len(password) < 4:
         return jsonify({
             "status": "error",
-            "message": "Password must be at least 6 characters"
+            "message": "Password must be at least 4 characters"
         }), 400
 
     try:
-        result, status = create_student(rollno, name, password)
+        result, status = create_student(name, rollno, password)
 
         if status >= 400:
             return jsonify({
@@ -92,7 +101,7 @@ def add_student():
         }), 201
 
     except Exception as e:
-        logger.error(f"🔥 Add Student Error: {str(e)}")
+        logger.error(f"🔥 ADD STUDENT ERROR: {str(e)}")
 
         return jsonify({
             "status": "error",
@@ -125,7 +134,7 @@ def delete_student(rollno):
         }), 200
 
     except Exception as e:
-        logger.error(f"🔥 Delete Error: {str(e)}")
+        logger.error(f"🔥 DELETE ERROR: {str(e)}")
 
         return jsonify({
             "status": "error",
@@ -164,7 +173,7 @@ def student_dashboard(rollno):
         }), 200
 
     except Exception as e:
-        logger.error(f"🔥 Dashboard Error: {str(e)}")
+        logger.error(f"🔥 DASHBOARD ERROR: {str(e)}")
 
         return jsonify({
             "status": "error",

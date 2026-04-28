@@ -1,27 +1,35 @@
-# ================= IMPORTS =================
+# =========================================================
+# 📌 IMPORTS
+# =========================================================
 import os
 import logging
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 
 from backend.utils.db import init_db_pool, get_connection, release_connection
 
-# ================= LOGGING =================
+
+# =========================================================
+# 🧾 LOGGING
+# =========================================================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 logger.info("🔥 App is starting...")
 
-# ================= CREATE APP =================
+
+# =========================================================
+# 🚀 CREATE APP
+# =========================================================
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "super-secret")
 
-# 🔥🔥🔥 CRITICAL FIX (NO MORE REDIRECT → NO MORE CORS ERROR)
+# 🔥 CRITICAL FIX (avoid redirect issues)
 app.url_map.strict_slashes = False
 
 
 # =========================================================
-# 🌐 CORS (FINAL FIX)
+# 🌐 CORS CONFIG (FINAL)
 # =========================================================
 CORS(
     app,
@@ -29,7 +37,6 @@ CORS(
     supports_credentials=True
 )
 
-# 🔥 FORCE HEADERS
 @app.after_request
 def after_request(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -38,7 +45,7 @@ def after_request(response):
     return response
 
 
-# 🔥 PREFLIGHT FIX (VERY IMPORTANT)
+# 🔥 PREFLIGHT FIX
 @app.route("/api/<path:path>", methods=["OPTIONS"])
 def options_handler(path):
     return "", 200
@@ -72,7 +79,7 @@ logger.info("✅ Blueprints registered")
 
 
 # =========================================================
-# 🗄️ INIT DB
+# 🗄️ INIT DATABASE (POSTGRES ONLY)
 # =========================================================
 def setup_db():
     try:
@@ -86,7 +93,7 @@ setup_db()
 
 
 # =========================================================
-# 📌 ROUTES
+# 📌 BASIC ROUTES
 # =========================================================
 @app.route("/")
 def home():
@@ -126,11 +133,11 @@ def test_db():
             "time": str(current_time)
         })
 
-    except Exception:
+    except Exception as e:
         if conn:
             conn.rollback()
 
-        logger.error("DB Test Error")
+        logger.error("DB Test Error: %s", str(e))
 
         return jsonify({
             "status": "error",
@@ -176,7 +183,7 @@ def handle_exception(e):
 
 
 # =========================================================
-# 🚀 RUN
+# 🚀 RUN SERVER
 # =========================================================
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

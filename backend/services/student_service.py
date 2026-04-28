@@ -1,7 +1,7 @@
 # =========================================================
 # 📌 IMPORTS
 # =========================================================
-from backend.utils.db import get_connection, get_cursor, release_connection
+from backend.utils.db import get_connection, release_connection
 from backend.utils.auth_utils import hash_password
 from psycopg2.extras import RealDictCursor
 
@@ -12,8 +12,8 @@ from psycopg2.extras import RealDictCursor
 def get_all_students(page=1, limit=50):
     offset = (page - 1) * limit
 
-    db = get_connection()
-    cursor = db.cursor(cursor_factory=RealDictCursor)
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
         cursor.execute("""
@@ -26,50 +26,55 @@ def get_all_students(page=1, limit=50):
             LIMIT %s OFFSET %s
         """, (limit, offset))
 
-        rows = cursor.fetchall()
-        return {"data": rows}, 200
+        students = cursor.fetchall()
+
+        return {"data": students}, 200
 
     except Exception as e:
         return {"error": str(e)}, 500
 
     finally:
         cursor.close()
-        release_connection(db)
+        release_connection(conn)
 
 
 # =========================================================
-# ➕ CREATE STUDENT (FINAL FIX)
+# ➕ CREATE STUDENT (FINAL FIXED)
 # =========================================================
-def create_student(rollno, name, password):
-    conn = None
+def create_student(name, rollno, password):
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
+        rollno = rollno.strip().lower()
+
         # 🔒 VALIDATION
-        if not rollno or not name or not password:
+        if not name or not rollno or not password:
             return {"error": "Missing fields"}, 400
 
-        if len(password) < 6:
-            return {"error": "Password must be at least 6 characters"}, 400
+        if len(password) < 4:
+            return {"error": "Password too short"}, 400
 
-        conn = get_connection()
-        cur = get_cursor(conn)
+        # 🔍 CHECK EXISTING (IMPORTANT FIX)
+        cursor.execute(
+            "SELECT 1 FROM students WHERE rollno=%s",
+            (rollno,)
+        )
 
-        # 🔍 CHECK EXISTING USER
-        cur.execute("SELECT id FROM users WHERE identifier=%s", (rollno,))
-        if cur.fetchone():
+        if cursor.fetchone():
             return {"error": "Student already exists"}, 400
 
         # 🔐 HASH PASSWORD
         hashed = hash_password(password)
 
         # ✅ INSERT INTO USERS
-        cur.execute("""
+        cursor.execute("""
             INSERT INTO users (identifier, name, password, role)
             VALUES (%s, %s, %s, 'student')
         """, (rollno, name, hashed))
 
-        # ✅ INSERT INTO STUDENTS (FIXED — NO user_id)
-        cur.execute("""
+        # ✅ INSERT INTO STUDENTS
+        cursor.execute("""
             INSERT INTO students (rollno, name)
             VALUES (%s, %s)
         """, (rollno, name))
@@ -77,50 +82,64 @@ def create_student(rollno, name, password):
         conn.commit()
 
         return {
-            "message": "Student added successfully",
-            "rollno": rollno
+            "message": "Student added successfully"
         }, 201
 
     except Exception as e:
-        if conn:
-            conn.rollback()
+        conn.rollback()
         return {"error": str(e)}, 500
 
     finally:
-        if conn:
-            release_connection(conn)
+        cursor.close()
+        release_connection(conn)
 
 
 # =========================================================
 # ❌ DELETE STUDENT
 # =========================================================
 def remove_student(rollno):
-    db = get_connection()
-    cursor = db.cursor()
+    conn = get_connection()
+    cursor = conn.cursor()
 
     try:
+        rollno = rollno.strip().lower()
+
+        # 🔍 check exists
+        cursor.execute(
+            "SELECT 1 FROM students WHERE rollno=%s",
+            (rollno,)
+        )
+
+        if not cursor.fetchone():
+            return {"error": "Student not found"}, 404
+
+        # 🔥 DELETE BOTH TABLES
         cursor.execute("DELETE FROM students WHERE rollno=%s", (rollno,))
-        db.commit()
+        cursor.execute("DELETE FROM users WHERE identifier=%s", (rollno,))
+
+        conn.commit()
 
         return {"message": "Deleted successfully"}, 200
 
     except Exception as e:
-        db.rollback()
+        conn.rollback()
         return {"error": str(e)}, 500
 
     finally:
         cursor.close()
-        release_connection(db)
+        release_connection(conn)
 
 
 # =========================================================
 # 📊 STUDENT DASHBOARD
 # =========================================================
 def get_student_dashboard_data(rollno):
-    db = get_connection()
-    cursor = db.cursor(cursor_factory=RealDictCursor)
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
+        rollno = rollno.strip().lower()
+
         # 🔎 STUDENT
         cursor.execute(
             "SELECT rollno, name FROM students WHERE rollno=%s",
@@ -177,4 +196,4 @@ def get_student_dashboard_data(rollno):
 
     finally:
         cursor.close()
-        release_connection(db)
+        release_connection(conn)
