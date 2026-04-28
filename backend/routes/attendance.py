@@ -3,9 +3,8 @@
 # =========================================================
 from flask import Blueprint, jsonify, request, g
 from backend.utils.db import get_connection, release_connection
-from datetime import datetime
-from psycopg2.extras import RealDictCursor
 from backend.utils.auth_utils import login_required, role_required
+from psycopg2.extras import RealDictCursor
 import logging
 
 attendance_bp = Blueprint('attendance', __name__)
@@ -13,31 +12,21 @@ logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# 📌 MARK ATTENDANCE (FINAL FIX)
+# 📌 MARK ATTENDANCE (FINAL CLEAN VERSION)
 # =========================================================
-@attendance_bp.route("/mark", methods=["POST"])
+@attendance_bp.route("/<rollno>", methods=["POST"])
 @login_required
 @role_required("teacher")
-def mark_attendance():
+def mark_attendance(rollno):
 
     data = request.get_json(silent=True) or {}
-
-    rollno = (data.get("rollno") or "").strip().lower()
-    date = data.get("date")
     status = (data.get("status") or "").strip().lower()
-    teacher_id = g.user.get("identifier")
-
-    # ✅ VALIDATION
-    if not rollno or not date or not status:
-        return jsonify({"error": "rollno, date, status required"}), 400
 
     if status not in ["present", "absent"]:
-        return jsonify({"error": "Invalid status"}), 400
-
-    try:
-        datetime.strptime(date, "%Y-%m-%d")
-    except ValueError:
-        return jsonify({"error": "Invalid date format (YYYY-MM-DD)"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "Status must be present or absent"
+        }), 400
 
     db = None
     cursor = None
@@ -46,36 +35,44 @@ def mark_attendance():
         db = get_connection()
         cursor = db.cursor()
 
-        # 🔒 CHECK STUDENT EXISTS
+        rollno = rollno.strip().lower()
+        teacher_id = g.user.get("identifier")
+
+        # ✅ CHECK STUDENT
         cursor.execute("SELECT 1 FROM students WHERE rollno=%s", (rollno,))
         if not cursor.fetchone():
-            return jsonify({"error": "Student not found"}), 404
+            return jsonify({
+                "status": "error",
+                "message": "Student not found"
+            }), 404
 
-        # ✅ UPSERT LOGIC (NO FUNCTION)
+        # =========================================================
+        # ✅ SAFE UPSERT (NO UNIQUE CONSTRAINT NEEDED)
+        # =========================================================
         cursor.execute("""
-            SELECT 1 FROM attendance
-            WHERE rollno=%s AND date=%s
-        """, (rollno, date))
+            SELECT 1 FROM attendance 
+            WHERE rollno=%s AND date=CURRENT_DATE
+        """, (rollno,))
 
         if cursor.fetchone():
             # UPDATE
             cursor.execute("""
                 UPDATE attendance
                 SET status=%s, teacher_id=%s
-                WHERE rollno=%s AND date=%s
-            """, (status, teacher_id, rollno, date))
+                WHERE rollno=%s AND date=CURRENT_DATE
+            """, (status, teacher_id, rollno))
         else:
             # INSERT
             cursor.execute("""
                 INSERT INTO attendance (rollno, date, status, teacher_id)
-                VALUES (%s, %s, %s, %s)
-            """, (rollno, date, status, teacher_id))
+                VALUES (%s, CURRENT_DATE, %s, %s)
+            """, (rollno, status, teacher_id))
 
         db.commit()
 
         return jsonify({
             "status": "success",
-            "message": "Attendance marked successfully"
+            "message": f"{status.capitalize()} marked"
         }), 200
 
     except Exception as e:
@@ -108,17 +105,14 @@ def get_attendance(rollno):
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
 
-    db = None
-    cursor = None
+    db = get_connection()
+    cursor = db.cursor(cursor_factory=RealDictCursor)
 
     try:
-        db = get_connection()
-        cursor = db.cursor(cursor_factory=RealDictCursor)
-
         cursor.execute("""
             SELECT date, status
             FROM attendance
-            WHERE rollno = %s
+            WHERE rollno=%s
             ORDER BY date DESC
         """, (rollno,))
 
@@ -144,10 +138,8 @@ def get_attendance(rollno):
         }), 500
 
     finally:
-        if cursor:
-            cursor.close()
-        if db:
-            release_connection(db)
+        cursor.close()
+        release_connection(db)
 
 
 # =========================================================
@@ -162,33 +154,27 @@ def attendance_stats(rollno):
     if g.user["role"] == "student" and g.user["identifier"] != rollno:
         return jsonify({"error": "Unauthorized"}), 403
 
-    db = None
-    cursor = None
+    db = get_connection()
+    cursor = db.cursor()
 
     try:
-        db = get_connection()
-        cursor = db.cursor()
-
         cursor.execute("""
             SELECT 
                 COUNT(*) FILTER (WHERE status='present') AS present,
                 COUNT(*) AS total
             FROM attendance
-            WHERE rollno = %s
+            WHERE rollno=%s
         """, (rollno,))
 
-        result = cursor.fetchone() or (0, 0)
-
-        present = result[0] or 0
-        total = result[1] or 0
+        present, total = cursor.fetchone() or (0, 0)
 
         percentage = round((present / total) * 100, 2) if total else 0
 
         return jsonify({
             "status": "success",
             "data": {
-                "present": present,
-                "total": total,
+                "present": present or 0,
+                "total": total or 0,
                 "percentage": percentage
             }
         }), 200
@@ -202,7 +188,5 @@ def attendance_stats(rollno):
         }), 500
 
     finally:
-        if cursor:
-            cursor.close()
-        if db:
-            release_connection(db)
+        cursor.close()
+        release_connection(db)

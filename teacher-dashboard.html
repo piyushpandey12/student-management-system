@@ -10,73 +10,20 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Poppins}
-body{
-  background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);
-  color:#fff;
-}
+body{background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);color:#fff}
 .container{display:flex}
-.sidebar{
-  width:240px;
-  min-height:100vh;
-  background:rgba(255,255,255,0.08);
-  backdrop-filter:blur(15px);
-  padding:20px;
-}
-.sidebar button{
-  width:100%;
-  padding:12px;
-  margin:8px 0;
-  border:none;
-  border-radius:12px;
-  background:rgba(255,255,255,0.12);
-  color:#fff;
-  cursor:pointer;
-}
+.sidebar{width:240px;min-height:100vh;background:rgba(255,255,255,0.08);backdrop-filter:blur(15px);padding:20px}
+.sidebar button{width:100%;padding:12px;margin:8px 0;border:none;border-radius:12px;background:rgba(255,255,255,0.12);color:#fff;cursor:pointer}
 .main{flex:1;padding:25px}
-.cards{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:15px;
-}
-.card{
-  padding:15px;
-  border-radius:15px;
-  background:rgba(255,255,255,0.1);
-}
-.section{
-  background:rgba(255,255,255,0.1);
-  padding:15px;
-  border-radius:15px;
-  margin-top:20px;
-}
-table{
-  width:100%;
-  margin-top:10px;
-  border-collapse:collapse;
-}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+.card{padding:15px;border-radius:15px;background:rgba(255,255,255,0.1)}
+.section{background:rgba(255,255,255,0.1);padding:15px;border-radius:15px;margin-top:20px}
+table{width:100%;margin-top:10px;border-collapse:collapse}
 th,td{padding:10px}
 tr{background:rgba(255,255,255,0.05)}
-button.action{
-  background:#4f46e5;
-  border:none;
-  padding:10px;
-  border-radius:10px;
-  color:#fff;
-  cursor:pointer;
-}
-button.delete{
-  background:#ef4444;
-  padding:6px;
-  border-radius:8px;
-  border:none;
-  color:#fff;
-}
-input,select{
-  padding:10px;
-  border-radius:10px;
-  margin:5px;
-  border:none;
-}
+button.action{background:#4f46e5;border:none;padding:10px;border-radius:10px;color:#fff;cursor:pointer}
+button.delete{background:#ef4444;padding:6px;border-radius:8px;border:none;color:#fff}
+input,select{padding:10px;border-radius:10px;margin:5px;border:none}
 </style>
 </head>
 
@@ -89,6 +36,7 @@ input,select{
   <button onclick="show('dashboard')">Dashboard</button>
   <button onclick="show('students')">Students</button>
   <button onclick="show('marks')">Marks</button>
+  <button onclick="show('attendance')">Attendance</button> <!-- ✅ ADDED -->
   <button onclick="logout()">Logout</button>
 </div>
 
@@ -101,9 +49,7 @@ input,select{
   <div class="card">Weak <h2 id="weakCount">0</h2></div>
 </div>
 
-<div id="dashboard" class="section">
-  <canvas id="performanceChart"></canvas>
-</div>
+<div id="dashboard" class="section"></div>
 
 <div id="students" class="section" style="display:none">
 <h3>Add Student</h3>
@@ -125,7 +71,20 @@ input,select{
 <select id="studentSelect"></select>
 <div id="marksForm"></div>
 <button class="action" onclick="saveMarks()">Save Marks</button>
-<canvas id="subjectChart"></canvas>
+</div>
+
+<!-- ✅ ATTENDANCE SECTION -->
+<div id="attendance" class="section" style="display:none">
+<h3>Mark Attendance</h3>
+
+<select id="attendanceStudent"></select>
+
+<select id="attendanceStatus">
+  <option value="present">Present</option>
+  <option value="absent">Absent</option>
+</select>
+
+<button class="action" onclick="markAttendance()">Mark</button>
 </div>
 
 </div>
@@ -184,8 +143,6 @@ async function loadStudents(){
   const res = await api(`${BASE_URL}/students`);
   studentsData = res.data || [];
 
-  console.log("STUDENTS:", studentsData);
-
   document.getElementById("totalStudents").innerText = studentsData.length;
 
   const avg = studentsData.reduce((a,b)=>a+(b.avg_marks||0),0)/(studentsData.length||1);
@@ -199,6 +156,7 @@ async function loadStudents(){
 
   renderTable();
   renderDropdown();
+  renderAttendanceDropdown(); // ✅ FIX
   renderMarksForm();
 }
 
@@ -212,9 +170,7 @@ function renderTable(){
       <td>${s.name}</td>
       <td>${s.avg_marks || 0}</td>
       <td>
-        <button class="delete" onclick="deleteStudent('${getId(s)}')">
-          Delete
-        </button>
+        <button class="delete" onclick="deleteStudent('${getId(s)}')">Delete</button>
       </td>
     </tr>
   `).join("");
@@ -230,12 +186,24 @@ function renderDropdown(){
   }
 
   select.innerHTML = studentsData.map(s=>`
-    <option value="${getId(s)}">
-      ${s.name} (${getId(s)})
-    </option>
+    <option value="${getId(s)}">${s.name} (${getId(s)})</option>
   `).join("");
 
   select.value = getId(studentsData[0]);
+}
+
+// ================= ATTENDANCE DROPDOWN =================
+function renderAttendanceDropdown(){
+  const select = document.getElementById("attendanceStudent");
+
+  if(studentsData.length===0){
+    select.innerHTML = `<option>No students</option>`;
+    return;
+  }
+
+  select.innerHTML = studentsData.map(s=>`
+    <option value="${getId(s)}">${s.name} (${getId(s)})</option>
+  `).join("");
 }
 
 // ================= ADD =================
@@ -245,60 +213,29 @@ async function addStudent(){
   const roll = document.getElementById("roll").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  console.log("SENDING:", { name, rollno: roll, password });
-
   if(!name || !roll || !password){
     return alert("⚠️ Fill all fields");
   }
 
-  try {
+  await api(`${BASE_URL}/students`,{
+    method:"POST",
+    body:JSON.stringify({ name, rollno: roll, password })
+  });
 
-    const res = await fetch(`${BASE_URL}/students`,{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "Authorization":"Bearer "+token
-      },
-      body:JSON.stringify({
-        name,
-        rollno: roll,
-        password
-      })
-    });
+  alert("✅ Student added");
 
-    const data = await res.json();
-    console.log("RESPONSE:", data);
+  document.getElementById("name").value="";
+  document.getElementById("roll").value="";
+  document.getElementById("password").value="";
 
-    if(!res.ok){
-      if(data.message?.includes("exists")){
-        alert("⚠️ Student already exists");
-        return;
-      }
-      throw new Error(data.message || "Failed");
-    }
-
-    alert("✅ Student added");
-
-    document.getElementById("name").value="";
-    document.getElementById("roll").value="";
-    document.getElementById("password").value="";
-
-    loadStudents();
-
-  } catch(err){
-    console.error(err);
-    alert("❌ " + err.message);
-  }
+  loadStudents();
 }
 
 // ================= DELETE =================
 async function deleteStudent(id){
   if(!confirm("Delete?")) return;
 
-  await api(`${BASE_URL}/students/${id}`,{
-    method:"DELETE"
-  });
-
+  await api(`${BASE_URL}/students/${id}`,{ method:"DELETE" });
   loadStudents();
 }
 
@@ -307,18 +244,12 @@ function renderMarksForm(){
   const marksForm = document.getElementById("marksForm");
 
   marksForm.innerHTML = SUBJECTS.map(sub=>`
-    <div>
-      ${sub}
-      <input type="number" id="mark_${sub}">
-    </div>
+    <div>${sub} <input type="number" id="mark_${sub}"></div>
   `).join("");
 }
 
 async function saveMarks(){
-
   const id = document.getElementById("studentSelect").value;
-
-  if(!id) return alert("Select student");
 
   const marks = SUBJECTS.map(sub=>({
     subject: sub,
@@ -333,11 +264,28 @@ async function saveMarks(){
   alert("✅ Marks saved");
 }
 
+// ================= ATTENDANCE =================
+async function markAttendance(){
+
+  const id = document.getElementById("attendanceStudent").value;
+  const status = document.getElementById("attendanceStatus").value;
+
+  if(!id) return alert("Select student");
+
+  await api(`${BASE_URL}/attendance/${id}`,{
+    method:"POST",
+    body:JSON.stringify({ status })
+  });
+
+  alert("✅ Attendance marked");
+}
+
 // ================= NAV =================
 function show(id){
-  document.getElementById("dashboard").style.display = id==="dashboard" ? "block":"none";
-  document.getElementById("students").style.display = id==="students" ? "block":"none";
-  document.getElementById("marks").style.display = id==="marks" ? "block":"none";
+  ["dashboard","students","marks","attendance"].forEach(sec=>{
+    document.getElementById(sec).style.display =
+      sec===id ? "block":"none";
+  });
 }
 
 // ================= LOGOUT =================
