@@ -197,10 +197,10 @@ async function loadStudents(){
   }
 
   select.innerHTML = studentsData.map(s =>
-    `<option value="${s.identifier}">${s.name} (${s.identifier})</option>`
+    `<option value="${s.rollno}">${s.name} (${s.rollno})</option>`
   ).join("");
 
-  select.value = studentsData[0].identifier;
+  select.value = studentsData[0].rollno;
 
   renderMarksForm();
 }
@@ -209,36 +209,61 @@ async function loadStudents(){
 function renderTable(){
   table.innerHTML = studentsData.map(s=>`
     <tr>
-      <td>${s.identifier}</td>
+      <td>${s.rollno}</td>
       <td>${s.name}</td>
       <td>${s.avg_marks||0}</td>
-      <td><button class="delete" onclick="deleteStudent('${s.identifier}')">Delete</button></td>
+      <td><button class="delete" onclick="deleteStudent('${s.rollno}')">Delete</button></td>
     </tr>
   `).join("");
 }
 
-// ================= ADD =================
+// ================= ADD STUDENT (FINAL FIX) =================
 async function addStudent(){
 
-  const name = nameEl("name");
-  const id = nameEl("roll");
-  const pass = nameEl("password");
+  const name = document.getElementById("name").value.trim();
+  const roll = document.getElementById("roll").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-  if(!name || !id || !pass){
+  console.log("SENDING:", { name, rollno: roll, password });
+
+  if(!name || !roll || !password){
     return alert("⚠️ Fill all fields");
   }
 
-  await api(`${BASE_URL}/students`,{
-    method:"POST",
-    body:JSON.stringify({
-      name,
-      identifier:id,
-      password:pass
-    })
-  });
+  try {
 
-  clearInputs("name","roll","password");
-  loadStudents();
+    const res = await fetch(`${BASE_URL}/students`,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+token
+      },
+      body:JSON.stringify({
+        name,
+        rollno: roll,   // ✅ FINAL CORRECT KEY
+        password
+      })
+    });
+
+    const data = await res.json();
+    console.log("RESPONSE:", data);
+
+    if(!res.ok){
+      throw new Error(data.message || "Failed");
+    }
+
+    alert("✅ Student added successfully");
+
+    document.getElementById("name").value="";
+    document.getElementById("roll").value="";
+    document.getElementById("password").value="";
+
+    loadStudents();
+
+  } catch(err){
+    console.error(err);
+    alert("❌ " + err.message);
+  }
 }
 
 // ================= DELETE =================
@@ -258,6 +283,7 @@ function renderMarksForm(){
 async function saveMarks(){
 
   const id = studentSelect.value;
+
   if(!id) return alert("Select student");
 
   const marks = SUBJECTS.map(sub=>({
@@ -267,22 +293,10 @@ async function saveMarks(){
 
   await api(`${BASE_URL}/marks/${id}`,{
     method:"POST",
-    body:JSON.stringify({
-      identifier:id,
-      marks
-    })
+    body:JSON.stringify({ marks }) // ✅ backend usually doesn't need identifier here
   });
 
   alert("✅ Marks saved");
-}
-
-// ================= HELPERS =================
-function nameEl(id){
-  return document.getElementById(id).value.trim();
-}
-
-function clearInputs(...ids){
-  ids.forEach(id=>document.getElementById(id).value="");
 }
 
 // ================= NAV =================
