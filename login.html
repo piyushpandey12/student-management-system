@@ -248,7 +248,7 @@ async function handleLogin() {
       throw new Error(data.message || "Login failed");
     }
 
-    console.log("LOGIN SUCCESS:", data);
+    console.log("LOGIN SUCCESS:", dat);
 
     // ================= SAVE TOKEN =================
     localStorage.setItem("token", data.token);
