@@ -5,63 +5,84 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Dashboard</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Poppins}
-body{background:linear-gradient(135deg,#667eea,#764ba2,#00c6ff);color:#fff}
+:root{
+  --primary:#4f46e5;
+  --bg:#0f172a;
+  --card:#1e293b;
+  --text:#e2e8f0;
+}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter;
+  margin:0;
+}
 
 .container{display:flex}
 
+/* SIDEBAR */
 .sidebar{
-  width:240px;
-  min-height:100vh;
-  background:rgba(255,255,255,0.08);
-  backdrop-filter:blur(15px);
+  width:250px;
+  background:#020617;
+  height:100vh;
   padding:20px;
+  position:fixed;
 }
+
 .sidebar button{
   width:100%;
-  padding:12px;
-  margin:8px 0;
+  padding:10px;
+  margin:5px 0;
+  background:none;
   border:none;
-  border-radius:12px;
-  background:rgba(255,255,255,0.12);
-  color:#fff;
+  color:white;
   cursor:pointer;
 }
 
-.main{flex:1;padding:20px}
+/* MAIN */
+.main{
+  margin-left:250px;
+  padding:20px;
+  width:100%;
+}
 
+/* CARDS */
 .cards{
   display:grid;
   grid-template-columns:repeat(4,1fr);
-  gap:15px;
+  gap:10px;
 }
+
 .card{
+  background:var(--card);
   padding:15px;
-  border-radius:15px;
-  background:rgba(255,255,255,0.1);
-}
-
-.charts{display:flex;gap:20px;margin-top:20px;flex-wrap:wrap}
-canvas{background:rgba(255,255,255,0.1);padding:10px;border-radius:15px}
-
-.notification{
-  background:#ffcc00;
-  color:black;
-  padding:10px;
   border-radius:10px;
-  margin-top:10px;
 }
 
-@media(max-width:768px){
-  .container{flex-direction:column}
-  .sidebar{width:100%;display:flex;gap:10px}
-  .cards{grid-template-columns:1fr}
-  .charts{flex-direction:column}
+/* TABLE */
+table{
+  width:100%;
+  background:var(--card);
+  border-radius:10px;
 }
+
+th,td{padding:10px}
+
+/* CALENDAR */
+#calendarGrid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:5px;
+}
+.day{padding:10px;background:#334155;border-radius:6px}
+.present{background:#22c55e}
+.absent{background:#ef4444}
 </style>
 </head>
 
@@ -69,46 +90,61 @@ canvas{background:rgba(255,255,255,0.1);padding:10px;border-radius:15px}
 
 <div class="container">
 
+<!-- SIDEBAR -->
 <div class="sidebar">
-<h2>Student</h2>
-<button onclick="show('dashboard')">Dashboard</button>
-<button onclick="show('marks')">Marks</button>
-<button onclick="logout()">Logout</button>
+  <h2>🎓 Student</h2>
+  <button onclick="show('dashboard')">Dashboard</button>
+  <button onclick="show('marks')">Marks</button>
+  <button onclick="show('leaderboard')">Leaderboard</button>
+  <button onclick="downloadReport()">Download Report</button>
+  <button onclick="toggleTheme()">🌙 Theme</button>
+  <button onclick="logout()">Logout</button>
 </div>
 
+<!-- MAIN -->
 <div class="main">
 
-<h2 id="welcome"></h2>
-
-<div id="notifications"></div>
-
-<div class="cards">
-<div class="card">Attendance %<br><b id="att">0%</b></div>
-<div class="card">Present<br><b id="present">0</b></div>
-<div class="card">Total<br><b id="total">0</b></div>
-<div class="card">Avg Marks<br><b id="avg">0</b></div>
+<div class="header">
+  <h2 id="welcome"></h2>
+  <div>
+    <img id="avatar" width="35" style="border-radius:50%">
+    <input type="file" onchange="uploadAvatar(event)">
+  </div>
 </div>
 
-<div id="analytics" style="margin-top:20px;"></div>
+<!-- CARDS -->
+<div class="cards">
+  <div class="card">Attendance: <b id="att"></b></div>
+  <div class="card">Present: <b id="present"></b></div>
+  <div class="card">Total: <b id="total"></b></div>
+  <div class="card">Avg: <b id="avg"></b></div>
+</div>
 
+<!-- DASHBOARD -->
 <div id="dashboard">
 
-<div class="charts">
 <canvas id="attendanceChart"></canvas>
 <canvas id="marksChart"></canvas>
-<canvas id="trendChart"></canvas>
+
+<div id="calendarGrid"></div>
+
+<div id="activity"></div>
+
 </div>
 
-<h3>Calendar</h3>
-<div id="calendar"></div>
-
-</div>
-
+<!-- MARKS -->
 <div id="marksSection" style="display:none">
-<h3>Marks</h3>
 <table>
-<tr><th>Subject</th><th>Marks</th></tr>
+<thead><tr><th>Subject</th><th>Marks</th></tr></thead>
 <tbody id="marksList"></tbody>
+</table>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderboard" style="display:none">
+<h3>Leaderboard</h3>
+<table>
+<tbody id="leaderboardList"></tbody>
 </table>
 </div>
 
@@ -117,117 +153,53 @@ canvas{background:rgba(255,255,255,0.1);padding:10px;border-radius:15px}
 
 <script>
 
-// ===== LOGOUT =====
-function logout(){
-  if(!confirm("Logout?")) return;
-  localStorage.clear();
-  window.location.href="index.html";
-}
-
-// ===== AUTH =====
+// AUTH
 const token = localStorage.getItem("token");
-if(!token) window.location.href="index.html";
+if(!token) location.href="index.html";
 
-let payload = JSON.parse(atob(token.split('.')[1]));
-
-if(payload.role !== "student") window.location.href="index.html";
-
-const user = payload;
+const user = JSON.parse(atob(token.split('.')[1]));
 document.getElementById("welcome").innerText = "Welcome " + user.identifier;
 
-// ===== BASE URL =====
+// API
 const BASE_URL = location.hostname==="localhost"
 ? "http://127.0.0.1:5000/api"
 : "https://student-management-system-api-cznx.onrender.com/api";
 
-// ===== API =====
 async function api(url){
   const res = await fetch(url,{headers:{Authorization:"Bearer "+token}});
-  const data = await res.json();
-  if(!res.ok) throw new Error(data.message);
-  return data;
+  return res.json();
 }
 
-// ===== DASHBOARD =====
+// LOAD DASHBOARD
 async function loadDashboard(){
   const res = await api(`${BASE_URL}/students/dashboard/${user.identifier}`);
   const d = res.data || res;
 
   const present = d.attendance?.present || 0;
   const total = d.attendance?.total || 0;
+  const marks = d.marks || [];
 
   document.getElementById("present").innerText = present;
   document.getElementById("total").innerText = total;
   document.getElementById("att").innerText = total?((present/total)*100).toFixed(1)+"%":0;
 
-  const marks = d.marks || [];
-
-  const avg = marks.length
-    ? (marks.reduce((a,b)=>a+b.marks,0)/marks.length).toFixed(2)
-    : 0;
-
+  const avg = marks.length ? (marks.reduce((a,b)=>a+b.marks,0)/marks.length).toFixed(2) : 0;
   document.getElementById("avg").innerText = avg;
 
   document.getElementById("marksList").innerHTML =
     marks.map(m=>`<tr><td>${m.subject}</td><td>${m.marks}</td></tr>`).join("");
 
-  showAnalytics(marks);
   drawCharts(present,total,marks);
-  calculateRank(avg);
-  generateSuggestions(avg, marks);
+  loadCalendar();
+  aiPrediction(avg,(present/total)*100);
 }
 
-// ===== RANK SYSTEM =====
-async function calculateRank(myAvg){
-  const res = await api(`${BASE_URL}/students`);
-  const students = res.data || [];
-
-  const sorted = students.sort((a,b)=>b.avg_marks - a.avg_marks);
-
-  const rank = sorted.findIndex(s=>s.avg_marks == myAvg) + 1;
-
-  document.getElementById("analytics").innerHTML += `
-    <p>🏅 Rank in Class: <b>#${rank}</b></p>
-  `;
-}
-
-// ===== ANALYTICS =====
-function showAnalytics(marks){
-  if(!marks.length) return;
-
-  const top = marks.reduce((a,b)=>a.marks>b.marks?a:b);
-  const weak = marks.reduce((a,b)=>a.marks<b.marks?a:b);
-
-  document.getElementById("analytics").innerHTML = `
-    <div class="card">
-      <h3>📊 Analysis</h3>
-      <p>🏆 Top: ${top.subject}</p>
-      <p>⚠ Weak: ${weak.subject}</p>
-    </div>
-  `;
-}
-
-// ===== AI SUGGESTIONS =====
-function generateSuggestions(avg, marks){
-  let msg = "";
-
-  if(avg < 50) msg = "Focus on fundamentals.";
-  else if(avg < 70) msg = "Improve weak subjects.";
-  else msg = "Great work! Keep improving.";
-
-  document.getElementById("notifications").innerHTML = `
-    <div class="notification">🧠 ${msg}</div>
-  `;
-}
-
-// ===== CHARTS =====
-let aChart,mChart,tChart;
+// CHARTS
+let aChart,mChart;
 
 function drawCharts(present,total,marks){
-
   if(aChart) aChart.destroy();
   if(mChart) mChart.destroy();
-  if(tChart) tChart.destroy();
 
   aChart = new Chart(attendanceChart,{
     type:"doughnut",
@@ -238,48 +210,105 @@ function drawCharts(present,total,marks){
     type:"bar",
     data:{labels:marks.map(m=>m.subject),datasets:[{data:marks.map(m=>m.marks)}]}
   });
-
-  // Trend (mock or future history)
-  tChart = new Chart(trendChart,{
-    type:"line",
-    data:{
-      labels:marks.map(m=>m.subject),
-      datasets:[{label:"Trend",data:marks.map(m=>m.marks)}]
-    }
-  });
 }
 
-// ===== CALENDAR =====
+// CALENDAR
 async function loadCalendar(){
   const res = await api(`${BASE_URL}/attendance/${user.identifier}`);
-  const data = res.data || res;
+  const data = res.data || [];
 
-  const cal = document.getElementById("calendar");
-  cal.innerHTML="";
+  const grid = document.getElementById("calendarGrid");
+  grid.innerHTML="";
 
-  data.forEach(r=>{
+  for(let i=1;i<=30;i++){
+    const record = data.find(d=>parseInt(d.date.split("-")[2])===i);
     const div=document.createElement("div");
-    div.className="day "+r.status;
-    div.innerText=r.date.split("-")[2];
-    cal.appendChild(div);
-  });
+    div.className="day "+(record?.status||"");
+    div.innerText=i;
+    grid.appendChild(div);
+  }
 }
 
-// ===== AUTO REFRESH =====
-setInterval(()=>{
-  loadDashboard();
-  loadCalendar();
-},10000);
+// AI PREDICTION
+function aiPrediction(avg,attendance){
+  let score = avg*0.6 + attendance*0.4;
 
-// ===== NAV =====
+  let msg = score>70?"High chance to PASS"
+           :score>50?"Moderate Risk"
+           :"High Risk";
+
+  document.getElementById("activity").innerHTML =
+    `<p>🧠 ${msg}</p>`;
+}
+
+// AVATAR
+function uploadAvatar(e){
+  const file = e.target.files[0];
+  const reader = new FileReader();
+
+  reader.onload = ()=>{
+    localStorage.setItem("avatar",reader.result);
+    document.getElementById("avatar").src=reader.result;
+  };
+
+  reader.readAsDataURL(file);
+}
+
+const savedAvatar = localStorage.getItem("avatar");
+if(savedAvatar) document.getElementById("avatar").src = savedAvatar;
+
+// THEME
+function toggleTheme(){
+  const root=document.documentElement;
+  const dark=root.style.getPropertyValue('--bg')==='#0f172a';
+
+  root.style.setProperty('--bg',dark?'#fff':'#0f172a');
+  root.style.setProperty('--text',dark?'#000':'#e2e8f0');
+  root.style.setProperty('--card',dark?'#f1f5f9':'#1e293b');
+}
+
+// PDF
+async function downloadReport(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.text("Student Report",20,20);
+  doc.text("Name: "+user.identifier,20,30);
+  doc.text("Avg: "+document.getElementById("avg").innerText,20,40);
+
+  doc.save("report.pdf");
+}
+
+// LEADERBOARD
+async function loadLeaderboard(){
+  const res = await api(`${BASE_URL}/students`);
+  const students = res.data || [];
+
+  const sorted = students.sort((a,b)=>b.avg_marks-a.avg_marks);
+
+  document.getElementById("leaderboardList").innerHTML =
+    sorted.map((s,i)=>`
+      <tr><td>#${i+1}</td><td>${s.identifier}</td><td>${s.avg_marks}</td></tr>
+    `).join("");
+}
+
+// NAV
 function show(id){
   dashboard.style.display = id==="dashboard"?"block":"none";
   marksSection.style.display = id==="marks"?"block":"none";
+  leaderboard.style.display = id==="leaderboard"?"block":"none";
+
+  if(id==="leaderboard") loadLeaderboard();
+}
+
+// LOGOUT
+function logout(){
+  localStorage.clear();
+  location.href="index.html";
 }
 
 // INIT
 loadDashboard();
-loadCalendar();
 
 </script>
 

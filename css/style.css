@@ -1,173 +1,210 @@
 /* ================= BASE ================= */
-html, body {
-    padding: 0;
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: "Poppins", sans-serif;
 
-    background: linear-gradient(-45deg, #667eea, #764ba2, #00c6ff, #0072ff);
-    background-size: 400% 400%;
-    animation: gradientBG 10s ease infinite;
+  background: linear-gradient(-45deg, #667eea, #764ba2, #00c6ff, #0072ff);
+  background-size: 400% 400%;
+  animation: gradientBG 10s ease infinite;
 
-    min-height: 100vh;
-    overflow-x: hidden; /* ✅ FIXED (no vertical block) */
+  min-height: 100vh;
+  overflow-x: hidden; /* ✅ FIXED (no vertical block) */
 }
 
 @keyframes gradientBG {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 /* ================= CONTAINER ================= */
 .container {
-    position: absolute; /* ✅ FIXED from fixed */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+  position: absolute; /* ✅ FIXED from fixed */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 
-    backdrop-filter: blur(25px);
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 20px;
-    padding: 40px;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(25px);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 
-    animation: float 4s ease-in-out infinite;
+  animation: float 4s ease-in-out infinite;
 
-    max-width: 90vw; /* ✅ responsive */
+  max-width: 90vw; /* ✅ responsive */
 }
 
 /* ✅ FIXED transform conflict */
 @keyframes float {
-    0%,100% { transform: translate(-50%, -50%) translateY(0); }
-    50% { transform: translate(-50%, -50%) translateY(-10px); }
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-10px);
+  }
 }
 
 /* ================= FORM ================= */
 svg,
 .form-container {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .form-container {
-    width: 100%;
-    max-width: 270px; /* ✅ responsive */
+  width: 100%;
+  max-width: 270px; /* ✅ responsive */
 
-    z-index: 10;
+  z-index: 10;
 
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ================= SVG ================= */
 svg {
-    width: 100%;
-    max-width: 1000px; /* ✅ FIXED overflow */
-    pointer-events: none;
-    stroke-width: 1.2px;
-    stroke: #ffffff;
-    fill: none;
-    z-index: 1;
+  width: 100%;
+  max-width: 1000px; /* ✅ FIXED overflow */
+  pointer-events: none;
+  stroke-width: 1.2px;
+  stroke: #ffffff;
+  fill: none;
+  z-index: 1;
 }
 
 /* ================= FORM ROW ================= */
 .form-container .form-row {
-    width: 100%;
-    height: 60px;
-    display: flex;
-    align-items: center;
+  width: 100%;
+  height: 60px;
+  display: flex;
+  align-items: center;
 }
 
 /* ================= INPUT ================= */
 .form-container .form-row input {
-    width: 100%;
-    height: 30px;
-    padding: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 8px;
 
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 
-    background: rgba(255,255,255,0.1);
-    color: white;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 
-    backdrop-filter: blur(10px);
-    outline: none;
+  backdrop-filter: blur(10px);
+  outline: none;
 
-    box-sizing: border-box; /* ✅ FIXED overflow */
+  box-sizing: border-box; /* ✅ FIXED overflow */
 }
 
 .form-container input::placeholder {
-    color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .form-container .form-row input.valid {
-    border-color: #00c6ff;
-    box-shadow: 0 0 8px rgba(0,198,255,0.6);
+  border-color: #00c6ff;
+  box-shadow: 0 0 8px rgba(0, 198, 255, 0.6);
 }
 
 /* ================= CHECKBOX ================= */
 .form-container .form-row input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    margin-right: 10px;
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
 }
 
 .checkbox-row {
-    height: auto !important;
+  height: auto !important;
 }
 
 /* ================= BUTTON ================= */
 .form-container .form-row input[type="submit"],
 .form-container .form-row input[type="button"] {
-    height: 40px;
-    cursor: pointer;
-    border-radius: 20px;
-    border: none;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 20px;
+  border: none;
 
-    background: linear-gradient(45deg, #00c6ff, #0072ff);
-    color: white;
-    font-weight: bold;
+  background: linear-gradient(45deg, #00c6ff, #0072ff);
+  color: white;
+  font-weight: bold;
 
-    transition: 0.3s;
+  transition: 0.3s;
 }
 
 .form-container input[type="submit"]:hover,
 .form-container input[type="button"]:hover {
-    transform: scale(1.05);
-    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* ================= TEXT ================= */
 .form-container label {
-    color: white;
-    font-size: 14px;
+  color: white;
+  font-size: 14px;
 }
 
 /* ================= DIVIDER ================= */
 .divider {
-    width: 100%;
-    text-align: center;
-    margin: 10px 0;
-    color: #fff;
-    font-size: 13px;
-    position: relative;
+  width: 100%;
+  text-align: center;
+  margin: 10px 0;
+  color: #fff;
+  font-size: 13px;
+  position: relative;
 }
 
 .divider::before,
 .divider::after {
-    content: "";
-    position: absolute;
-    width: 40%;
-    height: 1px;
-    background: #ccc;
-    top: 50%;
+  content: "";
+  position: absolute;
+  width: 40%;
+  height: 1px;
+  background: #ccc;
+  top: 50%;
 }
 
-.divider::before { left: 0; }
-.divider::after { right: 0; }
+.divider::before {
+  left: 0;
+}
+.divider::after {
+  right: 0;
+}
 
+.forgot-password {
+  position: absolute;
+  top: 100%; /* place exactly after form */
+  margin-top: 10px; /* spacing below button */
+  left: 50%;
+  transform: translateX(-50%);
+
+  font-size: 13px;
+  color: #ffd700;
+  cursor: pointer;
+
+  opacity: 0.85;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.forgot-password:hover {
+  opacity: 1;
+  text-decoration: underline;
+  transform: translateX(-50%) scale(1.05);
+}
