@@ -7,6 +7,17 @@ auth_bp = Blueprint("auth", __name__)
 
 
 # =========================================================
+# 📌 HELPER: EXTRACT IDENTIFIER
+# =========================================================
+def extract_identifier(data):
+    return (
+        data.get("rollno") or
+        data.get("teacherId") or
+        data.get("identifier") or ""
+    ).strip().lower()
+
+
+# =========================================================
 # 📌 REGISTER
 # =========================================================
 @auth_bp.route("/register", methods=["POST"])
@@ -14,24 +25,18 @@ def register():
     try:
         data = request.get_json(silent=True) or {}
 
-        identifier = (
-            data.get("rollno") or
-            data.get("teacherId") or
-            data.get("identifier") or ""
-        ).strip().lower()
-
-        password = data.get("password")
+        identifier = extract_identifier(data)
+        password = (data.get("password") or "").strip()
         role = data.get("role", "student")
         name = data.get("name", "User")
 
-        # ✅ validation
+        # ✅ Validation
         if not identifier or not password:
             return jsonify({
                 "status": "error",
                 "message": "Identifier & password required"
             }), 400
 
-        # optional stronger validation
         if len(password) < 4:
             return jsonify({
                 "status": "error",
@@ -66,15 +71,10 @@ def login():
     try:
         data = request.get_json(silent=True) or {}
 
-        identifier = (
-            data.get("rollno") or
-            data.get("teacherId") or
-            data.get("identifier") or ""
-        ).strip().lower()
+        identifier = extract_identifier(data)
+        password = (data.get("password") or "").strip()
 
-        password = data.get("password")
-
-        # ✅ validation
+        # ✅ Validation
         if not identifier or not password:
             return jsonify({
                 "status": "error",

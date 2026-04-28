@@ -193,67 +193,82 @@
     </svg> </div>
     <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
     <script src="js/script.js"></script>
-    <script>
-        const BASE_URL =
-            window.location.hostname === "localhost" ||
-                window.location.hostname === "127.0.0.1"
-                ? "http://127.0.0.1:5000/api"
-                : "https://student-management-system-api-cznx.onrender.com/api";
+<script>
+/* =========================================================
+   🌐 BASE URL (SINGLE DECLARATION)
+========================================================= */
+const BASE_URL =
+  location.hostname === "localhost" ||
+  location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5000/api"
+    : "https://student-management-system-api-cznx.onrender.com/api";
 
-        // ================= LOGIN HANDLER =================
-        document.getElementById("submitBtn").addEventListener("click", handleLogin);
 
-        async function handleLogin() {
-            const rollno = document.getElementById("rollno").value.trim();
-            const password = document.getElementById("password").value.trim();
-            const agree = document.getElementById("subscribe").checked;
-            const errorMsg = document.getElementById("errorMsg");
+/* =========================================================
+   🔐 LOGIN HANDLER
+========================================================= */
+document.getElementById("submitBtn").addEventListener("click", handleLogin);
 
-            errorMsg.innerText = "";
+async function handleLogin() {
 
-            // ✅ VALIDATION
-            if (!rollno || !password) {
-                errorMsg.innerText = "⚠️ Please fill all fields";
-                return;
-            }
+  const identifier = document.getElementById("rollno").value.trim(); // unified field
+  const password = document.getElementById("password").value.trim();
+  const agree = document.getElementById("subscribe").checked;
+  const errorMsg = document.getElementById("errorMsg");
 
-            if (!agree) {
-                errorMsg.innerText = "⚠️ You must agree to terms";
-                return;
-            }
+  errorMsg.innerText = "";
 
-            try {
-                const res = await fetch(`${BASE_URL}/auth/login`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ rollno, password })
-                });
+  // ================= VALIDATION =================
+  if (!identifier || !password) {
+    errorMsg.innerText = "⚠️ Please fill all fields";
+    return;
+  }
 
-                const data = await res.json();
+  if (!agree) {
+    errorMsg.innerText = "⚠️ You must agree to terms";
+    return;
+  }
 
-                if (!res.ok) {
-                    throw new Error(data.message || "Login failed");
-                }
+  try {
 
-                // ✅ SAVE SESSION
-                localStorage.setItem("token", data.token);
-                localStorage.setItem("user", JSON.stringify(data.user));
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        identifier: identifier,   // ✅ FIXED (backend expects this)
+        password: password
+      })
+    });
 
-                // ✅ REDIRECT
-                if (data.user.role === "teacher") {
-                    window.location.href = "teacher-dashboard.html";
-                } else {
-                    window.location.href = "student-dashboard.html";
-                }
+    const data = await res.json();
 
-            } catch (err) {
-                console.error("LOGIN ERROR:", err);
-                errorMsg.innerText = "❌ " + err.message;
-            }
-        }
-    </script>
+    if (!res.ok) {
+      throw new Error(data.message || "Login failed");
+    }
+
+    console.log("LOGIN SUCCESS:", data);
+
+    // ================= SAVE TOKEN =================
+    localStorage.setItem("token", data.token);
+
+    // optional (if backend sends role separately)
+    localStorage.setItem("role", data.role);
+
+    // ================= REDIRECT =================
+    if (data.role === "teacher") {
+      window.location.href = "teacher-dashboard.html";
+    } else {
+      window.location.href = "student-dashboard.html";
+    }
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    errorMsg.innerText = "❌ " + err.message;
+  }
+}
+</script>
 
 </body>
 

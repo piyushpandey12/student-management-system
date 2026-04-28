@@ -26,9 +26,7 @@ def get_all_students(page=1, limit=50):
             LIMIT %s OFFSET %s
         """, (limit, offset))
 
-        students = cursor.fetchall()
-
-        return {"data": students}, 200
+        return {"data": cursor.fetchall()}, 200
 
     except Exception as e:
         return {"error": str(e)}, 500
@@ -39,50 +37,60 @@ def get_all_students(page=1, limit=50):
 
 
 # =========================================================
-# ➕ CREATE STUDENT (FINAL FIXED)
+# ➕ CREATE STUDENT (FINAL CLEAN VERSION)
 # =========================================================
-def create_student(name, rollno, password):
+def create_student(rollno, name, password):
+
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
-        rollno = rollno.strip().lower()
+        rollno = (rollno or "").strip().lower()
+        name = (name or "").strip()
+        password = (password or "").strip()
 
         # 🔒 VALIDATION
-        if not name or not rollno or not password:
-            return {"error": "Missing fields"}, 400
+        if not rollno or not name or not password:
+            return {"error": "All fields required"}, 400
 
-        if len(password) < 4:
-            return {"error": "Password too short"}, 400
+        if len(password) < 6:
+            return {"error": "Password must be at least 6 characters"}, 400
 
-        # 🔍 CHECK EXISTING (IMPORTANT FIX)
+        # 🔍 CHECK EXIST (ONLY USERS TABLE — SINGLE SOURCE OF TRUTH)
         cursor.execute(
-            "SELECT 1 FROM students WHERE rollno=%s",
+            "SELECT 1 FROM users WHERE identifier=%s",
             (rollno,)
         )
-
         if cursor.fetchone():
             return {"error": "Student already exists"}, 400
 
         # 🔐 HASH PASSWORD
         hashed = hash_password(password)
 
-        # ✅ INSERT INTO USERS
+        # =========================================================
+        # 👤 INSERT USER + RETURN ID
+        # =========================================================
         cursor.execute("""
             INSERT INTO users (identifier, name, password, role)
             VALUES (%s, %s, %s, 'student')
+            RETURNING id
         """, (rollno, name, hashed))
 
-        # ✅ INSERT INTO STUDENTS
+        user_id = cursor.fetchone()[0]
+
+        # =========================================================
+        # 🎓 INSERT STUDENT (LINKED WITH USER_ID)
+        # =========================================================
         cursor.execute("""
-            INSERT INTO students (rollno, name)
-            VALUES (%s, %s)
-        """, (rollno, name))
+            INSERT INTO students (rollno, name, user_id)
+            VALUES (%s, %s, %s)
+        """, (rollno, name, user_id))
 
         conn.commit()
 
         return {
-            "message": "Student added successfully"
+            "message": "Student added successfully",
+            "rollno": rollno
         }, 201
 
     except Exception as e:
@@ -95,27 +103,30 @@ def create_student(name, rollno, password):
 
 
 # =========================================================
-# ❌ DELETE STUDENT
+# ❌ DELETE STUDENT (CONSISTENT DELETE)
 # =========================================================
 def remove_student(rollno):
+
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
-        rollno = rollno.strip().lower()
+        rollno = (rollno or "").strip().lower()
 
-        # 🔍 check exists
-        cursor.execute(
-            "SELECT 1 FROM students WHERE rollno=%s",
-            (rollno,)
-        )
+        # 🔍 FIND USER_ID
+        cursor.execute("""
+            SELECT user_id FROM students WHERE rollno=%s
+        """, (rollno,))
+        row = cursor.fetchone()
 
-        if not cursor.fetchone():
+        if not row:
             return {"error": "Student not found"}, 404
 
-        # 🔥 DELETE BOTH TABLES
+        user_id = row[0]
+
+        # 🔥 DELETE CHILD → PARENT ORDER
         cursor.execute("DELETE FROM students WHERE rollno=%s", (rollno,))
-        cursor.execute("DELETE FROM users WHERE identifier=%s", (rollno,))
+        cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
 
         conn.commit()
 
@@ -134,17 +145,17 @@ def remove_student(rollno):
 # 📊 STUDENT DASHBOARD
 # =========================================================
 def get_student_dashboard_data(rollno):
+
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
-        rollno = rollno.strip().lower()
+        rollno = (rollno or "").strip().lower()
 
         # 🔎 STUDENT
-        cursor.execute(
-            "SELECT rollno, name FROM students WHERE rollno=%s",
-            (rollno,)
-        )
+        cursor.execute("""
+            SELECT rollno, name FROM students WHERE rollno=%s
+        """, (rollno,))
         student = cursor.fetchone()
 
         if not student:
