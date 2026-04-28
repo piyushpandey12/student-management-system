@@ -67,6 +67,9 @@ tr{background:rgba(255,255,255,0.08)}
 <div id="leaderboard" style="display:none">
 <h3>Leaderboard</h3>
 <table>
+<thead>
+<tr><th>Rank</th><th>ID</th><th>Avg</th></tr>
+</thead>
 <tbody id="leaderboardList"></tbody>
 </table>
 </div>
@@ -85,13 +88,15 @@ let user = {};
 try {
   user = JSON.parse(atob(token.split('.')[1]));
 } catch {
-  alert("Session expired. Login again.");
+  alert("Session expired");
   localStorage.clear();
   location.href = "index.html";
 }
 
+const userId = user.identifier || user.rollno;
+
 document.getElementById("welcome").innerText =
-  "Welcome " + (user.identifier || user.rollno || "Student");
+  "Welcome " + userId;
 
 // ================= BASE URL =================
 const BASE_URL =
@@ -111,8 +116,8 @@ async function api(url) {
     if (!res.ok) throw new Error(data.message || "API Error");
 
     return data;
+
   } catch (err) {
-    console.error(err);
     alert(err.message);
     return {};
   }
@@ -121,30 +126,28 @@ async function api(url) {
 // ================= LOAD DASHBOARD =================
 async function loadDashboard() {
 
-  const id = user.identifier || user.rollno;
-
-  const res = await api(`${BASE_URL}/students/dashboard/${id}`);
-  const d = res.data || res;
+  const res = await api(`${BASE_URL}/students/dashboard/${userId}`);
+  const d = res.data || {};
 
   const present = d.attendance?.present || 0;
   const total = d.attendance?.total || 0;
   const marks = d.marks || [];
 
-  presentEl.innerText = present;
-  totalEl.innerText = total;
+  document.getElementById("present").innerText = present;
+  document.getElementById("total").innerText = total;
 
   const percent = total ? ((present / total) * 100).toFixed(1) : 0;
-  att.innerText = percent + "%";
+  document.getElementById("att").innerText = percent + "%";
 
   const avgVal = marks.length
-    ? (marks.reduce((a, b) => a + (b.marks || 0), 0) / marks.length).toFixed(2)
+    ? (marks.reduce((a,b)=>a+(b.marks||0),0)/marks.length).toFixed(2)
     : 0;
 
-  avg.innerText = avgVal;
+  document.getElementById("avg").innerText = avgVal;
 
-  // TABLE
-  marksList.innerHTML = marks.map(m => {
-    let grade =
+  // MARKS TABLE
+  document.getElementById("marksList").innerHTML = marks.map(m => {
+    const grade =
       m.marks >= 90 ? "A" :
       m.marks >= 70 ? "B" :
       m.marks >= 40 ? "C" : "F";
@@ -162,86 +165,84 @@ async function loadDashboard() {
 // ================= CHART =================
 let aChart, mChart;
 
-function drawCharts(present, total, marks) {
+function drawCharts(present, total, marks){
 
-  if (aChart) aChart.destroy();
-  if (mChart) mChart.destroy();
+  if(aChart) aChart.destroy();
+  if(mChart) mChart.destroy();
 
-  aChart = new Chart(document.getElementById("attendanceChart"), {
-    type: "doughnut",
-    data: {
-      labels: ["Present", "Absent"],
-      datasets: [{ data: [present, total - present] }]
+  aChart = new Chart(document.getElementById("attendanceChart"),{
+    type:"doughnut",
+    data:{
+      labels:["Present","Absent"],
+      datasets:[{data:[present, Math.max(total-present,0)]}]
     }
   });
 
-  mChart = new Chart(document.getElementById("marksChart"), {
-    type: "bar",
-    data: {
-      labels: marks.map(m => m.subject),
-      datasets: [{ data: marks.map(m => m.marks) }]
+  mChart = new Chart(document.getElementById("marksChart"),{
+    type:"bar",
+    data:{
+      labels:marks.map(m=>m.subject),
+      datasets:[{data:marks.map(m=>m.marks)}]
     }
   });
 }
 
 // ================= LEADERBOARD =================
-async function loadLeaderboard() {
+async function loadLeaderboard(){
 
   const res = await api(`${BASE_URL}/students`);
   const students = res.data || [];
 
-  const sorted = students.sort((a, b) =>
-    (b.avg_marks || 0) - (a.avg_marks || 0)
+  const sorted = students.sort((a,b)=>
+    (b.avg_marks||0)-(a.avg_marks||0)
   );
 
-  leaderboardList.innerHTML = sorted.map((s, i) => `
-    <tr>
-      <td>#${i + 1}</td>
-      <td>${s.rollno || s.identifier}</td>
-      <td>${s.avg_marks || 0}</td>
-    </tr>
-  `).join("");
+  document.getElementById("leaderboardList").innerHTML =
+    sorted.map((s,i)=>`
+      <tr>
+        <td>#${i+1}</td>
+        <td>${s.identifier}</td>
+        <td>${s.avg_marks||0}</td>
+      </tr>
+    `).join("");
 }
 
 // ================= PDF =================
-function downloadReport() {
+function downloadReport(){
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
-  const avgVal = Number(avg.innerText);
+  doc.text("Student Report",20,20);
+  doc.text(`ID: ${userId}`,20,40);
+  doc.text(`Average: ${document.getElementById("avg").innerText}`,20,50);
 
-  doc.text("Student Report", 20, 20);
-  doc.text(`ID: ${user.identifier || user.rollno}`, 20, 40);
-  doc.text(`Average: ${avgVal}`, 20, 50);
+  let y=70;
 
-  let y = 70;
-
-  document.querySelectorAll("#marksList tr").forEach(row => {
-    const cols = row.querySelectorAll("td");
-    doc.text(cols[0].innerText, 20, y);
-    doc.text(cols[1].innerText, 100, y);
-    doc.text(cols[2].innerText, 150, y);
-    y += 10;
+  document.querySelectorAll("#marksList tr").forEach(row=>{
+    const tds=row.querySelectorAll("td");
+    doc.text(tds[0].innerText,20,y);
+    doc.text(tds[1].innerText,100,y);
+    doc.text(tds[2].innerText,150,y);
+    y+=10;
   });
 
   doc.save("report.pdf");
 }
 
 // ================= NAV =================
-function show(id) {
+function show(id){
+  dashboard.style.display=id==="dashboard"?"block":"none";
+  marksSection.style.display=id==="marks"?"block":"none";
+  leaderboard.style.display=id==="leaderboard"?"block":"none";
 
-  dashboard.style.display = id === "dashboard" ? "block" : "none";
-  marksSection.style.display = id === "marks" ? "block" : "none";
-  leaderboard.style.display = id === "leaderboard" ? "block" : "none";
-
-  if (id === "leaderboard") loadLeaderboard();
+  if(id==="leaderboard") loadLeaderboard();
 }
 
 // ================= LOGOUT =================
-function logout() {
+function logout(){
   localStorage.clear();
-  location.href = "index.html";
+  location.href="index.html";
 }
 
 // ================= INIT =================
