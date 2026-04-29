@@ -3,45 +3,7 @@ const BASE_URL =
   window.location.hostname === "localhost"
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-system-api-cznx.onrender.com/api";
-async function forgotPassword() {
 
-    const teacherId = document.getElementById("teacherId").value.trim();
-
-    if (!teacherId) {
-        return alert("Enter Teacher ID first");
-    }
-
-    const newPassword = prompt("Enter new password:");
-
-    if (!newPassword || newPassword.length < 4) {
-        return alert("Password must be at least 4 characters");
-    }
-
-    try {
-        const res = await fetch(`${BASE_URL}/auth/reset-password`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                teacherId,
-                newPassword
-            })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.message || "Reset failed");
-        }
-
-        alert("✅ Password reset successful");
-
-    } catch (err) {
-        console.error("RESET ERROR:", err);
-        alert(err.message);
-    }
-}
 // ================= AUTH CHECK =================
 function getUser() {
   try {
@@ -209,23 +171,43 @@ rollnoEl.addEventListener("input", () => {
   checkForm();
 });
 passwordEl.addEventListener("input", () => {
-  // ✅ Strong password: letters + number, min 6
+
   const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
 
-if (!strongPassword.test(newPassword)) {
-    errorMsg.innerText = "Password must contain letter + number (min 6)";
-    return;
-}
+  const passwordValue = passwordEl.value.trim();   // ✅ FIX
 
-  if (passwordValid) {
-    passwordTl.play(); // safe now
-    passwordEl.classList.add("valid");
-  } else {
-    passwordTl.reverse();
-    passwordEl.classList.remove("valid");
+  const errorMsg = document.getElementById("errorMsg");
+
+  if (!strongPassword.test(passwordValue)) {
+    passwordValid = false;
+
+    if (errorMsg) {
+      errorMsg.innerText = "Password must contain letter + number (min 6)";
+    }
+
+    gsap.to(passwordEl, {
+      borderColor: "#ff4d4d",
+      boxShadow: "0 0 8px #ff4d4d",
+      duration: 0.3,
+    });
+
+    return;
   }
 
-  checkForm(); // ✅ important
+  // ✅ VALID PASSWORD
+  passwordValid = true;
+
+  if (errorMsg) errorMsg.innerText = "";
+
+  passwordTl.play();
+
+  gsap.to(passwordEl, {
+    borderColor: "#00ff88",
+    boxShadow: "0 0 8px #00ff88",
+    duration: 0.3,
+  });
+
+  checkForm();
 });
 
 function layoutPreparation() {
@@ -968,96 +950,3 @@ submitBtn.addEventListener("click", async (e) => {
     errorEl.innerText = "⚠️ Backend not reachable!";
   }
 });
-// ================= INIT =================
-document.addEventListener("DOMContentLoaded", () => {
-    const forgotBtn = document.getElementById("forgotBtn");
-
-    if (!forgotBtn) {
-        console.error("❌ forgotBtn not found");
-        return;
-    }
-
-    // Prevent multiple bindings
-    forgotBtn.onclick = forgotPassword;
-});
-
-
-// ================= PASSWORD RULE =================
-const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
-
-
-// ================= SAFE GSAP =================
-const el = document.querySelector("#box");
-if (el) {
-    gsap.to(el, { x: 100 });
-}
-
-
-// ================= FORGOT PASSWORD =================
-async function forgotPassword() {
-
-    const teacherIdInput = document.getElementById("teacherId");
-
-    if (!teacherIdInput) {
-        console.error("teacherId input not found");
-        return alert("UI Error: teacherId field missing");
-    }
-
-    const teacherId = teacherIdInput.value.trim();
-
-    if (!teacherId) {
-        return alert("Enter Teacher ID first");
-    }
-
-    // take password input
-    const newPassword = prompt("Enter new password:");
-
-    // check empty
-    if (!newPassword) {
-        return alert("Password cannot be empty");
-    }
-
-    // check length
-    if (newPassword.length < 6) {
-        return alert("Password must be at least 6 characters");
-    }
-
-    // check strong password
-    if (!strongPassword.test(newPassword)) {
-        return alert("Password must contain letters and numbers");
-    }
-
-    try {
-        const BASE_URL =
-            location.hostname === "localhost"
-                ? "http://localhost:5000"
-                : "https://student-management-system-api-cznx.onrender.com";
-
-        const res = await fetch(`${BASE_URL}/api/auth/reset-password`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                teacherId,
-                newPassword
-            })
-        });
-
-        let data = {};
-        try {
-            data = await res.json();
-        } catch {
-            console.warn("Response is not JSON");
-        }
-
-        if (!res.ok) {
-            throw new Error(data.message || "Server error");
-        }
-
-        alert("Password reset successful!");
-        console.log("RESET SUCCESS:", data);
-
-    } catch (err) {
-        console.error("RESET ERROR:", err);
-        alert(err.message || "Server error");
-    }
-}
