@@ -29,7 +29,12 @@ def register_user(identifier, name, password, role):
     conn = None
 
     try:
-        identifier = identifier.lower().strip()
+        identifier = (identifier or "").strip().lower()
+        name = (name or "").strip()
+        password = (password or "").strip()
+
+        if not identifier or not name or not password:
+            return {"error": "All fields required"}
 
         conn = get_connection()
         cur = get_cursor(conn)
@@ -39,7 +44,7 @@ def register_user(identifier, name, password, role):
         if cur.fetchone():
             return {"error": "User already exists"}
 
-        # 🔐 HASH PASSWORD (FIXED)
+        # 🔐 HASH PASSWORD
         hashed = generate_password_hash(password)
 
         # 📥 INSERT USER
@@ -65,12 +70,12 @@ def register_user(identifier, name, password, role):
             """, (identifier, name, user_id))
 
         conn.commit()
-
         return {"success": True}
 
     except Exception as e:
         if conn:
             conn.rollback()
+        print("REGISTER ERROR:", e)
         return {"error": str(e)}
 
     finally:
@@ -79,13 +84,17 @@ def register_user(identifier, name, password, role):
 
 
 # =========================================================
-# 📌 LOGIN USER (FINAL FIXED)
+# 📌 LOGIN USER
 # =========================================================
 def login_user(identifier, password):
     conn = None
 
     try:
-        identifier = identifier.lower().strip()
+        identifier = (identifier or "").strip().lower()
+        password = (password or "").strip()
+
+        if not identifier or not password:
+            return {"error": "Missing credentials"}
 
         conn = get_connection()
         cur = get_cursor(conn)
@@ -101,7 +110,12 @@ def login_user(identifier, password):
         if not user:
             return {"error": "User not found"}
 
-        # 🔐 CORRECT PASSWORD CHECK
+        # 🔍 DEBUG (remove after testing)
+        print("INPUT:", password)
+        print("HASH:", user["password"])
+        print("MATCH:", check_password_hash(user["password"], password))
+
+        # 🔐 VERIFY PASSWORD
         if not check_password_hash(user["password"], password):
             return {"error": "Invalid password"}
 
@@ -119,6 +133,54 @@ def login_user(identifier, password):
         }
 
     except Exception as e:
+        print("LOGIN ERROR:", e)
+        return {"error": str(e)}
+
+    finally:
+        if conn:
+            release_connection(conn)
+
+
+# =========================================================
+# ❌ DELETE USER (FULL CLEAN DELETE)
+# =========================================================
+def delete_user(identifier):
+    conn = None
+
+    try:
+        identifier = (identifier or "").strip().lower()
+
+        conn = get_connection()
+        cur = get_cursor(conn)
+
+        # 🔍 GET USER
+        cur.execute("""
+            SELECT id, role FROM users WHERE identifier=%s
+        """, (identifier,))
+        user = cur.fetchone()
+
+        if not user:
+            return {"error": "User not found"}
+
+        user_id = user["id"]
+        role = user["role"]
+
+        # 🔥 DELETE CHILD TABLE FIRST
+        if role == "student":
+            cur.execute("DELETE FROM students WHERE user_id=%s", (user_id,))
+        elif role == "teacher":
+            cur.execute("DELETE FROM teachers WHERE user_id=%s", (user_id,))
+
+        # 🔥 DELETE MAIN USER
+        cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+
+        conn.commit()
+        return {"success": True}
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("DELETE ERROR:", e)
         return {"error": str(e)}
 
     finally:

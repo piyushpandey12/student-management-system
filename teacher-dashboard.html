@@ -122,13 +122,17 @@ async function api(url, options={}) {
 
     const data = await res.json();
 
-    if(!res.ok) throw new Error(data.message || "Error");
+    if(!res.ok){
+      console.error("API ERROR:", data);
+      alert(data.message || "Something went wrong");
+      return null;
+    }
 
     return data;
 
   } catch(e) {
-    console.error("API ERROR:", e);
-    alert(e.message);
+    console.error("NETWORK ERROR:", e);
+    alert("Server not reachable");
     return null;
   }
 }
@@ -144,14 +148,19 @@ async function loadStudents(){
 
   studentsData = res.data || [];
 
-  // cards
+  // Cards
   document.getElementById("totalStudents").innerText = studentsData.length;
 
-  const avg = studentsData.reduce((a,b)=>a+(b.avg_marks||0),0)/(studentsData.length||1);
+  const avg = studentsData.length
+    ? studentsData.reduce((a,b)=>a+(b.avg_marks||0),0)/studentsData.length
+    : 0;
+
   document.getElementById("classAvg").innerText = avg.toFixed(2);
 
   document.getElementById("topScore").innerText =
-    Math.max(...studentsData.map(s=>s.avg_marks||0),0);
+    studentsData.length
+      ? Math.max(...studentsData.map(s=>s.avg_marks||0))
+      : 0;
 
   document.getElementById("weakCount").innerText =
     studentsData.filter(s=>(s.avg_marks||0)<40).length;
@@ -177,7 +186,9 @@ function renderTable(){
       <td>${s.name}</td>
       <td>${s.avg_marks || 0}</td>
       <td>
-        <button class="delete" onclick="deleteStudent('${getId(s)}')">Delete</button>
+        <button class="delete" onclick="deleteStudent('${getId(s)}')">
+          Delete
+        </button>
       </td>
     </tr>
   `).join("");
@@ -186,44 +197,35 @@ function renderTable(){
 // ================= DROPDOWN =================
 function renderDropdown(){
   const select = document.getElementById("studentSelect");
-
   if(!select) return;
 
-  if(studentsData.length===0){
-    select.innerHTML = `<option>No students</option>`;
-    return;
-  }
-
-  select.innerHTML = studentsData.map(s=>`
-    <option value="${getId(s)}">${s.name} (${getId(s)})</option>
-  `).join("");
+  select.innerHTML = studentsData.length
+    ? studentsData.map(s=>`
+        <option value="${getId(s)}">${s.name} (${getId(s)})</option>
+      `).join("")
+    : `<option>No students</option>`;
 }
 
-// ================= ATTENDANCE DROPDOWN =================
+// ================= ATTENDANCE =================
 function renderAttendanceDropdown(){
   const select = document.getElementById("attendanceStudent");
-
   if(!select) return;
 
-  if(studentsData.length===0){
-    select.innerHTML = `<option>No students</option>`;
-    return;
-  }
-
-  select.innerHTML = studentsData.map(s=>`
-    <option value="${getId(s)}">${s.name} (${getId(s)})</option>
-  `).join("");
+  select.innerHTML = studentsData.length
+    ? studentsData.map(s=>`
+        <option value="${getId(s)}">${s.name} (${getId(s)})</option>
+      `).join("")
+    : `<option>No students</option>`;
 }
 
 // ================= MARKS FORM =================
 function renderMarksForm(){
   const marksForm = document.getElementById("marksForm");
-
   if(!marksForm) return;
 
   marksForm.innerHTML = SUBJECTS.map(sub=>`
-    <div style="margin:8px 0;">
-      ${sub} 
+    <div style="margin:6px 0;">
+      ${sub}
       <input type="number" id="mark_${sub}" min="0" max="100">
     </div>
   `).join("");
@@ -253,17 +255,21 @@ async function addStudent(){
   document.getElementById("roll").value="";
   document.getElementById("password").value="";
 
-  await loadStudents(); // 🔥 FIX
+  await loadStudents();
 }
 
 // ================= DELETE =================
 async function deleteStudent(id){
-  if(!confirm("Delete?")) return;
+  if(!confirm("Delete this student?")) return;
 
-  const res = await api(`${BASE_URL}/students/${id}`,{ method:"DELETE" });
+  const res = await api(`${BASE_URL}/students/${id}`,{
+    method:"DELETE"
+  });
+
   if(!res) return;
 
-  await loadStudents(); // 🔥 FIX
+  alert("🗑️ Deleted successfully");
+  await loadStudents();
 }
 
 // ================= MARKS =================
@@ -284,8 +290,7 @@ async function saveMarks(){
   if(!res) return;
 
   alert("✅ Marks saved");
-
-  await loadStudents(); // 🔥 FIX
+  await loadStudents();
 }
 
 // ================= ATTENDANCE =================
@@ -304,8 +309,7 @@ async function markAttendance(){
   if(!res) return;
 
   alert("✅ Attendance marked");
-
-  await loadStudents(); // 🔥 FIX
+  await loadStudents();
 }
 
 // ================= NAV =================
