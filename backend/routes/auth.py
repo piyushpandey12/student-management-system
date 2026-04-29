@@ -1,13 +1,14 @@
 # ================= IMPORTS =================
 from flask import Blueprint, request, jsonify
 from backend.services.auth_service import register_user, login_user
+from backend.utils.db import get_connection, release_connection
 
 # ================= BLUEPRINT =================
 auth_bp = Blueprint("auth", __name__)
 
 
 # =========================================================
-# 📌 HELPER: EXTRACT IDENTIFIER
+# 📌 HELPER: EXTRACT IDENTIFIER (UNIFIED SYSTEM)
 # =========================================================
 def extract_identifier(data):
     return (
@@ -100,3 +101,81 @@ def login():
             "status": "error",
             "message": str(e)
         }), 500
+
+
+# =========================================================
+# 📌 RESET PASSWORD (FIXED + CONSISTENT)
+# =========================================================
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    conn = None
+    cursor = None
+
+    try:
+        data = request.get_json(silent=True) or {}
+
+        # ✅ USE SAME IDENTIFIER SYSTEM
+        identifier = extract_identifier(data)
+        new_password = (data.get("newPassword") or "").strip()
+
+        # ✅ Validation
+        if not identifier or not new_password:
+            return jsonify({
+                "status": "error",
+                "message": "Identifier & new password required"
+            }), 400
+
+        if len(new_password) < 4:
+            return jsonify({
+                "status": "error",
+                "message": "Password must be at least 4 characters"
+            }), 400
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # 🔍 Detect table dynamically (optional but robust)
+        # Assuming both student & teacher stored differently
+        cursor.execute("SELECT * FROM teachers WHERE teacher_id=%s", (identifier,))
+        user = cursor.fetchone()
+
+        table = "teachers"
+        column = "teacher_id"
+
+        if not user:
+            cursor.execute("SELECT * FROM students WHERE rollno=%s", (identifier,))
+            user = cursor.fetchone()
+            table = "students"
+            column = "rollno"
+
+        if not user:
+            return jsonify({
+                "status": "error",
+                "message": "User not found"
+            }), 404
+
+        # 🔐 UPDATE PASSWORD
+        cursor.execute(
+            f"UPDATE {table} SET password=%s WHERE {column}=%s",
+            (new_password, identifier)
+        )
+
+        conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Password reset successful"
+        }), 200
+
+    except Exception as e:
+        print("RESET ERROR:", e)
+        return jsonify({
+            "status": "error",
+            "message": "Server error"
+        }), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            release_connection(conn)

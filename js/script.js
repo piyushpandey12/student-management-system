@@ -4,44 +4,43 @@ const BASE_URL =
     ? "http://127.0.0.1:5000/api"
     : "https://student-management-system-api-cznx.onrender.com/api";
 async function forgotPassword() {
-  const studentId = document.getElementById("rollno").value.trim();
 
-  if (!studentId) {
-    return showError("Enter Student ID first");
-  }
+    const teacherId = document.getElementById("teacherId").value.trim();
 
-  const newPassword = prompt("Enter new password (min 6 chars, letter + number):");
-
-  if (!newPassword || newPassword.length < 6) {
-    return showError("Password must be at least 6 characters");
-  }
-
-  try {
-    const res = await fetch(`${BASE_URL}/auth/reset-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-     body: JSON.stringify({
-    identifier: rollno,     // ✅ NOT rollno
-    new_password: newPassword,
-    role: "student"
-})
-    });
-
-    const data = await res.json();
-
-    console.log("Reset response:", data);
-
-    if (!res.ok) {
-      throw new Error(data.message || data.error || "Reset failed");
+    if (!teacherId) {
+        return alert("Enter Teacher ID first");
     }
 
-    alert("✅ Password reset successful!");
-  } catch (e) {
-    console.error(e);
-    showError(e.message || "Something went wrong");
-  }
+    const newPassword = prompt("Enter new password:");
+
+    if (!newPassword || newPassword.length < 4) {
+        return alert("Password must be at least 4 characters");
+    }
+
+    try {
+        const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                teacherId,
+                newPassword
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.message || "Reset failed");
+        }
+
+        alert("✅ Password reset successful");
+
+    } catch (err) {
+        console.error("RESET ERROR:", err);
+        alert(err.message);
+    }
 }
 // ================= AUTH CHECK =================
 function getUser() {
@@ -983,34 +982,34 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// ================= FORGOT PASSWORD =================
-// ================= PASSWORD RULE =================
-// ================= PASSWORD RULE (declare once globally) =================
+// ================= PASSWORD RULE (GLOBAL - DECLARE ONCE) =================
 const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
 
 
 // ================= FORGOT PASSWORD =================
 async function forgotPassword() {
 
-    const rollnoInput = document.getElementById("rollno");
     const errorMsg = document.getElementById("errorMsg");
 
-    const rollno = rollnoInput ? rollnoInput.value.trim() : "";
+    // 🔹 Get identifier (supports both student + teacher)
+    const identifier =
+        document.getElementById("rollno")?.value.trim() ||
+        document.getElementById("teacherId")?.value.trim();
 
-    // Clear previous error safely
+    // 🔹 Clear previous error
     if (errorMsg) errorMsg.innerText = "";
 
-    // ✅ Validate Roll Number
-    if (!rollno) {
-        if (errorMsg) errorMsg.innerText = "⚠️ Enter Roll Number first";
-        else alert("Enter Roll Number first");
+    // ================= VALIDATION =================
+    if (!identifier) {
+        if (errorMsg) errorMsg.innerText = "⚠️ Enter Roll No / Teacher ID";
+        else alert("Enter Roll No / Teacher ID");
         return;
     }
 
-    // ✅ Get new password
+    // 🔹 Prompt for password
     const newPassword = prompt("Enter new password (min 6 chars, letter + number):");
 
-    // ✅ Validate password (single source of truth)
+    // 🔹 Validate password
     if (!newPassword || !strongPassword.test(newPassword)) {
         if (errorMsg) {
             errorMsg.innerText = "⚠️ Password must contain letter + number (min 6)";
@@ -1021,15 +1020,15 @@ async function forgotPassword() {
     }
 
     try {
+        // ================= API CALL =================
         const res = await fetch(`${BASE_URL}/auth/reset-password`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                identifier: rollno,
-                new_password: newPassword,
-                role: "student"
+                identifier: identifier,   // ✅ unified
+                newPassword: newPassword  // ✅ matches backend
             })
         });
 
@@ -1039,6 +1038,7 @@ async function forgotPassword() {
             throw new Error(data.message || "Reset failed");
         }
 
+        // ================= SUCCESS =================
         alert("✅ Password reset successful. Please login again.");
 
     } catch (err) {
@@ -1047,7 +1047,7 @@ async function forgotPassword() {
         if (errorMsg) {
             errorMsg.innerText = "❌ " + err.message;
         } else {
-            alert(err.message);
+            alert("❌ " + err.message);
         }
     }
 }

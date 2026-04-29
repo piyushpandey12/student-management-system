@@ -195,16 +195,6 @@
     <script src="js/script.js"></script>
 <script>
 /* =========================================================
-   🌐 BASE URL (SINGLE DECLARATION)
-========================================================= */
-const BASE_URL =
-  location.hostname === "localhost" ||
-  location.hostname === "127.0.0.1"
-    ? "http://127.0.0.1:5000/api"
-    : "https://student-management-system-api-cznx.onrender.com/api";
-
-
-/* =========================================================
    🔐 LOGIN HANDLER
 ========================================================= */
 document.getElementById("submitBtn").addEventListener("click", handleLogin);
