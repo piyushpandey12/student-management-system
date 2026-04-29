@@ -982,72 +982,82 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// ================= PASSWORD RULE (GLOBAL - DECLARE ONCE) =================
+// ================= PASSWORD RULE =================
 const strongPassword = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+
+
+// ================= SAFE GSAP =================
+const el = document.querySelector("#box");
+if (el) {
+    gsap.to(el, { x: 100 });
+}
 
 
 // ================= FORGOT PASSWORD =================
 async function forgotPassword() {
 
-    const errorMsg = document.getElementById("errorMsg");
+    const teacherIdInput = document.getElementById("teacherId");
 
-    // 🔹 Get identifier (supports both student + teacher)
-    const identifier =
-        document.getElementById("rollno")?.value.trim() ||
-        document.getElementById("teacherId")?.value.trim();
-
-    // 🔹 Clear previous error
-    if (errorMsg) errorMsg.innerText = "";
-
-    // ================= VALIDATION =================
-    if (!identifier) {
-        if (errorMsg) errorMsg.innerText = "⚠️ Enter Roll No / Teacher ID";
-        else alert("Enter Roll No / Teacher ID");
-        return;
+    if (!teacherIdInput) {
+        console.error("teacherId input not found");
+        return alert("UI Error: teacherId field missing");
     }
 
-    // 🔹 Prompt for password
-    const newPassword = prompt("Enter new password (min 6 chars, letter + number):");
+    const teacherId = teacherIdInput.value.trim();
 
-    // 🔹 Validate password
-    if (!newPassword || !strongPassword.test(newPassword)) {
-        if (errorMsg) {
-            errorMsg.innerText = "⚠️ Password must contain letter + number (min 6)";
-        } else {
-            alert("Password must contain letter + number (min 6)");
-        }
-        return;
+    if (!teacherId) {
+        return alert("Enter Teacher ID first");
+    }
+
+    // take password input
+    const newPassword = prompt("Enter new password:");
+
+    // check empty
+    if (!newPassword) {
+        return alert("Password cannot be empty");
+    }
+
+    // check length
+    if (newPassword.length < 6) {
+        return alert("Password must be at least 6 characters");
+    }
+
+    // check strong password
+    if (!strongPassword.test(newPassword)) {
+        return alert("Password must contain letters and numbers");
     }
 
     try {
-        // ================= API CALL =================
-        const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+        const BASE_URL =
+            location.hostname === "localhost"
+                ? "http://localhost:5000"
+                : "https://student-management-system-api-cznx.onrender.com";
+
+        const res = await fetch(`${BASE_URL}/api/auth/reset-password`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                identifier: identifier,   // ✅ unified
-                newPassword: newPassword  // ✅ matches backend
+                teacherId,
+                newPassword
             })
         });
 
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.message || "Reset failed");
+        let data = {};
+        try {
+            data = await res.json();
+        } catch {
+            console.warn("Response is not JSON");
         }
 
-        // ================= SUCCESS =================
-        alert("✅ Password reset successful. Please login again.");
+        if (!res.ok) {
+            throw new Error(data.message || "Server error");
+        }
+
+        alert("Password reset successful!");
+        console.log("RESET SUCCESS:", data);
 
     } catch (err) {
         console.error("RESET ERROR:", err);
-
-        if (errorMsg) {
-            errorMsg.innerText = "❌ " + err.message;
-        } else {
-            alert("❌ " + err.message);
-        }
+        alert(err.message || "Server error");
     }
 }

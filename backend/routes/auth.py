@@ -1,5 +1,7 @@
 # ================= IMPORTS =================
 from flask import Blueprint, request, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from backend.services.auth_service import register_user, login_user
 from backend.utils.db import get_connection, release_connection
 
@@ -31,37 +33,24 @@ def register():
         role = data.get("role", "student")
         name = data.get("name", "User")
 
-        # ✅ Validation
         if not identifier or not password:
-            return jsonify({
-                "status": "error",
-                "message": "Identifier & password required"
-            }), 400
+            return jsonify({"status": "error", "message": "Identifier & password required"}), 400
 
         if len(password) < 4:
-            return jsonify({
-                "status": "error",
-                "message": "Password must be at least 4 characters"
-            }), 400
+            return jsonify({"status": "error", "message": "Password must be at least 4 characters"}), 400
 
-        result = register_user(identifier, name, password, role)
+        # 🔐 ALWAYS HASH
+        hashed_password = generate_password_hash(password)
+
+        result = register_user(identifier, name, hashed_password, role)
 
         if result.get("error"):
-            return jsonify({
-                "status": "error",
-                "message": result["error"]
-            }), 400
+            return jsonify({"status": "error", "message": result["error"]}), 400
 
-        return jsonify({
-            "status": "success",
-            "message": "User registered successfully"
-        }), 201
+        return jsonify({"status": "success", "message": "User registered successfully"}), 201
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # =========================================================
@@ -75,20 +64,14 @@ def login():
         identifier = extract_identifier(data)
         password = (data.get("password") or "").strip()
 
-        # ✅ Validation
         if not identifier or not password:
-            return jsonify({
-                "status": "error",
-                "message": "Missing credentials"
-            }), 400
+            return jsonify({"status": "error", "message": "Missing credentials"}), 400
 
+        # ⚠️ Ensure your auth_service uses check_password_hash internally
         result = login_user(identifier, password)
 
         if result.get("error"):
-            return jsonify({
-                "status": "error",
-                "message": result["error"]
-            }), 401
+            return jsonify({"status": "error", "message": result["error"]}), 401
 
         return jsonify({
             "status": "success",
@@ -97,14 +80,11 @@ def login():
         }), 200
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # =========================================================
-# 📌 RESET PASSWORD (FIXED + CONSISTENT)
+# 📌 RESET PASSWORD (FINAL FIXED VERSION)
 # =========================================================
 @auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
@@ -114,11 +94,9 @@ def reset_password():
     try:
         data = request.get_json(silent=True) or {}
 
-        # ✅ USE SAME IDENTIFIER SYSTEM
         identifier = extract_identifier(data)
         new_password = (data.get("newPassword") or "").strip()
 
-        # ✅ Validation
         if not identifier or not new_password:
             return jsonify({
                 "status": "error",
@@ -131,22 +109,28 @@ def reset_password():
                 "message": "Password must be at least 4 characters"
             }), 400
 
+        # 🔐 HASH PASSWORD (CRITICAL FIX)
+        hashed_password = generate_password_hash(new_password)
+
         conn = get_connection()
         cursor = conn.cursor()
 
-        # 🔍 Detect table dynamically (optional but robust)
-        # Assuming both student & teacher stored differently
-        cursor.execute("SELECT * FROM teachers WHERE teacher_id=%s", (identifier,))
+        # 🔍 Check teacher first
+        cursor.execute("SELECT 1 FROM teachers WHERE teacher_id=%s", (identifier,))
         user = cursor.fetchone()
 
-        table = "teachers"
-        column = "teacher_id"
+        table = None
+        column = None
 
-        if not user:
-            cursor.execute("SELECT * FROM students WHERE rollno=%s", (identifier,))
+        if user:
+            table = "teachers"
+            column = "teacher_id"
+        else:
+            cursor.execute("SELECT 1 FROM students WHERE rollno=%s", (identifier,))
             user = cursor.fetchone()
-            table = "students"
-            column = "rollno"
+            if user:
+                table = "students"
+                column = "rollno"
 
         if not user:
             return jsonify({
@@ -154,10 +138,10 @@ def reset_password():
                 "message": "User not found"
             }), 404
 
-        # 🔐 UPDATE PASSWORD
+        # 🔐 UPDATE
         cursor.execute(
             f"UPDATE {table} SET password=%s WHERE {column}=%s",
-            (new_password, identifier)
+            (hashed_password, identifier)
         )
 
         conn.commit()
@@ -168,7 +152,10 @@ def reset_password():
         }), 200
 
     except Exception as e:
+        if conn:
+            conn.rollback()
         print("RESET ERROR:", e)
+
         return jsonify({
             "status": "error",
             "message": "Server error"

@@ -37,14 +37,16 @@ def get_all_students(page=1, limit=50):
 
 
 # =========================================================
-# ➕ CREATE STUDENT (FINAL CLEAN VERSION)
+# ➕ CREATE STUDENT (FINAL FIXED)
 # =========================================================
-def create_student(rollno, name, password):
-
-    conn = get_connection()
-    cursor = conn.cursor()
+def create_student(name, rollno, password):
+    conn = None
+    cursor = None
 
     try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
         rollno = (rollno or "").strip().lower()
         name = (name or "").strip()
         password = (password or "").strip()
@@ -56,7 +58,7 @@ def create_student(rollno, name, password):
         if len(password) < 6:
             return {"error": "Password must be at least 6 characters"}, 400
 
-        # 🔍 CHECK EXIST (ONLY USERS TABLE — SINGLE SOURCE OF TRUTH)
+        # 🔍 CHECK IF USER EXISTS
         cursor.execute(
             "SELECT 1 FROM users WHERE identifier=%s",
             (rollno,)
@@ -68,7 +70,7 @@ def create_student(rollno, name, password):
         hashed = hash_password(password)
 
         # =========================================================
-        # 👤 INSERT USER + RETURN ID
+        # 👤 INSERT INTO USERS TABLE
         # =========================================================
         cursor.execute("""
             INSERT INTO users (identifier, name, password, role)
@@ -79,7 +81,7 @@ def create_student(rollno, name, password):
         user_id = cursor.fetchone()[0]
 
         # =========================================================
-        # 🎓 INSERT STUDENT (LINKED WITH USER_ID)
+        # 🎓 INSERT INTO STUDENTS TABLE
         # =========================================================
         cursor.execute("""
             INSERT INTO students (rollno, name, user_id)
@@ -94,26 +96,29 @@ def create_student(rollno, name, password):
         }, 201
 
     except Exception as e:
-        conn.rollback()
+        if conn:
+            conn.rollback()
+        print("CREATE STUDENT ERROR:", e)
         return {"error": str(e)}, 500
 
     finally:
-        cursor.close()
-        release_connection(conn)
+        if cursor:
+            cursor.close()
+        if conn:
+            release_connection(conn)
 
 
 # =========================================================
-# ❌ DELETE STUDENT (CONSISTENT DELETE)
+# ❌ DELETE STUDENT
 # =========================================================
 def remove_student(rollno):
-
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
         rollno = (rollno or "").strip().lower()
 
-        # 🔍 FIND USER_ID
+        # 🔍 GET USER ID
         cursor.execute("""
             SELECT user_id FROM students WHERE rollno=%s
         """, (rollno,))
@@ -124,7 +129,7 @@ def remove_student(rollno):
 
         user_id = row[0]
 
-        # 🔥 DELETE CHILD → PARENT ORDER
+        # 🔥 DELETE IN ORDER
         cursor.execute("DELETE FROM students WHERE rollno=%s", (rollno,))
         cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
 
@@ -145,14 +150,13 @@ def remove_student(rollno):
 # 📊 STUDENT DASHBOARD
 # =========================================================
 def get_student_dashboard_data(rollno):
-
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
         rollno = (rollno or "").strip().lower()
 
-        # 🔎 STUDENT
+        # 🔎 STUDENT INFO
         cursor.execute("""
             SELECT rollno, name FROM students WHERE rollno=%s
         """, (rollno,))
