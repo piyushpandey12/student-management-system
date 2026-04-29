@@ -92,9 +92,6 @@ input,select{padding:10px;border-radius:10px;margin:5px;border:none}
 
 <script>
 
-// ================= HELPER =================
-const getId = (s) => s.rollno || s.identifier;
-
 // ================= CONFIG =================
 const SUBJECTS = [
 "Big Data Analytics","Cloud Computing","Machine Learning",
@@ -109,6 +106,9 @@ const BASE_URL =
   ? "http://127.0.0.1:5000/api"
   : "https://student-management-system-api-cznx.onrender.com/api";
 
+// ================= HELPERS =================
+const getId = (s) => s.rollno || s.identifier;
+
 // ================= API =================
 async function api(url, options={}) {
   try {
@@ -121,16 +121,15 @@ async function api(url, options={}) {
     });
 
     const data = await res.json();
-    console.log("API:", url, data);
 
     if(!res.ok) throw new Error(data.message || "Error");
 
     return data;
 
   } catch(e) {
-    console.error(e);
+    console.error("API ERROR:", e);
     alert(e.message);
-    return {};
+    return null;
   }
 }
 
@@ -141,8 +140,11 @@ let studentsData = [];
 async function loadStudents(){
 
   const res = await api(`${BASE_URL}/students`);
+  if(!res) return;
+
   studentsData = res.data || [];
 
+  // cards
   document.getElementById("totalStudents").innerText = studentsData.length;
 
   const avg = studentsData.reduce((a,b)=>a+(b.avg_marks||0),0)/(studentsData.length||1);
@@ -156,13 +158,18 @@ async function loadStudents(){
 
   renderTable();
   renderDropdown();
-  renderAttendanceDropdown(); // ✅ FIX
+  renderAttendanceDropdown();
   renderMarksForm();
 }
 
 // ================= TABLE =================
 function renderTable(){
   const table = document.getElementById("table");
+
+  if(studentsData.length === 0){
+    table.innerHTML = `<tr><td colspan="4">No students</td></tr>`;
+    return;
+  }
 
   table.innerHTML = studentsData.map(s=>`
     <tr>
@@ -180,6 +187,8 @@ function renderTable(){
 function renderDropdown(){
   const select = document.getElementById("studentSelect");
 
+  if(!select) return;
+
   if(studentsData.length===0){
     select.innerHTML = `<option>No students</option>`;
     return;
@@ -188,13 +197,13 @@ function renderDropdown(){
   select.innerHTML = studentsData.map(s=>`
     <option value="${getId(s)}">${s.name} (${getId(s)})</option>
   `).join("");
-
-  select.value = getId(studentsData[0]);
 }
 
 // ================= ATTENDANCE DROPDOWN =================
 function renderAttendanceDropdown(){
   const select = document.getElementById("attendanceStudent");
+
+  if(!select) return;
 
   if(studentsData.length===0){
     select.innerHTML = `<option>No students</option>`;
@@ -203,6 +212,20 @@ function renderAttendanceDropdown(){
 
   select.innerHTML = studentsData.map(s=>`
     <option value="${getId(s)}">${s.name} (${getId(s)})</option>
+  `).join("");
+}
+
+// ================= MARKS FORM =================
+function renderMarksForm(){
+  const marksForm = document.getElementById("marksForm");
+
+  if(!marksForm) return;
+
+  marksForm.innerHTML = SUBJECTS.map(sub=>`
+    <div style="margin:8px 0;">
+      ${sub} 
+      <input type="number" id="mark_${sub}" min="0" max="100">
+    </div>
   `).join("");
 }
 
@@ -217,10 +240,12 @@ async function addStudent(){
     return alert("⚠️ Fill all fields");
   }
 
-  await api(`${BASE_URL}/students`,{
+  const res = await api(`${BASE_URL}/students`,{
     method:"POST",
     body:JSON.stringify({ name, rollno: roll, password })
   });
+
+  if(!res) return;
 
   alert("✅ Student added");
 
@@ -228,27 +253,22 @@ async function addStudent(){
   document.getElementById("roll").value="";
   document.getElementById("password").value="";
 
-  loadStudents();
+  await loadStudents(); // 🔥 FIX
 }
 
 // ================= DELETE =================
 async function deleteStudent(id){
   if(!confirm("Delete?")) return;
 
-  await api(`${BASE_URL}/students/${id}`,{ method:"DELETE" });
-  loadStudents();
+  const res = await api(`${BASE_URL}/students/${id}`,{ method:"DELETE" });
+  if(!res) return;
+
+  await loadStudents(); // 🔥 FIX
 }
 
 // ================= MARKS =================
-function renderMarksForm(){
-  const marksForm = document.getElementById("marksForm");
-
-  marksForm.innerHTML = SUBJECTS.map(sub=>`
-    <div>${sub} <input type="number" id="mark_${sub}"></div>
-  `).join("");
-}
-
 async function saveMarks(){
+
   const id = document.getElementById("studentSelect").value;
 
   const marks = SUBJECTS.map(sub=>({
@@ -256,12 +276,16 @@ async function saveMarks(){
     marks: Number(document.getElementById(`mark_${sub}`).value || 0)
   }));
 
-  await api(`${BASE_URL}/marks/${id}`,{
+  const res = await api(`${BASE_URL}/marks/${id}`,{
     method:"POST",
     body:JSON.stringify({ marks })
   });
 
+  if(!res) return;
+
   alert("✅ Marks saved");
+
+  await loadStudents(); // 🔥 FIX
 }
 
 // ================= ATTENDANCE =================
@@ -272,12 +296,16 @@ async function markAttendance(){
 
   if(!id) return alert("Select student");
 
-  await api(`${BASE_URL}/attendance/${id}`,{
+  const res = await api(`${BASE_URL}/attendance/${id}`,{
     method:"POST",
     body:JSON.stringify({ status })
   });
 
+  if(!res) return;
+
   alert("✅ Attendance marked");
+
+  await loadStudents(); // 🔥 FIX
 }
 
 // ================= NAV =================
@@ -295,7 +323,7 @@ function logout(){
 }
 
 // ================= INIT =================
-loadStudents();
+document.addEventListener("DOMContentLoaded", loadStudents);
 
 </script>
 </body>

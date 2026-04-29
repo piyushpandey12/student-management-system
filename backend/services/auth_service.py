@@ -4,7 +4,7 @@ import jwt
 from datetime import datetime, timedelta
 
 from backend.utils.db import get_connection, get_cursor, release_connection
-from backend.utils.auth_utils import hash_password, verify_password
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # ================= CONFIG =================
 SECRET_KEY = os.getenv("SECRET_KEY", "student-secret")
@@ -32,27 +32,26 @@ def register_user(identifier, name, password, role):
         identifier = identifier.lower().strip()
 
         conn = get_connection()
-        cur = get_cursor(conn)  # ✅ dict cursor
+        cur = get_cursor(conn)
 
-        # 🔍 check existing user
+        # 🔍 CHECK EXISTING
         cur.execute("SELECT id FROM users WHERE identifier=%s", (identifier,))
         if cur.fetchone():
             return {"error": "User already exists"}
 
-        # 🔐 hash password
-        hashed = hash_password(password)
+        # 🔐 HASH PASSWORD (FIXED)
+        hashed = generate_password_hash(password)
 
-        # 📥 insert user
+        # 📥 INSERT USER
         cur.execute("""
             INSERT INTO users (identifier, name, password, role)
             VALUES (%s, %s, %s, %s)
             RETURNING id
         """, (identifier, name, hashed, role))
 
-        user = cur.fetchone()
-        user_id = user["id"]
+        user_id = cur.fetchone()["id"]
 
-        # 👇 insert into role-specific table
+        # 👇 ROLE TABLE INSERT
         if role == "student":
             cur.execute("""
                 INSERT INTO students (rollno, name, user_id)
@@ -80,7 +79,7 @@ def register_user(identifier, name, password, role):
 
 
 # =========================================================
-# 📌 LOGIN USER
+# 📌 LOGIN USER (FINAL FIXED)
 # =========================================================
 def login_user(identifier, password):
     conn = None
@@ -89,10 +88,10 @@ def login_user(identifier, password):
         identifier = identifier.lower().strip()
 
         conn = get_connection()
-        cur = get_cursor(conn)  # ✅ dict cursor
+        cur = get_cursor(conn)
 
         cur.execute("""
-            SELECT identifier, password, role
+            SELECT id, identifier, password, role, name
             FROM users
             WHERE identifier=%s
         """, (identifier,))
@@ -102,17 +101,19 @@ def login_user(identifier, password):
         if not user:
             return {"error": "User not found"}
 
-        # 🔐 verify hashed password
-        if not verify_password(user["password"], password):
-            return {"error": "Invalid credentials"}
+        # 🔐 CORRECT PASSWORD CHECK
+        if not check_password_hash(user["password"], password):
+            return {"error": "Invalid password"}
 
-        # 🔑 generate token
+        # 🔑 TOKEN
         token = generate_token(user["identifier"], user["role"])
 
         return {
             "token": token,
             "user": {
+                "id": user["id"],
                 "identifier": user["identifier"],
+                "name": user["name"],
                 "role": user["role"]
             }
         }
