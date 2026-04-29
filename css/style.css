@@ -201,3 +201,11 @@ svg {
   opacity: 1;
   text-decoration: underline;
 }
+input, button {
+    position: relative;
+    z-index: 10;
+}
+
+svg, .gear, .animation {
+    pointer-events: none;
+}

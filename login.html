@@ -194,72 +194,96 @@
     <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
     <script src="js/script.js"></script>
 <script>
-/* =========================================================
-   🔐 LOGIN HANDLER
-========================================================= */
-document.getElementById("submitBtn").addEventListener("click", handleLogin);
 
-async function handleLogin() {
+// ================= INIT =================
+document.addEventListener("DOMContentLoaded", () => {
 
-  const identifier = document.getElementById("rollno").value.trim(); // unified field
-  const password = document.getElementById("password").value.trim();
-  const agree = document.getElementById("subscribe").checked;
-  const errorMsg = document.getElementById("errorMsg");
+    const submitBtn = document.getElementById("submitBtn");
+    const passwordInput = document.getElementById("password");
 
-  errorMsg.innerText = "";
+    if (!submitBtn || !passwordInput) {
+        console.error("Login elements not found");
+        return;
+    }
 
-  // ================= VALIDATION =================
-  if (!identifier || !password) {
-    errorMsg.innerText = "⚠️ Please fill all fields";
-    return;
-  }
+    // Button click
+    submitBtn.addEventListener("click", login);
 
-  if (!agree) {
-    errorMsg.innerText = "⚠️ You must agree to terms";
-    return;
-  }
-
-  try {
-
-    const res = await fetch(`${BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        identifier: identifier,   // ✅ FIXED (backend expects this)
-        password: password
-      })
+    // Enter key support
+    passwordInput.addEventListener("keypress", function(e){
+        if(e.key === "Enter"){
+            login();
+        }
     });
 
-    const data = await res.json();
+});
 
-    if (!res.ok) {
-      throw new Error(data.message || "Login failed");
+
+// ================= LOGIN FUNCTION =================
+async function login() {
+
+    const rollno = document.getElementById("rollno").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const errorMsg = document.getElementById("errorMsg");
+    const submitBtn = document.getElementById("submitBtn");
+
+    errorMsg.innerText = "";
+
+    // 🔒 Validation
+    if (!rollno || !password) {
+        errorMsg.innerText = "Enter all fields";
+        return;
     }
 
-    console.log("LOGIN SUCCESS:", data);
+    // 🔄 Loading state
+    submitBtn.value = "Logging in...";
+    submitBtn.disabled = true;
 
-    // ================= SAVE TOKEN =================
-    localStorage.setItem("token", data.token);
+    try {
 
-    // optional (if backend sends role separately)
-    localStorage.setItem("role", data.role);
+        const BASE_URL =
+            location.hostname === "localhost"
+                ? "http://127.0.0.1:5000/api"
+                : "https://student-management-system-api-cznx.onrender.com/api";
 
-    // ================= REDIRECT =================
-    if (data.role === "teacher") {
-      window.location.href = "teacher-dashboard.html";
-    } else {
-      window.location.href = "student-dashboard.html";
+        const res = await fetch(`${BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                identifier: rollno,
+                password: password
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorMsg.innerText = data.message || "Login failed";
+            submitBtn.value = "Login";
+            submitBtn.disabled = false;
+            return;
+        }
+
+        // ✅ Save token
+        localStorage.setItem("token", data.token);
+
+        // ✅ Redirect
+        if (data.user.role === "teacher") {
+            window.location.href = "teacher-dashboard.html";
+        } else {
+            window.location.href = "student-dashboard.html";
+        }
+
+    } catch (err) {
+        console.error("LOGIN ERROR:", err);
+        errorMsg.innerText = "Server error";
+
+        submitBtn.value = "Login";
+        submitBtn.disabled = false;
     }
-
-  } catch (err) {
-    console.error("LOGIN ERROR:", err);
-    errorMsg.innerText = "❌ " + err.message;
-  }
 }
-</script>
 
+</script>
 </body>
 
 </html>
